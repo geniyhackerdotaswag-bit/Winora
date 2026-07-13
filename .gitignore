@@ -1,0 +1,16 @@
+.vs/
+.superpowers/
+**/bin/
+**/obj/
+TestResults/
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.pfx
+*.cer
+*.user
+*.suo
+*.nupkg

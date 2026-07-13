@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Winora.Core\Winora.Core.csproj" />
+  </ItemGroup>
+</Project>

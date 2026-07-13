@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Winora.Core\Winora.Core.csproj" />
+    <ProjectReference Include="..\Winora.System\Winora.System.csproj" />
+    <ProjectReference Include="..\Winora.Infrastructure\Winora.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
