@@ -746,10 +746,10 @@ public sealed record OperationTransition
         if (facts.RequiresRestorePoint &&
             facts.Kind == ChangePlanKind.TargetMutation &&
             RequiresActiveRestoreLifecycle(state) &&
-            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointBegun)))
+            !HasRequiredRestoreLifecycleProof(state, restorePoint))
         {
             throw new ArgumentException(
-                "A restore-required mutation state must retain its verified active lifecycle.",
+                "A restore-required mutation state must retain its verified lifecycle proof.",
                 nameof(restorePoint));
         }
 
@@ -784,6 +784,14 @@ public sealed record OperationTransition
             OperationState.PartiallyAppliedRecoveryRequired or
             OperationState.VerificationFailedRollbackOffered or
             OperationState.RecoveryConflictExternalDrift;
+
+    internal static bool HasRequiredRestoreLifecycleProof(
+        OperationState state,
+        RestorePointTransitionFacts? restorePoint) =>
+        restorePoint is not null &&
+        (restorePoint.IsValidFor(OperationState.RestorePointBegun) ||
+         (state == OperationState.PartiallyAppliedRecoveryRequired &&
+          restorePoint.IsValidFor(OperationState.RestorePointEnded)));
 
     private static string ComputeHash(OperationTransition transition)
     {
@@ -927,10 +935,10 @@ public sealed record DurableOperationBoundary
         if (facts.RequiresRestorePoint &&
             facts.Kind == ChangePlanKind.TargetMutation &&
             OperationTransition.RequiresActiveRestoreLifecycle(state) &&
-            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointBegun)))
+            !OperationTransition.HasRequiredRestoreLifecycleProof(state, restorePoint))
         {
             throw new ArgumentException(
-                "A restore-required mutation boundary must retain its verified active lifecycle.",
+                "A restore-required mutation boundary must retain its verified lifecycle proof.",
                 nameof(restorePoint));
         }
 

@@ -666,6 +666,50 @@ public sealed class ChangePlanTests
     }
 
     [Fact]
+    public void Finalized_partial_operation_preserves_the_ended_restore_lifecycle()
+    {
+        var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
+        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var begun = PlanFixture.BegunRestoreFacts();
+        var finalizedAt = begun.BeginReturnedAtUtc!.Value.AddMinutes(1);
+        var ended = RestorePointTransitionFacts.Create(
+            begun.CorrelationId,
+            begun.Description,
+            begun.PreBeginInventoryFingerprint,
+            begun.PostBeginInventoryFingerprint,
+            begun.SequenceNumber,
+            begun.BeginApiStatus,
+            begun.OwnershipStatus,
+            RestorePointFinalizationMode.Normal,
+            begun.BeginReturnedAtUtc,
+            finalizedAt,
+            RestorePointApiStatus.Succeeded);
+
+        var transition = OperationTransition.Create(
+            plan.PlanId,
+            facts,
+            expectedRevision: 9,
+            OperationState.RestorePointEnded,
+            OperationState.PartiallyAppliedRecoveryRequired,
+            stepId: null,
+            finalizedAt.AddSeconds(1),
+            ended,
+            ended,
+            facts);
+        var boundary = DurableOperationBoundary.Create(
+            plan.PlanId,
+            facts,
+            revision: 10,
+            OperationState.PartiallyAppliedRecoveryRequired,
+            stepId: null,
+            appliedStepIds: [plan.Steps[0].StepId],
+            ended);
+
+        Assert.Equal(OperationState.PartiallyAppliedRecoveryRequired, transition.State);
+        Assert.Equal(ended.Digest, boundary.RestorePoint?.Digest);
+    }
+
+    [Fact]
     public void Restore_point_failed_no_changes_rejects_evidence_of_an_owned_new_sequence()
     {
         var plan = PlanFixture.Create(
