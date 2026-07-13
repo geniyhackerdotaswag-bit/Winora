@@ -9,7 +9,6 @@ internal sealed partial class SecureOwnedPathLease : IDisposable
     private const uint FileReadAttributes = 0x00000080;
     private const uint FileShareRead = 0x00000001;
     private const uint FileShareWrite = 0x00000002;
-    private const uint FileShareDelete = 0x00000004;
     private const uint OpenExisting = 3;
     private const uint FileFlagOpenReparsePoint = 0x00200000;
     private const uint FileFlagBackupSemantics = 0x02000000;
@@ -28,7 +27,30 @@ internal sealed partial class SecureOwnedPathLease : IDisposable
         var fullPath = paths.EnsureOwnedFilePath(ownedFilePath);
         var parent = Path.GetDirectoryName(fullPath) ??
             throw new ArgumentException("The owned file must have a parent directory.", nameof(ownedFilePath));
-        var volumeRoot = Path.GetPathRoot(parent);
+        return AcquireDirectoryCore(paths, parent, createMissing: true);
+    }
+
+    internal static SecureOwnedPathLease AcquireExistingDirectory(
+        WinoraDataPaths paths,
+        string ownedDirectoryPath)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownedDirectoryPath);
+        var probe = paths.EnsureOwnedFilePath(
+            Path.Combine(ownedDirectoryPath, ".directory-lease-probe"));
+        var directory = Path.GetDirectoryName(probe) ??
+            throw new ArgumentException(
+                "The owned directory path is invalid.",
+                nameof(ownedDirectoryPath));
+        return AcquireDirectoryCore(paths, directory, createMissing: false);
+    }
+
+    private static SecureOwnedPathLease AcquireDirectoryCore(
+        WinoraDataPaths paths,
+        string directory,
+        bool createMissing)
+    {
+        var volumeRoot = Path.GetPathRoot(directory);
         if (string.IsNullOrWhiteSpace(volumeRoot) || volumeRoot.StartsWith("\\\\", StringComparison.Ordinal))
         {
             throw new IOException("Winora persistence requires a fixed local-volume root.");
@@ -40,15 +62,24 @@ internal sealed partial class SecureOwnedPathLease : IDisposable
             var current = Path.TrimEndingDirectorySeparator(volumeRoot) + Path.DirectorySeparatorChar;
             PinDirectory(current, denyWrite: false, handles);
 
-            var relative = Path.GetRelativePath(current, parent);
+            var relative = Path.GetRelativePath(current, directory);
             var ownedRootReached = false;
             foreach (var segment in relative.Split(
                          [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-                         StringSplitOptions.RemoveEmptyEntries))
+                StringSplitOptions.RemoveEmptyEntries))
             {
                 current = Path.Combine(current, segment);
-                // Microsoft Learn: https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.createdirectory?view=net-10.0
-                Directory.CreateDirectory(current);
+                if (createMissing)
+                {
+                    // Microsoft Learn: https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.createdirectory?view=net-10.0
+                    Directory.CreateDirectory(current);
+                }
+                else if (!Directory.Exists(current))
+                {
+                    throw new DirectoryNotFoundException(
+                        "The fixed Winora persistence directory no longer exists.");
+                }
+
                 ownedRootReached |= StringComparer.OrdinalIgnoreCase.Equals(
                     Path.TrimEndingDirectorySeparator(current),
                     paths.RootDirectory);
@@ -65,36 +96,6 @@ internal sealed partial class SecureOwnedPathLease : IDisposable
     }
 
     public void Dispose() => DisposeHandles(_directoryHandles);
-
-    internal static void RejectReparseLeafIfExists(string path)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var extendedPath = path.StartsWith("\\\\?\\", StringComparison.Ordinal)
-            ? path
-            : $"\\\\?\\{path}";
-        using var handle = CreateFile(
-            extendedPath,
-            FileReadAttributes,
-            FileShareRead | FileShareWrite | FileShareDelete,
-            IntPtr.Zero,
-            OpenExisting,
-            FileFlagOpenReparsePoint,
-            IntPtr.Zero);
-        if (handle.IsInvalid)
-        {
-            var error = Marshal.GetLastPInvokeError();
-            if (error is 2 or 3)
-            {
-                return;
-            }
-
-            throw new IOException(
-                $"Unable to inspect a Winora persistence leaf (Win32 error {error}).",
-                new Win32Exception(error));
-        }
-
-        EnsureNotReparsePoint(handle);
-    }
 
     private static void PinDirectory(
         string path,

@@ -28,8 +28,6 @@ internal interface IAtomicFileOperations
 internal interface IFileDurability
 {
     void FlushToDisk(FileStream stream);
-
-    byte[] ReopenReadAndFlush(string path);
 }
 
 internal sealed class WindowsFileDurability : IFileDurability
@@ -42,24 +40,6 @@ internal sealed class WindowsFileDurability : IFileDurability
         stream.Flush(flushToDisk: true);
     }
 
-    public byte[] ReopenReadAndFlush(string path)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        using var stream = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.ReadWrite,
-            FileShare.Read,
-            bufferSize: 64 * 1024,
-            FileOptions.SequentialScan);
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
-
-        // Microsoft Learn: https://learn.microsoft.com/en-us/dotnet/api/system.io.filestream.flush?view=net-10.0
-        stream.Flush(flushToDisk: true);
-        return buffer.ToArray();
-    }
 }
 
 internal sealed partial class WindowsAtomicFileOperations : IAtomicFileOperations
@@ -118,19 +98,20 @@ internal sealed partial class WindowsAtomicFileOperations : IAtomicFileOperation
 internal sealed class WriteThroughPublisher : IWriteThroughPublisher
 {
     private readonly IAtomicFileOperations _fileOperations;
-    private readonly IFileDurability _fileDurability;
+    private readonly IValidatedFileAccess _validatedFileAccess;
 
     public WriteThroughPublisher()
-        : this(new WindowsAtomicFileOperations(), new WindowsFileDurability())
+        : this(new WindowsAtomicFileOperations(), new WindowsValidatedFileAccess())
     {
     }
 
     public WriteThroughPublisher(
         IAtomicFileOperations fileOperations,
-        IFileDurability fileDurability)
+        IValidatedFileAccess validatedFileAccess)
     {
         _fileOperations = fileOperations ?? throw new ArgumentNullException(nameof(fileOperations));
-        _fileDurability = fileDurability ?? throw new ArgumentNullException(nameof(fileDurability));
+        _validatedFileAccess = validatedFileAccess ??
+            throw new ArgumentNullException(nameof(validatedFileAccess));
     }
 
     public ValueTask PublishNewAsync(
@@ -162,11 +143,22 @@ internal sealed class WriteThroughPublisher : IWriteThroughPublisher
         return ValueTask.CompletedTask;
     }
 
-    private static byte[] HashFile(string path) => SHA256.HashData(File.ReadAllBytes(path));
+    private byte[] HashFile(string path)
+    {
+        using var file = _validatedFileAccess.Open(
+            path,
+            FileAccess.Read,
+            ValidatedFileUse.PrePublication);
+        return SHA256.HashData(file.ReadAllBytes(flushToDisk: false));
+    }
 
     private void VerifyPublishedFile(string path, ReadOnlySpan<byte> expectedHash)
     {
-        var publishedBytes = _fileDurability.ReopenReadAndFlush(path);
+        using var file = _validatedFileAccess.Open(
+            path,
+            FileAccess.ReadWrite,
+            ValidatedFileUse.PostPublication);
+        var publishedBytes = file.ReadAllBytes(flushToDisk: true);
         var publishedHash = SHA256.HashData(publishedBytes);
         if (!CryptographicOperations.FixedTimeEquals(expectedHash, publishedHash))
         {

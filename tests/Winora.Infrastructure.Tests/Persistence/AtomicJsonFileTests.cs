@@ -108,7 +108,8 @@ public sealed class AtomicJsonFileTests
         using var directory = new TemporaryDirectory();
         var fixture = CreateFixture(
             directory.Path,
-            durability: new CorruptFirstReadbackDurability());
+            validatedFileObserver: new CorruptValidatedReadObserver(
+                ValidatedFileUse.StagingReadback));
         var path = fixture.Paths.GetJournalEventFile("event-id");
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
@@ -170,7 +171,8 @@ public sealed class AtomicJsonFileTests
             CancellationToken.None);
         var failing = CreateFixture(
             directory.Path,
-            durability: new CorruptOnReopenDurability(reopenNumber: 2));
+            validatedFileObserver: new CorruptValidatedReadObserver(
+                ValidatedFileUse.PostPublication));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             failing.File.WriteProjectionAsync(
@@ -179,6 +181,7 @@ public sealed class AtomicJsonFileTests
                 new ValuePayload(2),
                 CancellationToken.None).AsTask());
 
+        await File.WriteAllTextAsync(path, "corrupt");
         Assert.Equal(1, (await baseline.File.ReadAsync<ValuePayload>(path, CancellationToken.None)).Payload.Value);
     }
 
@@ -321,7 +324,8 @@ public sealed class AtomicJsonFileTests
     private static AtomicFixture CreateFixture(
         string root,
         IWriteThroughPublisher? publisher = null,
-        IFileDurability? durability = null)
+        IFileDurability? durability = null,
+        IValidatedFileObserver? validatedFileObserver = null)
     {
         var paths = new WinoraDataPaths(root);
         var file = new AtomicJsonFile(
@@ -329,7 +333,8 @@ public sealed class AtomicJsonFileTests
             publisher,
             durability,
             new JsonDocumentSerializer(),
-            new FixedTimeProvider(CreatedUtc));
+            new FixedTimeProvider(CreatedUtc),
+            validatedFileObserver);
         return new AtomicFixture(paths, file);
     }
 
@@ -338,47 +343,27 @@ public sealed class AtomicJsonFileTests
 
 internal sealed class ThrowOnFlushDurability : IFileDurability
 {
-    private readonly WindowsFileDurability _inner = new();
-
     public void FlushToDisk(FileStream stream) => throw new InjectedStorageException();
-
-    public byte[] ReopenReadAndFlush(string path) => _inner.ReopenReadAndFlush(path);
 }
 
-internal sealed class CorruptFirstReadbackDurability : IFileDurability
+internal sealed class CorruptValidatedReadObserver(
+    ValidatedFileUse targetUse) : IValidatedFileObserver
 {
-    private readonly WindowsFileDurability _inner = new();
-    private int _readCount;
-
-    public void FlushToDisk(FileStream stream) => _inner.FlushToDisk(stream);
-
-    public byte[] ReopenReadAndFlush(string path)
+    public void OnValidated(
+        string path,
+        ValidatedFileIdentity identity,
+        ValidatedFileUse use)
     {
-        if (Interlocked.Increment(ref _readCount) == 1)
-        {
-            return Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"payload\":{}}");
-        }
-
-        return _inner.ReopenReadAndFlush(path);
     }
-}
 
-internal sealed class CorruptOnReopenDurability(int reopenNumber) : IFileDurability
-{
-    private readonly WindowsFileDurability _inner = new();
-    private int _readCount;
-
-    public void FlushToDisk(FileStream stream) => _inner.FlushToDisk(stream);
-
-    public byte[] ReopenReadAndFlush(string path)
-    {
-        if (Interlocked.Increment(ref _readCount) == reopenNumber)
-        {
-            File.WriteAllText(path, "corrupt");
-        }
-
-        return _inner.ReopenReadAndFlush(path);
-    }
+    public byte[] TransformRead(
+        string path,
+        ValidatedFileIdentity identity,
+        ValidatedFileUse use,
+        byte[] bytes) =>
+        use == targetUse
+            ? Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"payload\":{}}")
+            : bytes;
 }
 
 internal sealed class ThrowBeforePublishPublisher : IWriteThroughPublisher

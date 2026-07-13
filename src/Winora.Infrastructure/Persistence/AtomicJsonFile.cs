@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using Winora.Infrastructure.Paths;
 
@@ -14,12 +15,15 @@ public sealed class AtomicJsonFile
     private readonly IFileDurability _fileDurability;
     private readonly JsonDocumentSerializer _serializer;
     private readonly TimeProvider _timeProvider;
+    private readonly IValidatedFileAccess _validatedFileAccess;
+    private readonly IAtomicFileCleanup _cleanup;
+    private readonly IAtomicPublicationRaceHook? _publicationRaceHook;
 
     public AtomicJsonFile(
         WinoraDataPaths paths,
         JsonDocumentSerializer? serializer = null,
         TimeProvider? timeProvider = null)
-        : this(paths, null, null, serializer, timeProvider)
+        : this(paths, null, null, serializer, timeProvider, null, null, null)
     {
     }
 
@@ -28,15 +32,21 @@ public sealed class AtomicJsonFile
         IWriteThroughPublisher? publisher = null,
         IFileDurability? fileDurability = null,
         JsonDocumentSerializer? serializer = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IValidatedFileObserver? validatedFileObserver = null,
+        IAtomicPublicationRaceHook? publicationRaceHook = null,
+        IAtomicFileCleanup? cleanup = null)
     {
         _paths = paths ?? throw new ArgumentNullException(nameof(paths));
         _fileDurability = fileDurability ?? new WindowsFileDurability();
+        _validatedFileAccess = new WindowsValidatedFileAccess(validatedFileObserver);
         _publisher = publisher ?? new WriteThroughPublisher(
             new WindowsAtomicFileOperations(),
-            _fileDurability);
+            _validatedFileAccess);
         _serializer = serializer ?? new JsonDocumentSerializer();
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _publicationRaceHook = publicationRaceHook;
+        _cleanup = cleanup ?? new AtomicFileCleanup();
     }
 
     public async ValueTask<JsonDocumentEnvelope<TPayload>> CreateNewAsync<TPayload>(
@@ -45,8 +55,9 @@ public sealed class AtomicJsonFile
         CancellationToken cancellationToken)
     {
         ValidateDestinationOwner(destination);
-        using var prepared = PrepareAuthoritative(destination, payload, cancellationToken);
-        return await ExecuteTransactionAsync(
+        var prepared = PrepareAuthoritative(destination, payload, cancellationToken);
+        return await ExecutePreparedAsync(
+            prepared,
             transaction => transaction.PublishNew(prepared),
             cancellationToken).ConfigureAwait(false);
     }
@@ -57,8 +68,9 @@ public sealed class AtomicJsonFile
         CancellationToken cancellationToken)
     {
         ValidateDestinationOwner(destination);
-        using var prepared = PrepareProjection(destination, payload, cancellationToken);
-        return await ExecuteTransactionAsync(
+        var prepared = PrepareProjection(destination, payload, cancellationToken);
+        return await ExecutePreparedAsync(
+            prepared,
             transaction => transaction.ReplaceProjection(prepared),
             cancellationToken).ConfigureAwait(false);
     }
@@ -69,10 +81,11 @@ public sealed class AtomicJsonFile
     {
         ValidateDestinationOwner(destination);
         cancellationToken.ThrowIfCancellationRequested();
-        SecureOwnedPathLease.RejectReparseLeafIfExists(destination.FilePath);
+        using var pathLease = SecureOwnedPathLease.Acquire(_paths, destination.FilePath);
         return ValueTask.FromResult(ReadExpectedDocument<TPayload>(
             destination.FilePath,
-            destination.DocumentId));
+            destination.DocumentId,
+            ValidatedFileUse.PublicRead));
     }
 
     public ValueTask<ProjectionJsonReadResult<TPayload>> ReadProjectionAsync<TPayload>(
@@ -81,14 +94,16 @@ public sealed class AtomicJsonFile
     {
         ValidateDestinationOwner(destination);
         cancellationToken.ThrowIfCancellationRequested();
-        SecureOwnedPathLease.RejectReparseLeafIfExists(destination.FilePath);
-        SecureOwnedPathLease.RejectReparseLeafIfExists(destination.LastKnownGoodFilePath);
+        using var pathLease = SecureOwnedPathLease.Acquire(_paths, destination.FilePath);
 
         Exception? targetFailure = null;
         try
         {
             return ValueTask.FromResult(new ProjectionJsonReadResult<TPayload>(
-                ReadExpectedDocument<TPayload>(destination.FilePath, destination.DocumentId),
+                ReadExpectedDocument<TPayload>(
+                    destination.FilePath,
+                    destination.DocumentId,
+                    ValidatedFileUse.PublicRead),
                 ProjectionReadSource.Primary));
         }
         catch (Exception exception) when (exception is FileNotFoundException or InvalidDataException)
@@ -101,7 +116,8 @@ public sealed class AtomicJsonFile
             return ValueTask.FromResult(new ProjectionJsonReadResult<TPayload>(
                 ReadExpectedDocument<TPayload>(
                     destination.LastKnownGoodFilePath,
-                    destination.DocumentId),
+                    destination.DocumentId,
+                    ValidatedFileUse.PublicRead),
                 ProjectionReadSource.LastKnownGood));
         }
         catch (FileNotFoundException) when (targetFailure is not null)
@@ -116,13 +132,14 @@ public sealed class AtomicJsonFile
         TPayload payload,
         CancellationToken cancellationToken)
     {
-        using var prepared = PrepareRaw(
+        var prepared = PrepareRaw(
             _paths.EnsureOwnedFilePath(finalPath),
             documentId,
             payload,
             isProjection: false,
             cancellationToken);
-        return await ExecuteTransactionAsync(
+        return await ExecutePreparedAsync(
+            prepared,
             transaction => transaction.PublishNew(prepared),
             cancellationToken).ConfigureAwait(false);
     }
@@ -133,13 +150,14 @@ public sealed class AtomicJsonFile
         TPayload payload,
         CancellationToken cancellationToken)
     {
-        using var prepared = PrepareRaw(
+        var prepared = PrepareRaw(
             _paths.EnsureOwnedFilePath(finalPath),
             documentId,
             payload,
             isProjection: true,
             cancellationToken);
-        return await ExecuteTransactionAsync(
+        return await ExecutePreparedAsync(
+            prepared,
             transaction => transaction.ReplaceProjection(prepared),
             cancellationToken).ConfigureAwait(false);
     }
@@ -192,6 +210,53 @@ public sealed class AtomicJsonFile
             cancellationToken);
     }
 
+    private async ValueTask<TResult> ExecutePreparedAsync<TPayload, TResult>(
+        PreparedJsonWrite<TPayload> prepared,
+        Func<AtomicJsonTransaction, TResult> action,
+        CancellationToken cancellationToken)
+    {
+        Exception? primaryFailure = null;
+        TResult? result = default;
+        try
+        {
+            result = await ExecuteTransactionAsync(action, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+        }
+
+        Exception? cleanupFailure = null;
+        try
+        {
+            prepared.Dispose();
+        }
+        catch (Exception exception)
+        {
+            cleanupFailure = exception;
+        }
+
+        if (primaryFailure is not null && cleanupFailure is not null)
+        {
+            throw new AggregateException(
+                "Atomic JSON publication failed and its temporary-file cleanup also failed.",
+                primaryFailure,
+                cleanupFailure);
+        }
+
+        if (primaryFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+        }
+
+        if (cleanupFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(cleanupFailure).Throw();
+        }
+
+        return result!;
+    }
+
     private PreparedJsonWrite<TPayload> PrepareRaw<TPayload>(
         string finalPath,
         string documentId,
@@ -202,6 +267,7 @@ public sealed class AtomicJsonFile
         cancellationToken.ThrowIfCancellationRequested();
         var pathLease = SecureOwnedPathLease.Acquire(_paths, finalPath);
         string? temporaryPath = null;
+        ValidatedFileHandle? stagingHandle = null;
 
         try
         {
@@ -219,8 +285,11 @@ public sealed class AtomicJsonFile
                 directory,
                 $"{Path.GetFileName(finalPath)}.{Guid.NewGuid():N}.tmp");
             WriteStagingFile(temporaryPath, serialized, cancellationToken);
-            SecureOwnedPathLease.RejectReparseLeafIfExists(temporaryPath);
-            var stagedBytes = _fileDurability.ReopenReadAndFlush(temporaryPath);
+            stagingHandle = _validatedFileAccess.Open(
+                temporaryPath,
+                FileAccess.ReadWrite,
+                ValidatedFileUse.StagingReadback);
+            var stagedBytes = stagingHandle.ReadAllBytes(flushToDisk: true);
             ValidatePublishedBytes(stagedBytes, expectedFileHash, envelope);
             cancellationToken.ThrowIfCancellationRequested();
             return new PreparedJsonWrite<TPayload>(
@@ -230,16 +299,39 @@ public sealed class AtomicJsonFile
                 temporaryPath,
                 expectedFileHash,
                 envelope,
-                pathLease);
+                pathLease,
+                stagingHandle,
+                _cleanup);
         }
-        catch
+        catch (Exception primaryFailure)
         {
-            if (temporaryPath is not null)
+            Exception? cleanupFailure = null;
+            try
             {
-                File.Delete(temporaryPath);
+                stagingHandle?.Dispose();
+                if (temporaryPath is not null)
+                {
+                    _cleanup.Delete(temporaryPath);
+                }
+            }
+            catch (Exception exception)
+            {
+                cleanupFailure = exception;
+            }
+            finally
+            {
+                pathLease.Dispose();
             }
 
-            pathLease.Dispose();
+            if (cleanupFailure is not null)
+            {
+                throw new AggregateException(
+                    "Atomic JSON preparation failed and its temporary-file cleanup also failed.",
+                    primaryFailure,
+                    cleanupFailure);
+            }
+
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
             throw;
         }
     }
@@ -257,25 +349,16 @@ public sealed class AtomicJsonFile
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        SecureOwnedPathLease.RejectReparseLeafIfExists(prepared.TemporaryPath);
+        var stagingIdentity = prepared.ReleaseStagingHandle();
         var finalPath = prepared.FinalPath;
         var lastKnownGoodPath = GetLastKnownGoodPath(finalPath);
-        SecureOwnedPathLease.RejectReparseLeafIfExists(finalPath);
+        var target = ProbeDocument<TPayload>(finalPath, ValidatedFileUse.ProjectionProbe);
+        var lastKnownGood = expectedProjection
+            ? ProbeDocument<TPayload>(lastKnownGoodPath, ValidatedFileUse.ProjectionProbe)
+            : FileProbe<TPayload>.Missing;
         if (expectedProjection)
         {
-            SecureOwnedPathLease.RejectReparseLeafIfExists(lastKnownGoodPath);
-        }
-
-        var targetExists = File.Exists(finalPath);
-        var targetIsValid = false;
-        if (expectedProjection)
-        {
-            var current = TryRead<TPayload>(finalPath, out var targetEnvelope)
-                ? targetEnvelope
-                : TryRead<TPayload>(lastKnownGoodPath, out var recoveredEnvelope)
-                    ? recoveredEnvelope
-                    : null;
-            targetIsValid = targetEnvelope is not null;
+            var current = target.Document ?? lastKnownGood.Document;
             if (current is not null &&
                 !StringComparer.Ordinal.Equals(current.DocumentId, prepared.Envelope.DocumentId))
             {
@@ -285,15 +368,43 @@ public sealed class AtomicJsonFile
         }
 
         string? quarantinePath = null;
-        if (expectedProjection && targetExists)
+        string? backupPath = null;
+        if (expectedProjection && target.Exists)
         {
-            var backupPath = lastKnownGoodPath;
-            if (!targetIsValid)
+            backupPath = lastKnownGoodPath;
+            if (target.Document is null)
             {
                 quarantinePath = $"{finalPath}.{Guid.NewGuid():N}.corrupt";
                 backupPath = quarantinePath;
             }
+        }
 
+        EnsureIdentityUnchanged(
+            prepared.TemporaryPath,
+            stagingIdentity,
+            "The prepared staging file identity changed before publication.");
+        _publicationRaceHook?.AfterInitialIdentityValidation(new AtomicPublicationContext(
+            prepared.TemporaryPath,
+            finalPath,
+            backupPath));
+        EnsureIdentityUnchanged(
+            prepared.TemporaryPath,
+            stagingIdentity,
+            "The prepared staging file identity changed during publication preflight.");
+        EnsureIdentityUnchanged(
+            finalPath,
+            target.Identity,
+            "The target identity changed during publication preflight.");
+        if (expectedProjection)
+        {
+            EnsureIdentityUnchanged(
+                lastKnownGoodPath,
+                lastKnownGood.Identity,
+                "The last-known-good identity changed during publication preflight.");
+        }
+
+        if (backupPath is not null)
+        {
             _publisher.ReplaceProjectionAsync(
                 prepared.TemporaryPath,
                 finalPath,
@@ -308,15 +419,38 @@ public sealed class AtomicJsonFile
                 cancellationToken).GetAwaiter().GetResult();
         }
 
-        var publishedBytes = _fileDurability.ReopenReadAndFlush(finalPath);
+        using var published = _validatedFileAccess.Open(
+            finalPath,
+            FileAccess.ReadWrite,
+            ValidatedFileUse.PostPublication);
+        if (published.Identity != stagingIdentity)
+        {
+            throw new InvalidDataException(
+                "The published file identity does not match the validated staging object.");
+        }
+
+        var publishedBytes = published.ReadAllBytes(flushToDisk: true);
         ValidatePublishedBytes(
             publishedBytes,
             prepared.ExpectedFileHash,
             prepared.Envelope);
+        if (backupPath is not null)
+        {
+            using var backup = _validatedFileAccess.Open(
+                backupPath,
+                FileAccess.Read,
+                ValidatedFileUse.PostPublication);
+            if (backup.Identity != target.Identity)
+            {
+                throw new InvalidDataException(
+                    "The retained backup identity does not match the replaced target object.");
+            }
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         if (quarantinePath is not null)
         {
-            File.Delete(quarantinePath);
+            _cleanup.Delete(quarantinePath);
         }
 
         return prepared.Envelope;
@@ -346,11 +480,12 @@ public sealed class AtomicJsonFile
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var pathLease = SecureOwnedPathLease.Acquire(_paths, finalPath);
 
         Exception? targetFailure = null;
         try
         {
-            return ReadDocument<TPayload>(finalPath);
+            return ReadDocument<TPayload>(finalPath, ValidatedFileUse.PublicRead);
         }
         catch (Exception exception) when (exception is FileNotFoundException or InvalidDataException)
         {
@@ -359,7 +494,9 @@ public sealed class AtomicJsonFile
 
         try
         {
-            return ReadDocument<TPayload>(GetLastKnownGoodPath(finalPath));
+            return ReadDocument<TPayload>(
+                GetLastKnownGoodPath(finalPath),
+                ValidatedFileUse.PublicRead);
         }
         catch (FileNotFoundException) when (targetFailure is not null)
         {
@@ -367,33 +504,45 @@ public sealed class AtomicJsonFile
         }
     }
 
-    private bool TryRead<TPayload>(
+    private FileProbe<TPayload> ProbeDocument<TPayload>(
         string path,
-        out JsonDocumentEnvelope<TPayload>? envelope)
+        ValidatedFileUse use)
     {
+        using var file = _validatedFileAccess.TryOpen(path, FileAccess.Read, use);
+        if (file is null)
+        {
+            return FileProbe<TPayload>.Missing;
+        }
+
+        JsonDocumentEnvelope<TPayload>? document;
         try
         {
-            envelope = ReadDocument<TPayload>(path);
-            return true;
+            document = _serializer.DeserializeAndValidate<TPayload>(
+                file.ReadAllBytes(flushToDisk: false));
         }
-        catch (Exception exception) when (exception is FileNotFoundException or InvalidDataException)
+        catch (InvalidDataException)
         {
-            envelope = null;
-            return false;
+            document = null;
         }
+
+        return new FileProbe<TPayload>(file.Identity, document);
     }
 
-    private JsonDocumentEnvelope<TPayload> ReadDocument<TPayload>(string path)
+    private JsonDocumentEnvelope<TPayload> ReadDocument<TPayload>(
+        string path,
+        ValidatedFileUse use)
     {
-        var bytes = File.ReadAllBytes(path);
-        return _serializer.DeserializeAndValidate<TPayload>(bytes);
+        using var file = _validatedFileAccess.Open(path, FileAccess.Read, use);
+        return _serializer.DeserializeAndValidate<TPayload>(
+            file.ReadAllBytes(flushToDisk: false));
     }
 
     private JsonDocumentEnvelope<TPayload> ReadExpectedDocument<TPayload>(
         string path,
-        string expectedDocumentId)
+        string expectedDocumentId,
+        ValidatedFileUse use)
     {
-        var document = ReadDocument<TPayload>(path);
+        var document = ReadDocument<TPayload>(path, use);
         if (!StringComparer.Ordinal.Equals(document.DocumentId, expectedDocumentId))
         {
             throw new InvalidDataException(
@@ -401,6 +550,31 @@ public sealed class AtomicJsonFile
         }
 
         return document;
+    }
+
+    private void EnsureIdentityUnchanged(
+        string path,
+        ValidatedFileIdentity? expectedIdentity,
+        string message)
+    {
+        ValidatedFileIdentity? actualIdentity;
+        try
+        {
+            using var file = _validatedFileAccess.TryOpen(
+                path,
+                FileAccess.Read,
+                ValidatedFileUse.PrePublication);
+            actualIdentity = file?.Identity;
+        }
+        catch (IOException exception)
+        {
+            throw new InvalidDataException(message, exception);
+        }
+
+        if (actualIdentity != expectedIdentity)
+        {
+            throw new InvalidDataException(message);
+        }
     }
 
     private void ValidateDestinationOwner(JsonDestination destination)
@@ -458,6 +632,15 @@ public sealed class AtomicJsonFile
 
     private static string GetLastKnownGoodPath(string finalPath) =>
         $"{finalPath}.last-known-good";
+
+    private readonly record struct FileProbe<TPayload>(
+        ValidatedFileIdentity? Identity,
+        JsonDocumentEnvelope<TPayload>? Document)
+    {
+        internal static FileProbe<TPayload> Missing => new(null, null);
+
+        internal bool Exists => Identity.HasValue;
+    }
 }
 
 public enum ProjectionReadSource
@@ -473,6 +656,8 @@ public sealed record ProjectionJsonReadResult<TPayload>(
 internal sealed class PreparedJsonWrite<TPayload> : IDisposable
 {
     private readonly SecureOwnedPathLease _pathLease;
+    private readonly IAtomicFileCleanup _cleanup;
+    private ValidatedFileHandle? _stagingHandle;
     private bool _disposed;
 
     internal PreparedJsonWrite(
@@ -482,7 +667,9 @@ internal sealed class PreparedJsonWrite<TPayload> : IDisposable
         string temporaryPath,
         byte[] expectedFileHash,
         JsonDocumentEnvelope<TPayload> envelope,
-        SecureOwnedPathLease pathLease)
+        SecureOwnedPathLease pathLease,
+        ValidatedFileHandle stagingHandle,
+        IAtomicFileCleanup cleanup)
     {
         Owner = owner;
         FinalPath = finalPath;
@@ -491,6 +678,8 @@ internal sealed class PreparedJsonWrite<TPayload> : IDisposable
         ExpectedFileHash = expectedFileHash;
         Envelope = envelope;
         _pathLease = pathLease;
+        _stagingHandle = stagingHandle;
+        _cleanup = cleanup;
     }
 
     internal AtomicJsonFile Owner { get; }
@@ -505,6 +694,16 @@ internal sealed class PreparedJsonWrite<TPayload> : IDisposable
 
     internal JsonDocumentEnvelope<TPayload> Envelope { get; }
 
+    internal ValidatedFileIdentity ReleaseStagingHandle()
+    {
+        var stagingHandle = _stagingHandle ??
+            throw new InvalidOperationException("The validated staging handle was already released.");
+        var identity = stagingHandle.Identity;
+        stagingHandle.Dispose();
+        _stagingHandle = null;
+        return identity;
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -512,9 +711,17 @@ internal sealed class PreparedJsonWrite<TPayload> : IDisposable
             return;
         }
 
-        File.Delete(TemporaryPath);
-        _pathLease.Dispose();
-        _disposed = true;
+        try
+        {
+            _stagingHandle?.Dispose();
+            _stagingHandle = null;
+            _cleanup.Delete(TemporaryPath);
+        }
+        finally
+        {
+            _pathLease.Dispose();
+            _disposed = true;
+        }
     }
 }
 

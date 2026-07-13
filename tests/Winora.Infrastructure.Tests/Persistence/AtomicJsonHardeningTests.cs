@@ -309,8 +309,6 @@ internal sealed class BlockingFlushDurability : IFileDurability, IDisposable
         _inner.FlushToDisk(stream);
     }
 
-    public byte[] ReopenReadAndFlush(string path) => _inner.ReopenReadAndFlush(path);
-
     internal bool WaitUntilBlocked(TimeSpan timeout) => _blocked.Wait(timeout);
 
     internal void Release() => _release.Set();

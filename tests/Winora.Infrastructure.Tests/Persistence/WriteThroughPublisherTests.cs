@@ -54,14 +54,15 @@ public sealed class WriteThroughPublisherTests
         var finalPath = directory.File("event.json");
         await File.WriteAllTextAsync(temporaryPath, "expected");
         var operations = new WindowsAtomicFileOperations();
-        var durability = new CorruptBeforeReopenDurability(finalPath);
-        var publisher = new WriteThroughPublisher(operations, durability);
+        var observer = new CorruptValidatedReadObserver(ValidatedFileUse.PostPublication);
+        var publisher = new WriteThroughPublisher(
+            operations,
+            new WindowsValidatedFileAccess(observer));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             publisher.PublishNewAsync(temporaryPath, finalPath, CancellationToken.None).AsTask());
 
-        Assert.True(durability.ReopenAttempted);
-        Assert.Equal("corrupt", await File.ReadAllTextAsync(finalPath));
+        Assert.Equal("expected", await File.ReadAllTextAsync(finalPath));
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public sealed class WriteThroughPublisherTests
         await File.WriteAllTextAsync(temporaryPath, "expected");
         var publisher = new WriteThroughPublisher(
             new ThrowingAtomicFileOperations(throwOnMove: true),
-            new WindowsFileDurability());
+            new WindowsValidatedFileAccess());
 
         await Assert.ThrowsAsync<InjectedStorageException>(() =>
             publisher.PublishNewAsync(temporaryPath, finalPath, CancellationToken.None).AsTask());
@@ -93,7 +94,7 @@ public sealed class WriteThroughPublisherTests
         await File.WriteAllTextAsync(finalPath, "old-index");
         var publisher = new WriteThroughPublisher(
             new ThrowingAtomicFileOperations(throwOnReplace: true),
-            new WindowsFileDurability());
+            new WindowsValidatedFileAccess());
 
         await Assert.ThrowsAsync<InjectedStorageException>(() =>
             publisher.ReplaceProjectionAsync(
@@ -104,26 +105,6 @@ public sealed class WriteThroughPublisherTests
 
         Assert.Equal("old-index", await File.ReadAllTextAsync(finalPath));
         Assert.False(File.Exists(lastKnownGoodPath));
-    }
-}
-
-internal sealed class CorruptBeforeReopenDurability(string pathToCorrupt) : IFileDurability
-{
-    private readonly WindowsFileDurability _inner = new();
-
-    internal bool ReopenAttempted { get; private set; }
-
-    public void FlushToDisk(FileStream stream) => _inner.FlushToDisk(stream);
-
-    public byte[] ReopenReadAndFlush(string path)
-    {
-        ReopenAttempted = true;
-        if (StringComparer.OrdinalIgnoreCase.Equals(path, pathToCorrupt))
-        {
-            File.WriteAllText(path, "corrupt");
-        }
-
-        return _inner.ReopenReadAndFlush(path);
     }
 }
 
