@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 
 namespace Winora.Infrastructure.Persistence;
 
-public interface IWriteThroughPublisher
+internal interface IWriteThroughPublisher
 {
     ValueTask PublishNewAsync(
         string temporaryPath,
@@ -18,21 +18,21 @@ public interface IWriteThroughPublisher
         CancellationToken cancellationToken);
 }
 
-public interface IAtomicFileOperations
+internal interface IAtomicFileOperations
 {
     void MoveNewFileWriteThrough(string temporaryPath, string finalPath);
 
     void ReplaceFile(string temporaryPath, string finalPath, string lastKnownGoodPath);
 }
 
-public interface IFileDurability
+internal interface IFileDurability
 {
     void FlushToDisk(FileStream stream);
 
     byte[] ReopenReadAndFlush(string path);
 }
 
-public sealed class WindowsFileDurability : IFileDurability
+internal sealed class WindowsFileDurability : IFileDurability
 {
     public void FlushToDisk(FileStream stream)
     {
@@ -62,7 +62,7 @@ public sealed class WindowsFileDurability : IFileDurability
     }
 }
 
-public sealed partial class WindowsAtomicFileOperations : IAtomicFileOperations
+internal sealed partial class WindowsAtomicFileOperations : IAtomicFileOperations
 {
     private const uint MoveFileWriteThrough = 0x00000008;
 
@@ -115,7 +115,7 @@ public sealed partial class WindowsAtomicFileOperations : IAtomicFileOperations
         uint flags);
 }
 
-public sealed class WriteThroughPublisher : IWriteThroughPublisher
+internal sealed class WriteThroughPublisher : IWriteThroughPublisher
 {
     private readonly IAtomicFileOperations _fileOperations;
     private readonly IFileDurability _fileDurability;

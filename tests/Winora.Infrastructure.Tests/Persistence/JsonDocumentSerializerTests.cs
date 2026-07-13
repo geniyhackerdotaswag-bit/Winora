@@ -60,6 +60,21 @@ public sealed class JsonDocumentSerializerTests
     }
 
     [Fact]
+    public void Duplicate_json_properties_are_rejected_before_dto_materialization()
+    {
+        var serializer = new JsonDocumentSerializer();
+        var bytes = serializer.Serialize(
+            serializer.CreateEnvelope("document-id", CreatedUtc, new ValuePayload(1)));
+        var json = System.Text.Encoding.UTF8.GetString(bytes).Replace(
+            "\"value\":1",
+            "\"value\":9,\"value\":1",
+            StringComparison.Ordinal);
+
+        Assert.Throws<InvalidDataException>(() =>
+            serializer.DeserializeAndValidate<ValuePayload>(System.Text.Encoding.UTF8.GetBytes(json)));
+    }
+
+    [Fact]
     public void Unsupported_schema_is_rejected()
     {
         var serializer = new JsonDocumentSerializer();

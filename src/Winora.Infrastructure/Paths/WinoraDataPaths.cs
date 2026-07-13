@@ -28,6 +28,12 @@ public sealed class WinoraDataPaths
             "LPT9",
             "CONIN$",
             "CONOUT$",
+            "COM¹",
+            "COM²",
+            "COM³",
+            "LPT¹",
+            "LPT²",
+            "LPT³",
         ],
         StringComparer.OrdinalIgnoreCase);
 
@@ -47,6 +53,10 @@ public sealed class WinoraDataPaths
         JournalEventsDirectory = Path.Combine(JournalDirectory, "Events");
         AssetsDirectory = Path.Combine(RootDirectory, "Assets");
         PendingDirectory = Path.Combine(RootDirectory, "Pending");
+        AppSettingsDocument = new ProjectionJsonDestination(this, AppSettingsFile, "app-settings");
+        ChangeIndexDocument = new ProjectionJsonDestination(this, ChangeIndexFile, "change-index");
+        RecoveryIndexDocument = new ProjectionJsonDestination(this, RecoveryIndexFile, "recovery-index");
+        JournalIndexDocument = new ProjectionJsonDestination(this, JournalIndexFile, "journal-index");
     }
 
     public string RootDirectory { get; }
@@ -73,6 +83,14 @@ public sealed class WinoraDataPaths
 
     public string PendingDirectory { get; }
 
+    public ProjectionJsonDestination AppSettingsDocument { get; }
+
+    public ProjectionJsonDestination ChangeIndexDocument { get; }
+
+    public ProjectionJsonDestination RecoveryIndexDocument { get; }
+
+    public ProjectionJsonDestination JournalIndexDocument { get; }
+
     public static WinoraDataPaths ForCurrentUser()
     {
         var localApplicationData = Environment.GetFolderPath(
@@ -81,16 +99,16 @@ public sealed class WinoraDataPaths
         return new WinoraDataPaths(Path.Combine(localApplicationData, "Winora"));
     }
 
-    public string GetBackupDirectory(string backupId) =>
+    internal string GetBackupDirectory(string backupId) =>
         Path.Combine(BackupsDirectory, ValidatePathSegment(backupId, nameof(backupId)));
 
-    public string GetOperationDirectory(string operationId) =>
+    internal string GetOperationDirectory(string operationId) =>
         Path.Combine(OperationsDirectory, ValidatePathSegment(operationId, nameof(operationId)));
 
-    public string GetOperationManifestFile(string operationId) =>
+    internal string GetOperationManifestFile(string operationId) =>
         Path.Combine(GetOperationDirectory(operationId), "manifest.json");
 
-    public string GetOperationTransitionFile(
+    internal string GetOperationTransitionFile(
         string operationId,
         long revision,
         string transitionId)
@@ -103,12 +121,57 @@ public sealed class WinoraDataPaths
             $"{revision}-{ValidatePathSegment(transitionId, nameof(transitionId))}.json");
     }
 
-    public string GetJournalEventFile(string eventId) =>
+    internal string GetJournalEventFile(string eventId) =>
         Path.Combine(
             JournalEventsDirectory,
             $"{ValidatePathSegment(eventId, nameof(eventId))}.json");
 
-    public string EnsureOwnedFilePath(string path)
+    public ProjectionJsonDestination GetOperationManifestDocument(string operationId)
+    {
+        var canonicalId = ValidatePathSegment(operationId, nameof(operationId));
+        return new ProjectionJsonDestination(
+            this,
+            GetOperationManifestFile(canonicalId),
+            canonicalId);
+    }
+
+    public AuthoritativeJsonDestination GetOperationTransitionDocument(
+        string operationId,
+        long revision,
+        string transitionId)
+    {
+        var canonicalTransitionId = ValidatePathSegment(transitionId, nameof(transitionId));
+        return new AuthoritativeJsonDestination(
+            this,
+            GetOperationTransitionFile(operationId, revision, canonicalTransitionId),
+            canonicalTransitionId);
+    }
+
+    public AuthoritativeJsonDestination GetJournalEventDocument(string eventId)
+    {
+        var canonicalId = ValidatePathSegment(eventId, nameof(eventId));
+        return new AuthoritativeJsonDestination(this, GetJournalEventFile(canonicalId), canonicalId);
+    }
+
+    public AuthoritativeJsonDestination GetBackupStagingManifestDocument(string backupId)
+    {
+        var canonicalId = ValidatePathSegment(backupId, nameof(backupId));
+        return new AuthoritativeJsonDestination(
+            this,
+            Path.Combine(BackupsDirectory, $"{canonicalId}.staging", "manifest.json"),
+            canonicalId);
+    }
+
+    public AuthoritativeJsonDestination GetBackupCommittedManifestDocument(string backupId)
+    {
+        var canonicalId = ValidatePathSegment(backupId, nameof(backupId));
+        return new AuthoritativeJsonDestination(
+            this,
+            Path.Combine(BackupsDirectory, canonicalId, "manifest.committed.json"),
+            canonicalId);
+    }
+
+    internal string EnsureOwnedFilePath(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -133,6 +196,10 @@ public sealed class WinoraDataPaths
         var baseName = value.Split('.', 2)[0];
         if (value.Length > 128 ||
             value != value.Trim() ||
+            value.Any(character =>
+                !char.IsAsciiLetterLower(character) &&
+                !char.IsAsciiDigit(character) &&
+                character is not '-' and not '_') ||
             value is "." or ".." ||
             value.EndsWith('.') ||
             ReservedDeviceNames.Contains(baseName) ||

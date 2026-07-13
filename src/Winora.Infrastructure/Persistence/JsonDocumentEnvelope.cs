@@ -50,6 +50,8 @@ public sealed class JsonDocumentSerializer
         JsonDocumentEnvelope<TPayload>? envelope;
         try
         {
+            using var document = JsonDocument.Parse(utf8Json.ToArray());
+            RejectDuplicateProperties(document.RootElement);
             envelope = JsonSerializer.Deserialize<JsonDocumentEnvelope<TPayload>>(
                 utf8Json,
                 SerializerOptions);
@@ -66,6 +68,31 @@ public sealed class JsonDocumentSerializer
 
         Validate(envelope);
         return envelope;
+    }
+
+    private static void RejectDuplicateProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                {
+                    throw new InvalidDataException(
+                        "The persisted JSON document contains a duplicate property.");
+                }
+
+                RejectDuplicateProperties(property.Value);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                RejectDuplicateProperties(item);
+            }
+        }
     }
 
     private static void Validate<TPayload>(JsonDocumentEnvelope<TPayload> envelope)

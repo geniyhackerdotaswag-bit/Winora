@@ -76,11 +76,46 @@ public sealed class WinoraDataPathsTests
     [InlineData("CON")]
     [InlineData("NUL.json")]
     [InlineData("event-id.")]
+    [InlineData("OPERATION")]
+    [InlineData("Operation-Id")]
+    [InlineData("COM¹")]
+    [InlineData("COM²")]
+    [InlineData("COM³")]
+    [InlineData("LPT¹")]
+    [InlineData("LPT²")]
+    [InlineData("LPT³")]
     public void Dynamic_identifiers_reject_path_traversal(string identifier)
     {
         var paths = CreatePaths();
 
         Assert.Throws<ArgumentException>(() => paths.GetOperationDirectory(identifier));
+    }
+
+    [Fact]
+    public void Fixed_layout_factories_encode_authority_path_and_expected_document_identity()
+    {
+        var paths = CreatePaths();
+
+        var operationEvent = paths.GetOperationTransitionDocument(
+            "operation-id",
+            7,
+            "transition-id");
+        var operationProjection = paths.GetOperationManifestDocument("operation-id");
+
+        Assert.Equal(
+            Path.Combine(
+                paths.OperationsDirectory,
+                "operation-id",
+                "Transitions",
+                "7-transition-id.json"),
+            operationEvent.FilePath);
+        Assert.Equal("transition-id", operationEvent.DocumentId);
+        Assert.Equal(
+            Path.Combine(paths.OperationsDirectory, "operation-id", "manifest.json"),
+            operationProjection.FilePath);
+        Assert.Equal("operation-id", operationProjection.DocumentId);
+        Assert.False(typeof(AuthoritativeJsonDestination).GetConstructors().Any());
+        Assert.False(typeof(ProjectionJsonDestination).GetConstructors().Any());
     }
 
     [Fact]
