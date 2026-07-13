@@ -38,6 +38,7 @@ public enum SupportStatus
     Unsupported,
     Unknown,
     UnsupportedForSafeMutation,
+    Partial,
 }
 
 public enum BackupRequirement
@@ -133,24 +134,16 @@ public static class ChangeSafetyPolicy
 
 public sealed class ConfirmationToken
 {
-    private ConfirmationToken(Guid tokenId, string planDigest)
+    internal ConfirmationToken(Guid authorityId, Guid tokenId, string planDigest)
     {
+        AuthorityId = authorityId;
         TokenId = tokenId;
         PlanDigest = planDigest;
     }
 
-    public Guid TokenId { get; }
+    internal Guid AuthorityId { get; }
 
-    public string PlanDigest { get; }
+    internal Guid TokenId { get; }
 
-    public static ConfirmationToken Create(ChangePlan plan)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
-        return new ConfirmationToken(Guid.NewGuid(), plan.Digest);
-    }
-
-    public bool Authorizes(ChangePlan plan) =>
-        plan is not null &&
-        plan.HasValidDigest &&
-        StringComparer.Ordinal.Equals(PlanDigest, plan.Digest);
+    internal string PlanDigest { get; }
 }

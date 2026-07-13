@@ -14,7 +14,7 @@ public sealed partial class ChangeCoordinator
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(confirmation);
 
-        if (!confirmation.Authorizes(plan))
+        if (!_confirmationAuthority.TryAuthorize(confirmation, plan))
         {
             return Result(CoordinatorDisposition.Blocked, new Cursor(), "Confirmation does not match rollback.");
         }
@@ -31,6 +31,27 @@ public sealed partial class ChangeCoordinator
         if (!await MoveAsync(plan.RollbackId, facts, cursor, OperationState.RollbackPlanned, null).ConfigureAwait(false))
         {
             return DurabilityFailure(cursor);
+        }
+
+        var requiresRestoreLifecycle =
+            plan.ChangePlan.RequiresRestorePoint ||
+            plan.ChangePlan.Kind == ChangePlanKind.ManualRestorePointArtifact;
+        if (requiresRestoreLifecycle)
+        {
+            if (!await MoveAsync(
+                    plan.RollbackId,
+                    facts,
+                    cursor,
+                    OperationState.Unsupported,
+                    null).ConfigureAwait(false))
+            {
+                return DurabilityFailure(cursor);
+            }
+
+            return Result(
+                CoordinatorDisposition.Blocked,
+                cursor,
+                "This rollback requires the dedicated System Restore lifecycle coordinator.");
         }
 
         if (!StringComparer.Ordinal.Equals(operation.OperationId, plan.ChangePlan.OperationId) ||

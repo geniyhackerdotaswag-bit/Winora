@@ -32,6 +32,7 @@ public sealed record DurableOperationFacts
         BackupDigest = backupDigest;
         RecoveryCheckpointId = recoveryCheckpointId;
         RecoveryCheckpointDigest = recoveryCheckpointDigest;
+        Digest = ComputeDigest(this);
     }
 
     public string PlanDigest { get; }
@@ -58,7 +59,9 @@ public sealed record DurableOperationFacts
 
     public string? RecoveryCheckpointDigest { get; }
 
-    public static DurableOperationFacts From(ChangePlan plan) =>
+    public string Digest { get; }
+
+    internal static DurableOperationFacts From(ChangePlan plan) =>
         new(
             plan.Digest,
             plan.SourceFingerprint,
@@ -73,7 +76,7 @@ public sealed record DurableOperationFacts
             null,
             null);
 
-    public static DurableOperationFacts From(RollbackPlan plan) =>
+    internal static DurableOperationFacts From(RollbackPlan plan) =>
         new(
             plan.Digest,
             plan.AppliedFingerprint,
@@ -88,7 +91,7 @@ public sealed record DurableOperationFacts
             null,
             null);
 
-    public DurableOperationFacts WithBackupDigest(string backupDigest)
+    internal DurableOperationFacts WithBackupDigest(string backupDigest)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backupDigest);
         return new DurableOperationFacts(
@@ -106,7 +109,7 @@ public sealed record DurableOperationFacts
             RecoveryCheckpointDigest);
     }
 
-    public DurableOperationFacts WithRecoveryCheckpoint(string checkpointId, string checkpointDigest)
+    internal DurableOperationFacts WithRecoveryCheckpoint(string checkpointId, string checkpointDigest)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(checkpointId);
         ArgumentException.ThrowIfNullOrWhiteSpace(checkpointDigest);
@@ -123,6 +126,74 @@ public sealed record DurableOperationFacts
             BackupDigest,
             checkpointId,
             checkpointDigest);
+    }
+
+    internal bool Continues(DurableOperationFacts previous, OperationState state)
+    {
+        var planFactsMatch =
+            StringComparer.Ordinal.Equals(PlanDigest, previous.PlanDigest) &&
+            SourceFingerprint == previous.SourceFingerprint &&
+            OrderedStepIds.SequenceEqual(previous.OrderedStepIds, StringComparer.Ordinal) &&
+            Privilege == previous.Privilege &&
+            Risk == previous.Risk &&
+            Rollback == previous.Rollback &&
+            Backup == previous.Backup &&
+            RequiresRestorePoint == previous.RequiresRestorePoint &&
+            Kind == previous.Kind;
+        var backupContinues = previous.BackupDigest is null
+            ? BackupDigest is null ||
+              (state == OperationState.BackupCreated && !string.IsNullOrWhiteSpace(BackupDigest))
+            : StringComparer.Ordinal.Equals(BackupDigest, previous.BackupDigest);
+        var checkpointContinues = previous.RecoveryCheckpointId is null &&
+                                  previous.RecoveryCheckpointDigest is null
+            ? (RecoveryCheckpointId is null && RecoveryCheckpointDigest is null) ||
+              (state == OperationState.RollbackCheckpointCreated &&
+               !string.IsNullOrWhiteSpace(RecoveryCheckpointId) &&
+               !string.IsNullOrWhiteSpace(RecoveryCheckpointDigest))
+            : StringComparer.Ordinal.Equals(RecoveryCheckpointId, previous.RecoveryCheckpointId) &&
+              StringComparer.Ordinal.Equals(RecoveryCheckpointDigest, previous.RecoveryCheckpointDigest);
+
+        return planFactsMatch && backupContinues && checkpointContinues;
+    }
+
+    private static string ComputeDigest(DurableOperationFacts facts)
+    {
+        var canonical = new StringBuilder();
+        Append(canonical, facts.PlanDigest);
+        Append(canonical, facts.SourceFingerprint.Algorithm);
+        Append(canonical, facts.SourceFingerprint.Value);
+        Append(canonical, facts.OrderedStepIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        foreach (var stepId in facts.OrderedStepIds)
+        {
+            Append(canonical, stepId);
+        }
+
+        Append(canonical, ((int)facts.Privilege).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(canonical, ((int)facts.Risk).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(canonical, ((int)facts.Rollback).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(canonical, ((int)facts.Backup).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Append(canonical, facts.RequiresRestorePoint ? "1" : "0");
+        Append(canonical, ((int)facts.Kind).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AppendOptional(canonical, facts.BackupDigest);
+        AppendOptional(canonical, facts.RecoveryCheckpointId);
+        AppendOptional(canonical, facts.RecoveryCheckpointDigest);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    private static void AppendOptional(StringBuilder builder, string? value)
+    {
+        Append(builder, value is null ? "0" : "1");
+        if (value is not null)
+        {
+            Append(builder, value);
+        }
+    }
+
+    private static void Append(StringBuilder builder, string value)
+    {
+        builder.Append(Encoding.UTF8.GetByteCount(value));
+        builder.Append(':');
+        builder.Append(value);
     }
 }
 
@@ -202,7 +273,7 @@ public sealed record RestorePointTransitionFacts
 
     public string Digest { get; }
 
-    public static RestorePointTransitionFacts Create(
+    internal static RestorePointTransitionFacts Create(
         Guid correlationId,
         string description,
         StateFingerprint preBeginInventoryFingerprint,
@@ -272,6 +343,19 @@ public sealed record RestorePointTransitionFacts
             verifiedBegin &&
             FinalizationMode != RestorePointFinalizationMode.None &&
             FinalizationRequestedAtUtc is not null;
+        var knownBeginFailureWithNoChanges =
+            BeginApiStatus == RestorePointApiStatus.KnownFailure &&
+            SequenceNumber is null &&
+            PostBeginInventoryFingerprint is null &&
+            OwnershipStatus == RestorePointOwnershipStatus.NotChecked &&
+            noFinalization;
+        var reusedOrPreexistingClosedWithoutCancellation =
+            returnedBegin &&
+            PostBeginInventoryFingerprint is not null &&
+            OwnershipStatus == RestorePointOwnershipStatus.ReusedOrPreexisting &&
+            FinalizationMode == RestorePointFinalizationMode.Normal &&
+            FinalizationRequestedAtUtc is not null &&
+            FinalizationApiStatus == RestorePointApiStatus.Succeeded;
 
         return state switch
         {
@@ -304,10 +388,8 @@ public sealed record RestorePointTransitionFacts
                 finalizationRequested &&
                 FinalizationApiStatus == RestorePointApiStatus.OutcomeUnknown,
             OperationState.RestorePointFailedNoChanges =>
-                BeginApiStatus == RestorePointApiStatus.KnownFailure ||
-                (returnedBegin &&
-                 PostBeginInventoryFingerprint is not null &&
-                 OwnershipStatus == RestorePointOwnershipStatus.ReusedOrPreexisting),
+                knownBeginFailureWithNoChanges ||
+                reusedOrPreexistingClosedWithoutCancellation,
             OperationState.RestorePointRecoveryRequired =>
                 BeginApiStatus == RestorePointApiStatus.OutcomeUnknown ||
                 OwnershipStatus == RestorePointOwnershipStatus.Ambiguous ||
@@ -398,6 +480,7 @@ public sealed record OperationTransition
         string? stepId,
         DateTimeOffset occurredAtUtc,
         RestorePointTransitionFacts? restorePoint,
+        string? expectedFactsDigest,
         string? expectedRestorePointFactsDigest)
     {
         OperationId = operationId;
@@ -408,7 +491,9 @@ public sealed record OperationTransition
         StepId = stepId;
         OccurredAtUtc = occurredAtUtc;
         RestorePoint = restorePoint;
+        ExpectedFactsDigest = expectedFactsDigest;
         ExpectedRestorePointFactsDigest = expectedRestorePointFactsDigest;
+        TransitionHash = ComputeHash(this);
     }
 
     public Guid OperationId { get; }
@@ -427,9 +512,13 @@ public sealed record OperationTransition
 
     public RestorePointTransitionFacts? RestorePoint { get; }
 
+    public string? ExpectedFactsDigest { get; }
+
     public string? ExpectedRestorePointFactsDigest { get; }
 
-    public static OperationTransition Create(
+    public string TransitionHash { get; }
+
+    internal static OperationTransition Create(
         Guid operationId,
         DurableOperationFacts facts,
         long expectedRevision,
@@ -438,8 +527,14 @@ public sealed record OperationTransition
         string? stepId,
         DateTimeOffset occurredAtUtc,
         RestorePointTransitionFacts? restorePoint = null,
-        RestorePointTransitionFacts? previousRestorePoint = null)
+        RestorePointTransitionFacts? previousRestorePoint = null,
+        DurableOperationFacts? previousFacts = null)
     {
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("A durable operation identifier is required.", nameof(operationId));
+        }
+
         ArgumentNullException.ThrowIfNull(facts);
         if (expectedRevision < 0)
         {
@@ -447,16 +542,36 @@ public sealed record OperationTransition
         }
 
         var transitionAllowed = expectedState is { } current
-            ? OperationStatePolicy.CanTransition(current, state)
+            ? OperationStatePolicy.CanTransition(current, state) ||
+              IsReviewedFinalizationRetry(current, state, restorePoint, previousRestorePoint)
             : OperationStatePolicy.CanStartWith(state);
         if (!transitionAllowed)
         {
             throw new ArgumentException("The durable state transition is not allowed.", nameof(state));
         }
 
+        if (expectedState is null)
+        {
+            if (previousFacts is not null)
+            {
+                throw new ArgumentException("An initial transition cannot replace prior durable facts.", nameof(previousFacts));
+            }
+        }
+        else if (previousFacts is null || !facts.Continues(previousFacts, state))
+        {
+            throw new ArgumentException(
+                "Durable facts do not continue the exact verified prior facts.",
+                nameof(previousFacts));
+        }
+
         if (stepId is not null && !facts.OrderedStepIds.Contains(stepId, StringComparer.Ordinal))
         {
             throw new ArgumentException("The transition step must belong to the durable plan facts.", nameof(stepId));
+        }
+
+        if (RequiresExactStep(state) && stepId is null)
+        {
+            throw new ArgumentException("This durable state requires its exact plan step identifier.", nameof(stepId));
         }
 
         if (IsRestorePointState(state) && restorePoint is null)
@@ -476,6 +591,14 @@ public sealed record OperationTransition
             if (IsRestorePointState(state) && !restorePoint.IsValidFor(state))
             {
                 throw new ArgumentException("Restore-point facts are inconsistent with the lifecycle state.", nameof(restorePoint));
+            }
+            else if (!IsRestorePointState(state) &&
+                     previousRestorePoint is not null &&
+                     !StringComparer.Ordinal.Equals(restorePoint.Digest, previousRestorePoint.Digest))
+            {
+                throw new ArgumentException(
+                    "Restore-point facts may only change on an explicit restore lifecycle transition.",
+                    nameof(restorePoint));
             }
 
             if (state == OperationState.RestorePointBeginRequested)
@@ -502,8 +625,35 @@ public sealed record OperationTransition
             stepId,
             occurredAtUtc,
             restorePoint,
+            previousFacts?.Digest,
             previousRestorePoint?.Digest);
     }
+
+    internal static bool RequiresExactStep(OperationState state) =>
+        state is OperationState.Applying or
+            OperationState.Applied or
+            OperationState.Verified or
+            OperationState.ApplyStepNotApplied or
+            OperationState.VerificationFailedRollbackOffered or
+            OperationState.RollingBack or
+            OperationState.RollbackApplied or
+            OperationState.RollbackVerified;
+
+    private static bool IsReviewedFinalizationRetry(
+        OperationState current,
+        OperationState state,
+        RestorePointTransitionFacts? restorePoint,
+        RestorePointTransitionFacts? previousRestorePoint) =>
+        current == OperationState.RestorePointFinalizeFailedRecoveryRequired &&
+        previousRestorePoint is { } previous &&
+        restorePoint is { } retry &&
+        previous.FinalizationApiStatus == RestorePointApiStatus.KnownFailure &&
+        retry.FinalizationApiStatus == RestorePointApiStatus.NotCalled &&
+        retry.FinalizationMode == previous.FinalizationMode &&
+        ((retry.FinalizationMode == RestorePointFinalizationMode.Normal &&
+          state == OperationState.RestorePointEndRequested) ||
+         (retry.FinalizationMode == RestorePointFinalizationMode.Cancelled &&
+          state == OperationState.RestorePointCancelRequested));
 
     internal static bool IsRestorePointState(OperationState state) =>
         state is OperationState.RestorePointFailedNoChanges or
@@ -524,6 +674,24 @@ public sealed record OperationTransition
         OperationState state,
         RestorePointTransitionFacts? restorePoint)
     {
+        if (state == OperationState.Planned &&
+            (facts.BackupDigest is not null ||
+             facts.RecoveryCheckpointId is not null ||
+             facts.RecoveryCheckpointDigest is not null))
+        {
+            throw new ArgumentException("Planned cannot claim backup or checkpoint facts before they exist.", nameof(state));
+        }
+
+        if (state == OperationState.RollbackPlanned &&
+            (string.IsNullOrWhiteSpace(facts.BackupDigest) ||
+             facts.RecoveryCheckpointId is not null ||
+             facts.RecoveryCheckpointDigest is not null))
+        {
+            throw new ArgumentException(
+                "RollbackPlanned requires its linked backup and cannot prepopulate a checkpoint.",
+                nameof(state));
+        }
+
         if (state == OperationState.RestorePointBeginRequested)
         {
             var validTargetMutation =
@@ -545,9 +713,13 @@ public sealed record OperationTransition
         }
 
         if (state == OperationState.BackupCreated &&
-            (facts.Kind != ChangePlanKind.TargetMutation || facts.Backup != BackupRequirement.Required))
+            (facts.Kind != ChangePlanKind.TargetMutation ||
+             facts.Backup != BackupRequirement.Required ||
+             string.IsNullOrWhiteSpace(facts.BackupDigest)))
         {
-            throw new ArgumentException("Only a target mutation with required backup may enter BackupCreated.", nameof(state));
+            throw new ArgumentException(
+                "BackupCreated requires a target mutation and a verified backup digest.",
+                nameof(state));
         }
 
         if (state == OperationState.Applying)
@@ -555,6 +727,11 @@ public sealed record OperationTransition
             if (facts.Kind != ChangePlanKind.TargetMutation)
             {
                 throw new ArgumentException("A safety artifact cannot enter target mutation states.", nameof(state));
+            }
+
+            if (facts.Backup != BackupRequirement.Required || string.IsNullOrWhiteSpace(facts.BackupDigest))
+            {
+                throw new ArgumentException("Applying requires verified durable backup facts.", nameof(state));
             }
 
             if (facts.RequiresRestorePoint &&
@@ -566,12 +743,79 @@ public sealed record OperationTransition
             }
         }
 
+        if (facts.RequiresRestorePoint &&
+            facts.Kind == ChangePlanKind.TargetMutation &&
+            RequiresActiveRestoreLifecycle(state) &&
+            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointBegun)))
+        {
+            throw new ArgumentException(
+                "A restore-required mutation state must retain its verified active lifecycle.",
+                nameof(restorePoint));
+        }
+
+
+        if ((state is OperationState.RollbackCheckpointCreated or
+             OperationState.RollingBack or
+             OperationState.RollbackApplied or
+             OperationState.RollbackVerified or
+             OperationState.RolledBack) &&
+            (string.IsNullOrWhiteSpace(facts.RecoveryCheckpointId) ||
+             string.IsNullOrWhiteSpace(facts.RecoveryCheckpointDigest)))
+        {
+            throw new ArgumentException(
+                "Rollback mutation states require a verified durable recovery checkpoint.",
+                nameof(state));
+        }
+
         if (state == OperationState.Completed &&
             (facts.RequiresRestorePoint || facts.Kind == ChangePlanKind.ManualRestorePointArtifact) &&
             (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointEnded)))
         {
             throw new ArgumentException("Completion requires a durably ended restore lifecycle.", nameof(state));
         }
+    }
+
+    internal static bool RequiresActiveRestoreLifecycle(OperationState state) =>
+        state is OperationState.Applying or
+            OperationState.Applied or
+            OperationState.Verified or
+            OperationState.ApplyStepNotApplied or
+            OperationState.ApplyFailedNoChanges or
+            OperationState.PartiallyAppliedRecoveryRequired or
+            OperationState.VerificationFailedRollbackOffered or
+            OperationState.RecoveryConflictExternalDrift;
+
+    private static string ComputeHash(OperationTransition transition)
+    {
+        var canonical = new StringBuilder();
+        Append(canonical, transition.OperationId.ToString("D"));
+        Append(canonical, transition.Facts.PlanDigest);
+        Append(canonical, transition.Facts.Digest);
+        Append(canonical, transition.ExpectedRevision.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AppendOptional(canonical, transition.ExpectedState?.ToString());
+        Append(canonical, transition.State.ToString());
+        AppendOptional(canonical, transition.StepId);
+        Append(canonical, transition.OccurredAtUtc.ToString("O"));
+        AppendOptional(canonical, transition.RestorePoint?.Digest);
+        AppendOptional(canonical, transition.ExpectedFactsDigest);
+        AppendOptional(canonical, transition.ExpectedRestorePointFactsDigest);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    private static void AppendOptional(StringBuilder builder, string? value)
+    {
+        Append(builder, value is null ? "0" : "1");
+        if (value is not null)
+        {
+            Append(builder, value);
+        }
+    }
+
+    private static void Append(StringBuilder builder, string value)
+    {
+        builder.Append(Encoding.UTF8.GetByteCount(value));
+        builder.Append(':');
+        builder.Append(value);
     }
 }
 
@@ -609,7 +853,7 @@ public sealed record DurableOperationBoundary
 
     public RestorePointTransitionFacts? RestorePoint { get; }
 
-    public static DurableOperationBoundary Create(
+    internal static DurableOperationBoundary Create(
         Guid operationId,
         DurableOperationFacts facts,
         long revision,
@@ -618,6 +862,11 @@ public sealed record DurableOperationBoundary
         IReadOnlyList<string> appliedStepIds,
         RestorePointTransitionFacts? restorePoint = null)
     {
+        if (operationId == Guid.Empty)
+        {
+            throw new ArgumentException("A durable operation identifier is required.", nameof(operationId));
+        }
+
         ArgumentNullException.ThrowIfNull(facts);
         ArgumentNullException.ThrowIfNull(appliedStepIds);
         if (revision <= 0)
@@ -636,19 +885,19 @@ public sealed record DurableOperationBoundary
             throw new ArgumentException("Applied step identifiers must be unique durable plan steps.", nameof(appliedStepIds));
         }
 
-        if (state is OperationState.Applying or OperationState.RollingBack && stepId is null)
+        if (OperationTransition.RequiresExactStep(state) && stepId is null)
         {
-            throw new ArgumentException("An uncertain mutation boundary requires its exact step identifier.", nameof(stepId));
+            throw new ArgumentException("This durable boundary requires its exact plan step identifier.", nameof(stepId));
         }
 
-        if (state == OperationState.Applying)
+        if (state is OperationState.Applying or OperationState.RollingBack)
         {
             var uncertainIndex = FindStepIndex(facts.OrderedStepIds, stepId!);
             var expectedPrefix = facts.OrderedStepIds.Take(uncertainIndex);
             if (!appliedStepIds.SequenceEqual(expectedPrefix, StringComparer.Ordinal))
             {
                 throw new ArgumentException(
-                    "Applied steps must be the exact ordered prefix before the uncertain apply step.",
+                    "Completed steps must be the exact durable prefix before the uncertain mutation step.",
                     nameof(appliedStepIds));
             }
         }
@@ -661,10 +910,45 @@ public sealed record DurableOperationBoundary
             }
         }
 
+        if (state == OperationState.BackupCreated &&
+            (facts.Kind != ChangePlanKind.TargetMutation ||
+             facts.Backup != BackupRequirement.Required ||
+             string.IsNullOrWhiteSpace(facts.BackupDigest)))
+        {
+            throw new ArgumentException("BackupCreated boundary requires verified backup facts.", nameof(facts));
+        }
+
         if (state == OperationState.Applying && facts.RequiresRestorePoint &&
             (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointBegun)))
         {
             throw new ArgumentException("Applying boundary lost the verified active restore point.", nameof(restorePoint));
+        }
+
+        if (facts.RequiresRestorePoint &&
+            facts.Kind == ChangePlanKind.TargetMutation &&
+            OperationTransition.RequiresActiveRestoreLifecycle(state) &&
+            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointBegun)))
+        {
+            throw new ArgumentException(
+                "A restore-required mutation boundary must retain its verified active lifecycle.",
+                nameof(restorePoint));
+        }
+
+        if ((state is OperationState.Applying or OperationState.Applied or OperationState.Verified) &&
+            (facts.Backup != BackupRequirement.Required || string.IsNullOrWhiteSpace(facts.BackupDigest)))
+        {
+            throw new ArgumentException("Target mutation boundaries require verified backup facts.", nameof(facts));
+        }
+
+        if ((state is OperationState.RollbackCheckpointCreated or
+             OperationState.RollingBack or
+             OperationState.RollbackApplied or
+             OperationState.RollbackVerified or
+             OperationState.RolledBack) &&
+            (string.IsNullOrWhiteSpace(facts.RecoveryCheckpointId) ||
+             string.IsNullOrWhiteSpace(facts.RecoveryCheckpointDigest)))
+        {
+            throw new ArgumentException("Rollback mutation boundaries require verified checkpoint facts.", nameof(facts));
         }
 
         return new DurableOperationBoundary(operationId, facts, revision, state, stepId, appliedStepIds, restorePoint);
@@ -684,13 +968,72 @@ public sealed record DurableOperationBoundary
     }
 }
 
-public sealed record DurableTransitionResult(
-    bool IsDurable,
-    long Revision,
-    OperationState? State)
+public sealed record DurableTransitionResult
 {
-    public static DurableTransitionResult Rejected(long revision, OperationState? state) =>
-        new(false, revision, state);
+    private DurableTransitionResult(
+        bool isDurable,
+        long revision,
+        OperationState? state,
+        Guid? operationId,
+        string? planDigest,
+        string? factsDigest,
+        string? stepId,
+        string? transitionHash)
+    {
+        IsDurable = isDurable;
+        Revision = revision;
+        State = state;
+        OperationId = operationId;
+        PlanDigest = planDigest;
+        FactsDigest = factsDigest;
+        StepId = stepId;
+        TransitionHash = transitionHash;
+    }
+
+    public bool IsDurable { get; }
+
+    public long Revision { get; }
+
+    public OperationState? State { get; }
+
+    public Guid? OperationId { get; }
+
+    public string? PlanDigest { get; }
+
+    public string? FactsDigest { get; }
+
+    public string? StepId { get; }
+
+    public string? TransitionHash { get; }
+
+    internal static DurableTransitionResult Acknowledged(
+        OperationTransition transition,
+        long? durableRevision = null)
+    {
+        ArgumentNullException.ThrowIfNull(transition);
+        return new DurableTransitionResult(
+            true,
+            durableRevision ?? transition.ExpectedRevision + 1,
+            transition.State,
+            transition.OperationId,
+            transition.Facts.PlanDigest,
+            transition.Facts.Digest,
+            transition.StepId,
+            transition.TransitionHash);
+    }
+
+    internal static DurableTransitionResult Rejected(long revision, OperationState? state) =>
+        new(false, revision, state, null, null, null, null, null);
+
+    internal bool Acknowledges(OperationTransition transition) =>
+        IsDurable &&
+        Revision == transition.ExpectedRevision + 1 &&
+        State == transition.State &&
+        OperationId == transition.OperationId &&
+        StringComparer.Ordinal.Equals(PlanDigest, transition.Facts.PlanDigest) &&
+        StringComparer.Ordinal.Equals(FactsDigest, transition.Facts.Digest) &&
+        StringComparer.Ordinal.Equals(StepId, transition.StepId) &&
+        StringComparer.Ordinal.Equals(TransitionHash, transition.TransitionHash);
 }
 
 public interface IDurableOperationJournal

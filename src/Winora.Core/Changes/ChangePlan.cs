@@ -96,6 +96,11 @@ public sealed record ChangePlan
         bool requiresRestorePoint,
         ChangePlanKind kind = ChangePlanKind.TargetMutation)
     {
+        if (planId == Guid.Empty)
+        {
+            throw new ArgumentException("A change plan identifier is required.", nameof(planId));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(operationId);
         ArgumentException.ThrowIfNullOrWhiteSpace(category);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);

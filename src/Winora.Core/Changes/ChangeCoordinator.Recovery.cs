@@ -49,7 +49,11 @@ public sealed partial class ChangeCoordinator
         }
 
         var verifiedBoundary = boundary!;
-        var cursor = new Cursor(verifiedBoundary.State, verifiedBoundary.Revision);
+        var cursor = new Cursor(
+            verifiedBoundary.State,
+            verifiedBoundary.Revision,
+            verifiedBoundary.Facts,
+            verifiedBoundary.RestorePoint);
         var facts = verifiedBoundary.Facts;
         var anyPriorStepApplied = verifiedBoundary.AppliedStepIds.Count > 0;
         var observed = await operation.ProbeAsync(recovery.Step.Target, cancellationToken).ConfigureAwait(false);
@@ -189,7 +193,11 @@ public sealed partial class ChangeCoordinator
         }
 
         var verifiedBoundary = boundary!;
-        var cursor = new Cursor(verifiedBoundary.State, verifiedBoundary.Revision);
+        var cursor = new Cursor(
+            verifiedBoundary.State,
+            verifiedBoundary.Revision,
+            verifiedBoundary.Facts,
+            verifiedBoundary.RestorePoint);
         var facts = verifiedBoundary.Facts;
         var observed = await operation.ProbeAsync(recovery.Step.Target, cancellationToken).ConfigureAwait(false);
 
@@ -264,18 +272,28 @@ public sealed partial class ChangeCoordinator
                   appliedIndex < uncertainIndex);
     }
 
-    private static bool IsRollingBackBoundary(DurableOperationBoundary? boundary, RollingBackRecovery recovery) =>
-        boundary is not null &&
-        boundary.OperationId == recovery.Plan.RollbackId &&
-        boundary.State == OperationState.RollingBack &&
-        StringComparer.Ordinal.Equals(boundary.StepId, recovery.Step.StepId) &&
-        StringComparer.Ordinal.Equals(boundary.Facts.PlanDigest, recovery.Plan.Digest) &&
-        StringComparer.Ordinal.Equals(boundary.Facts.BackupDigest, recovery.Plan.BackupDigest) &&
-        !string.IsNullOrWhiteSpace(boundary.Facts.RecoveryCheckpointId) &&
-        !string.IsNullOrWhiteSpace(boundary.Facts.RecoveryCheckpointDigest) &&
-        boundary.Facts.OrderedStepIds.SequenceEqual(
-            recovery.Plan.Steps.Select(step => step.StepId),
+    private static bool IsRollingBackBoundary(DurableOperationBoundary? boundary, RollingBackRecovery recovery)
+    {
+        if (boundary is null ||
+            boundary.OperationId != recovery.Plan.RollbackId ||
+            boundary.State != OperationState.RollingBack ||
+            !StringComparer.Ordinal.Equals(boundary.StepId, recovery.Step.StepId) ||
+            !StringComparer.Ordinal.Equals(boundary.Facts.PlanDigest, recovery.Plan.Digest) ||
+            !StringComparer.Ordinal.Equals(boundary.Facts.BackupDigest, recovery.Plan.BackupDigest) ||
+            string.IsNullOrWhiteSpace(boundary.Facts.RecoveryCheckpointId) ||
+            string.IsNullOrWhiteSpace(boundary.Facts.RecoveryCheckpointDigest) ||
+            !boundary.Facts.OrderedStepIds.SequenceEqual(
+                recovery.Plan.Steps.Select(step => step.StepId),
+                StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        var uncertainIndex = FindStepIndex(boundary.Facts.OrderedStepIds, recovery.Step.StepId);
+        return uncertainIndex >= 0 && boundary.AppliedStepIds.SequenceEqual(
+            boundary.Facts.OrderedStepIds.Take(uncertainIndex),
             StringComparer.Ordinal);
+    }
 
     private static int FindStepIndex(IReadOnlyList<string> stepIds, string stepId)
     {

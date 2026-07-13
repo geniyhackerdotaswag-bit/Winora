@@ -160,10 +160,6 @@ public static class OperationStatePolicy
 
             (OperationState.RestorePointCancelled, OperationState.CanceledNoChanges) => true,
 
-            (OperationState.RestorePointFinalizeFailedRecoveryRequired,
-                OperationState.RestorePointEndRequested or
-                OperationState.RestorePointCancelRequested) => true,
-
             (OperationState.RestorePointFinalizeOutcomeUnknown, OperationState.RestorePointRecoveryRequired) => true,
 
             _ => false,

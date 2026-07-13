@@ -44,6 +44,11 @@ public sealed record RollbackPlan
         StateFingerprint appliedFingerprint,
         StateFingerprint backupFingerprint)
     {
+        if (rollbackId == Guid.Empty)
+        {
+            throw new ArgumentException("A rollback plan identifier is required.", nameof(rollbackId));
+        }
+
         ArgumentNullException.ThrowIfNull(changePlan);
         ArgumentException.ThrowIfNullOrWhiteSpace(backupDigest);
         ArgumentNullException.ThrowIfNull(appliedFingerprint);
@@ -88,24 +93,16 @@ public sealed record RollbackPlan
 
 public sealed class RollbackConfirmationToken
 {
-    private RollbackConfirmationToken(Guid tokenId, string rollbackDigest)
+    internal RollbackConfirmationToken(Guid authorityId, Guid tokenId, string rollbackDigest)
     {
+        AuthorityId = authorityId;
         TokenId = tokenId;
         RollbackDigest = rollbackDigest;
     }
 
-    public Guid TokenId { get; }
+    internal Guid AuthorityId { get; }
 
-    public string RollbackDigest { get; }
+    internal Guid TokenId { get; }
 
-    public static RollbackConfirmationToken Create(RollbackPlan plan)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
-        return new RollbackConfirmationToken(Guid.NewGuid(), plan.Digest);
-    }
-
-    public bool Authorizes(RollbackPlan plan) =>
-        plan is not null &&
-        plan.HasValidDigest &&
-        StringComparer.Ordinal.Equals(RollbackDigest, plan.Digest);
+    internal string RollbackDigest { get; }
 }

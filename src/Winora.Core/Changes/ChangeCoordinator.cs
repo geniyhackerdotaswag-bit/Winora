@@ -42,17 +42,20 @@ public sealed partial class ChangeCoordinator
     private readonly IBackupRepository _backups;
     private readonly IMutationLease _mutationLease;
     private readonly IClock _clock;
+    private readonly ConfirmationAuthority _confirmationAuthority;
 
     public ChangeCoordinator(
         IDurableOperationJournal journal,
         IBackupRepository backups,
         IMutationLease mutationLease,
-        IClock clock)
+        IClock clock,
+        ConfirmationAuthority confirmationAuthority)
     {
         _journal = journal;
         _backups = backups;
         _mutationLease = mutationLease;
         _clock = clock;
+        _confirmationAuthority = confirmationAuthority;
     }
 
     public async ValueTask<CoordinatorResult> ApplyAsync(
@@ -65,7 +68,7 @@ public sealed partial class ChangeCoordinator
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(confirmation);
 
-        if (!confirmation.Authorizes(plan))
+        if (!_confirmationAuthority.TryAuthorize(confirmation, plan))
         {
             return Result(CoordinatorDisposition.Blocked, new Cursor(), "Confirmation does not match the plan.");
         }
@@ -427,18 +430,23 @@ public sealed partial class ChangeCoordinator
             return false;
         }
 
+        OperationTransition transition;
         DurableTransitionResult persisted;
         try
         {
+            transition = OperationTransition.Create(
+                operationId,
+                facts,
+                cursor.Revision,
+                cursor.State,
+                state,
+                stepId,
+                _clock.UtcNow,
+                cursor.RestorePoint,
+                cursor.RestorePoint,
+                previousFacts: cursor.Facts);
             persisted = await _journal.CompareAndAppendAsync(
-                OperationTransition.Create(
-                    operationId,
-                    facts,
-                    cursor.Revision,
-                    cursor.State,
-                    state,
-                    stepId,
-                    _clock.UtcNow),
+                transition,
                 CancellationToken.None).ConfigureAwait(false);
         }
         catch
@@ -446,15 +454,14 @@ public sealed partial class ChangeCoordinator
             return false;
         }
 
-        if (!persisted.IsDurable ||
-            persisted.Revision != cursor.Revision + 1 ||
-            persisted.State != state)
+        if (!persisted.Acknowledges(transition))
         {
             return false;
         }
 
         cursor.State = state;
         cursor.Revision = persisted.Revision;
+        cursor.Facts = facts;
         return true;
     }
 
@@ -562,14 +569,24 @@ public sealed partial class ChangeCoordinator
 
     private sealed class Cursor
     {
-        internal Cursor(OperationState? state = null, long revision = 0)
+        internal Cursor(
+            OperationState? state = null,
+            long revision = 0,
+            DurableOperationFacts? facts = null,
+            RestorePointTransitionFacts? restorePoint = null)
         {
             State = state;
             Revision = revision;
+            Facts = facts;
+            RestorePoint = restorePoint;
         }
 
         internal OperationState? State { get; set; }
 
         internal long Revision { get; set; }
+
+        internal DurableOperationFacts? Facts { get; set; }
+
+        internal RestorePointTransitionFacts? RestorePoint { get; set; }
     }
 }

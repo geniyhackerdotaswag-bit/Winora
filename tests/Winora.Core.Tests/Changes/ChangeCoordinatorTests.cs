@@ -15,7 +15,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Completed, result.Disposition);
@@ -41,6 +41,23 @@ public sealed class ChangeCoordinatorTests
     }
 
     [Fact]
+    public async Task Foreign_durable_acknowledgement_does_not_authorize_the_system_mutation()
+    {
+        var plan = PlanFixture.Create();
+        var harness = CoordinatorHarness.ForApply(plan);
+        harness.Journal.MisboundAcknowledgementStates.Add(OperationState.Applying);
+
+        var result = await harness.Coordinator.ApplyAsync(
+            harness.Operation,
+            plan,
+            harness.Confirmation.Confirm(plan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.DurabilityFailure, result.Disposition);
+        Assert.Equal(0, harness.Operation.ApplyCount);
+    }
+
+    [Fact]
     public async Task Capability_blocking_stops_before_backup_and_mutation()
     {
         var plan = PlanFixture.Create();
@@ -57,7 +74,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -76,7 +93,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             unsafeOperation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -93,7 +110,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -116,7 +133,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -131,12 +148,30 @@ public sealed class ChangeCoordinatorTests
     {
         var plan = PlanFixture.Create();
         var harness = CoordinatorHarness.ForApply(plan);
-        var otherConfirmation = ConfirmationToken.Create(PlanFixture.Create(title: "Other"));
+        var otherConfirmation = harness.Confirmation.Confirm(PlanFixture.Create(title: "Other"));
 
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
             otherConfirmation,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Empty(harness.Journal.Transitions);
+        Assert.Equal(0, harness.Lease.AcquisitionCount);
+    }
+
+    [Fact]
+    public async Task Confirmation_issued_by_an_untrusted_authority_does_not_authorize_apply()
+    {
+        var plan = PlanFixture.Create();
+        var harness = CoordinatorHarness.ForApply(plan);
+        var untrustedAuthority = new ConfirmationAuthority();
+
+        var result = await harness.Coordinator.ApplyAsync(
+            harness.Operation,
+            plan,
+            untrustedAuthority.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -155,7 +190,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Invalidated, result.Disposition);
@@ -180,7 +215,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.BackupFailed, result.Disposition);
@@ -199,7 +234,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             cancellation.Token);
 
         Assert.Equal(CoordinatorDisposition.Canceled, result.Disposition);
@@ -218,7 +253,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.DurabilityFailure, result.Disposition);
@@ -236,7 +271,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.DurabilityFailure, result.Disposition);
@@ -254,7 +289,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.DurabilityFailure, result.Disposition);
@@ -275,7 +310,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Conflict, result.Disposition);
@@ -302,7 +337,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -322,7 +357,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.PartialRecoveryRequired, result.Disposition);
@@ -342,7 +377,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.VerificationFailed, result.Disposition);
@@ -362,7 +397,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             cancellation.Token);
 
         Assert.Equal(CoordinatorDisposition.PartialRecoveryRequired, result.Disposition);
@@ -387,7 +422,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.ApplyAsync(
             harness.Operation,
             plan,
-            ConfirmationToken.Create(plan),
+            harness.Confirmation.Confirm(plan),
             cancellation.Token);
 
         Assert.Equal(CoordinatorDisposition.PartialRecoveryRequired, result.Disposition);
@@ -481,6 +516,25 @@ public sealed class ChangeCoordinatorTests
     }
 
     [Fact]
+    public async Task Applying_recovery_preserves_the_verified_restore_lifecycle()
+    {
+        var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
+        var step = plan.Steps[0];
+        var restoreFacts = PlanFixture.BegunRestoreFacts();
+        var harness = CoordinatorHarness.ForApplyingRecovery(plan, step, restorePoint: restoreFacts);
+        harness.Operation.Probes.Enqueue(CapabilityFixture.Supported(step.ResultFingerprint));
+
+        var result = await harness.Coordinator.ReconcileApplyingAsync(
+            harness.Operation,
+            new ApplyingRecovery(plan, step),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Reconciled, result.Disposition);
+        Assert.All(harness.Journal.Transitions, transition =>
+            Assert.Equal(restoreFacts.Digest, transition.RestorePoint?.Digest));
+    }
+
+    [Fact]
     public async Task Rollback_runs_reverse_order_and_treats_an_already_restored_step_as_success()
     {
         var changePlan = PlanFixture.Create(
@@ -498,7 +552,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.RolledBack, result.Disposition);
@@ -530,13 +584,74 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
         Assert.Equal(OperationState.Unsupported, result.DurableState);
         Assert.Equal(0, harness.Backups.CheckpointCount);
         Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Theory]
+    [InlineData(
+        RiskLevel.High,
+        RollbackCapability.Full,
+        BackupRequirement.Required,
+        true,
+        ChangePlanKind.TargetMutation)]
+    [InlineData(
+        RiskLevel.Informational,
+        RollbackCapability.NotApplicable,
+        BackupRequirement.NotApplicable,
+        false,
+        ChangePlanKind.ManualRestorePointArtifact)]
+    public async Task Generic_rollback_cannot_execute_a_restore_lifecycle_plan(
+        RiskLevel risk,
+        RollbackCapability rollback,
+        BackupRequirement backup,
+        bool requiresRestorePoint,
+        ChangePlanKind kind)
+    {
+        var changePlan = PlanFixture.Create(
+            risk: risk,
+            rollback: rollback,
+            backup: backup,
+            requiresRestorePoint: requiresRestorePoint,
+            kind: kind);
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Equal(OperationState.Unsupported, result.DurableState);
+        Assert.Equal(0, harness.Backups.ExistingReadCount);
+        Assert.Equal(0, harness.Backups.CheckpointCount);
+        Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Fact]
+    public async Task Confirmation_issued_by_an_untrusted_authority_does_not_authorize_rollback()
+    {
+        var changePlan = PlanFixture.Create();
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+        var untrustedAuthority = new ConfirmationAuthority();
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            untrustedAuthority.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Empty(harness.Journal.Transitions);
+        Assert.Equal(0, harness.Lease.AcquisitionCount);
     }
 
     [Fact]
@@ -550,7 +665,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -575,7 +690,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Conflict, result.Disposition);
@@ -602,7 +717,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
@@ -627,7 +742,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
@@ -652,7 +767,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
@@ -674,7 +789,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.RolledBack, result.Disposition);
@@ -696,7 +811,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.Conflict, result.Disposition);
@@ -716,7 +831,7 @@ public sealed class ChangeCoordinatorTests
         var result = await harness.Coordinator.RollbackAsync(
             harness.Operation,
             rollbackPlan,
-            RollbackConfirmationToken.Create(rollbackPlan),
+            harness.Confirmation.Confirm(rollbackPlan),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.AlreadyRestored, result.Disposition);
@@ -799,7 +914,8 @@ internal sealed class CoordinatorHarness
         Lease = new InMemoryMutationLease();
         Clock = new FixedClock();
         Operation = new InMemoryOperation();
-        Coordinator = new ChangeCoordinator(Journal, Backups, Lease, Clock);
+        Confirmation = new ConfirmationAuthority();
+        Coordinator = new ChangeCoordinator(Journal, Backups, Lease, Clock, Confirmation);
     }
 
     internal ChangeCoordinator Coordinator { get; }
@@ -813,6 +929,8 @@ internal sealed class CoordinatorHarness
     internal FixedClock Clock { get; }
 
     internal InMemoryOperation Operation { get; }
+
+    internal ConfirmationAuthority Confirmation { get; }
 
     internal static CoordinatorHarness ForApply(ChangePlan plan)
     {
@@ -863,7 +981,8 @@ internal sealed class CoordinatorHarness
     internal static CoordinatorHarness ForApplyingRecovery(
         ChangePlan plan,
         ChangeStep uncertainStep,
-        bool anyPriorApplied = false)
+        bool anyPriorApplied = false,
+        RestorePointTransitionFacts? restorePoint = null)
     {
         var appliedStepIds = anyPriorApplied
             ? plan.Steps.TakeWhile(step => step != uncertainStep).Select(step => step.StepId).ToArray()
@@ -875,7 +994,8 @@ internal sealed class CoordinatorHarness
             revision: 4,
             OperationState.Applying,
             uncertainStep.StepId,
-            appliedStepIds);
+            appliedStepIds,
+            restorePoint);
         return new CoordinatorHarness(new InMemoryJournal(boundary));
     }
 
@@ -1049,7 +1169,9 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
     private OperationState? _state;
     private long _revision;
     private readonly DurableOperationBoundary? _boundary;
+    private string? _factsDigest;
     private string? _restorePointFactsDigest;
+    private DurableOperationFacts? _facts;
 
     internal InMemoryJournal(OperationState? state = null, long revision = 0)
     {
@@ -1062,7 +1184,9 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
         _boundary = boundary;
         _state = boundary.State;
         _revision = boundary.Revision;
+        _factsDigest = boundary.Facts.Digest;
         _restorePointFactsDigest = boundary.RestorePoint?.Digest;
+        _facts = boundary.Facts;
     }
 
     internal List<OperationTransition> Transitions { get; } = [];
@@ -1070,6 +1194,8 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
     internal HashSet<OperationState> NonDurableStates { get; } = [];
 
     internal HashSet<OperationState> SkippedRevisionStates { get; } = [];
+
+    internal HashSet<OperationState> MisboundAcknowledgementStates { get; } = [];
 
     public ValueTask<DurableOperationBoundary?> ReadVerifiedBoundaryAsync(
         Guid operationId,
@@ -1089,6 +1215,7 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
         cancellationToken.ThrowIfCancellationRequested();
         if (transition.ExpectedRevision != _revision ||
             transition.ExpectedState != _state ||
+            !StringComparer.Ordinal.Equals(transition.ExpectedFactsDigest, _factsDigest) ||
             !StringComparer.Ordinal.Equals(
                 transition.ExpectedRestorePointFactsDigest,
                 _restorePointFactsDigest))
@@ -1104,14 +1231,32 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
         if (SkippedRevisionStates.Contains(transition.State))
         {
             return ValueTask.FromResult(
-                new DurableTransitionResult(true, _revision + 2, transition.State));
+                DurableTransitionResult.Acknowledged(transition, _revision + 2));
+        }
+
+        if (MisboundAcknowledgementStates.Contains(transition.State))
+        {
+            var foreignTransition = OperationTransition.Create(
+                Guid.NewGuid(),
+                transition.Facts,
+                transition.ExpectedRevision,
+                transition.ExpectedState,
+                transition.State,
+                transition.StepId,
+                transition.OccurredAtUtc.AddTicks(1),
+                transition.RestorePoint,
+                previousFacts: _facts);
+            return ValueTask.FromResult(
+                DurableTransitionResult.Acknowledged(foreignTransition));
         }
 
         _revision++;
         _state = transition.State;
+        _factsDigest = transition.Facts.Digest;
         _restorePointFactsDigest = transition.RestorePoint?.Digest;
+        _facts = transition.Facts;
         Transitions.Add(transition);
-        return ValueTask.FromResult(new DurableTransitionResult(true, _revision, _state));
+        return ValueTask.FromResult(DurableTransitionResult.Acknowledged(transition));
     }
 }
 
