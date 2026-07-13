@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using Xunit;
 
@@ -18,10 +19,30 @@ public sealed class SolutionStructureTests
         Assert.DoesNotContain(refs, x => x.Contains("System.Text.Json", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string FindRoot()
+    private static string FindRoot([CallerFilePath] string sourceFile = "")
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Winora.sln"))) directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
+        var candidates = new[]
+        {
+            Path.GetDirectoryName(sourceFile),
+            Directory.GetCurrentDirectory(),
+            AppContext.BaseDirectory,
+        };
+
+        foreach (var candidate in candidates.Where(static path => !string.IsNullOrWhiteSpace(path)))
+        {
+            var directory = new DirectoryInfo(candidate!);
+            while (directory is not null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "Winora.sln")) &&
+                    File.Exists(Path.Combine(directory.FullName, "src", "Winora.Core", "Winora.Core.csproj")))
+                {
+                    return directory.FullName;
+                }
+
+                directory = directory.Parent;
+            }
+        }
+
+        throw new InvalidOperationException("Repository root not found from the source, working, or output directory.");
     }
 }
