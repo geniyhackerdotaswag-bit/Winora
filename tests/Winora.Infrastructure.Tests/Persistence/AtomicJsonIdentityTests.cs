@@ -359,7 +359,7 @@ internal static class HardLinkNativeMethods
 
 internal sealed class ThrowingAtomicFileCleanup : IAtomicFileCleanup
 {
-    public void Delete(string path) => throw new InjectedCleanupException();
+    public void Delete(ValidatedFileHandle file) => throw new InjectedCleanupException();
 }
 
 internal sealed class InjectedCleanupException : IOException;

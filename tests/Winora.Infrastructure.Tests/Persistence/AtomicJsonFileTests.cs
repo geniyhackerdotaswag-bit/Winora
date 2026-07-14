@@ -321,6 +321,36 @@ public sealed class AtomicJsonFileTests
                 CancellationToken.None).AsTask());
     }
 
+    [Fact]
+    public async Task Cancellation_after_durable_publication_does_not_report_the_committed_event_as_failed()
+    {
+        using var directory = new TemporaryDirectory();
+        using var cancellation = new CancellationTokenSource();
+        var paths = new WinoraDataPaths(directory.Path);
+        var publisher = new CancelAfterPublishingPublisher(
+            new WriteThroughPublisher(),
+            cancellation);
+        var file = new AtomicJsonFile(
+            paths,
+            publisher,
+            serializer: new JsonDocumentSerializer(),
+            timeProvider: new FixedTimeProvider(CreatedUtc));
+        var destination = paths.GetJournalEventDocument("durable-event");
+
+        var committed = await file.CreateNewAsync(
+            destination,
+            new ValuePayload(7),
+            cancellation.Token);
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(7, committed.Payload.Value);
+        Assert.Equal(
+            7,
+            (await file.ReadAuthoritativeAsync<ValuePayload>(
+                destination,
+                CancellationToken.None)).Payload.Value);
+    }
+
     private static AtomicFixture CreateFixture(
         string root,
         IWriteThroughPublisher? publisher = null,
@@ -371,21 +401,25 @@ internal sealed class ThrowBeforePublishPublisher : IWriteThroughPublisher
     internal List<string> TemporaryPaths { get; } = [];
 
     public ValueTask PublishNewAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
         string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
-        TemporaryPaths.Add(temporaryPath);
+        TemporaryPaths.Add(temporaryFile.Path);
         throw new InjectedStorageException();
     }
 
     public ValueTask ReplaceProjectionAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
         string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
         string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
-        TemporaryPaths.Add(temporaryPath);
+        TemporaryPaths.Add(temporaryFile.Path);
         throw new InjectedStorageException();
     }
 }
@@ -398,15 +432,20 @@ internal sealed class TrackingPublisher(IWriteThroughPublisher inner) : IWriteTh
     internal int MaximumConcurrency => Volatile.Read(ref _maximumConcurrency);
 
     public async ValueTask PublishNewAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
         string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
         Enter();
         try
         {
             await Task.Delay(10, cancellationToken);
-            await inner.PublishNewAsync(temporaryPath, finalPath, cancellationToken);
+            await inner.PublishNewAsync(
+                temporaryFile,
+                finalPath,
+                expectedHash,
+                cancellationToken);
         }
         finally
         {
@@ -415,9 +454,12 @@ internal sealed class TrackingPublisher(IWriteThroughPublisher inner) : IWriteTh
     }
 
     public async ValueTask ReplaceProjectionAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
         string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
         string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
         Enter();
@@ -425,9 +467,12 @@ internal sealed class TrackingPublisher(IWriteThroughPublisher inner) : IWriteTh
         {
             await Task.Delay(10, cancellationToken);
             await inner.ReplaceProjectionAsync(
-                temporaryPath,
+                temporaryFile,
+                targetFile,
                 finalPath,
+                existingLastKnownGoodFile,
                 lastKnownGoodPath,
+                expectedHash,
                 cancellationToken);
         }
         finally
@@ -444,6 +489,45 @@ internal sealed class TrackingPublisher(IWriteThroughPublisher inner) : IWriteTh
         {
             observed = Interlocked.CompareExchange(ref _maximumConcurrency, current, observed);
         }
+    }
+}
+
+internal sealed class CancelAfterPublishingPublisher(
+    IWriteThroughPublisher inner,
+    CancellationTokenSource cancellation) : IWriteThroughPublisher
+{
+    public async ValueTask PublishNewAsync(
+        ValidatedFileHandle temporaryFile,
+        string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
+        CancellationToken cancellationToken)
+    {
+        await inner.PublishNewAsync(
+            temporaryFile,
+            finalPath,
+            expectedHash,
+            cancellationToken);
+        cancellation.Cancel();
+    }
+
+    public async ValueTask ReplaceProjectionAsync(
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
+        string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
+        string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
+        CancellationToken cancellationToken)
+    {
+        await inner.ReplaceProjectionAsync(
+            temporaryFile,
+            targetFile,
+            finalPath,
+            existingLastKnownGoodFile,
+            lastKnownGoodPath,
+            expectedHash,
+            cancellationToken);
+        cancellation.Cancel();
     }
 }
 

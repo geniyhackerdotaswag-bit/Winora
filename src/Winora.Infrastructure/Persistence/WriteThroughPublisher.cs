@@ -1,5 +1,4 @@
-using System.ComponentModel;
-using System.Runtime.InteropServices;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 
 namespace Winora.Infrastructure.Persistence;
@@ -7,27 +6,36 @@ namespace Winora.Infrastructure.Persistence;
 internal interface IWriteThroughPublisher
 {
     ValueTask PublishNewAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
         string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken);
 
     ValueTask ReplaceProjectionAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
         string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
         string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken);
 }
 
 internal interface IAtomicFileOperations
 {
-    void MoveNewFileWriteThrough(string temporaryPath, string finalPath);
+    void RenameNoReplace(ValidatedFileHandle sourceFile, string destinationPath);
 
-    void ReplaceFile(string temporaryPath, string finalPath, string lastKnownGoodPath);
+    void Delete(ValidatedFileHandle file);
 }
 
 internal interface IFileDurability
 {
     void FlushToDisk(FileStream stream);
+}
+
+internal interface IHandleDurability
+{
+    void FlushToDisk(ValidatedFileHandle file);
 }
 
 internal sealed class WindowsFileDurability : IFileDurability
@@ -42,32 +50,17 @@ internal sealed class WindowsFileDurability : IFileDurability
 
 }
 
-internal sealed partial class WindowsAtomicFileOperations : IAtomicFileOperations
+internal sealed class WindowsAtomicFileOperations : IAtomicFileOperations
 {
-    private const uint MoveFileWriteThrough = 0x00000008;
-
-    public void MoveNewFileWriteThrough(string temporaryPath, string finalPath)
+    public void RenameNoReplace(ValidatedFileHandle sourceFile, string destinationPath)
     {
-        ValidateSameVolume(temporaryPath, finalPath);
-
-        // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw
-        if (!MoveFileEx(temporaryPath, finalPath, MoveFileWriteThrough))
-        {
-            var error = Marshal.GetLastPInvokeError();
-            throw new IOException(
-                $"The write-through publication move failed with Win32 error {error}.",
-                new Win32Exception(error));
-        }
+        ArgumentNullException.ThrowIfNull(sourceFile);
+        ValidateSameVolume(sourceFile.Path, destinationPath);
+        sourceFile.RenameNoReplace(destinationPath);
     }
 
-    public void ReplaceFile(string temporaryPath, string finalPath, string lastKnownGoodPath)
-    {
-        ValidateSameVolume(temporaryPath, finalPath);
-        ValidateSameVolume(finalPath, lastKnownGoodPath);
-
-        // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew
-        File.Replace(temporaryPath, finalPath, lastKnownGoodPath, ignoreMetadataErrors: false);
-    }
+    public void Delete(ValidatedFileHandle file) =>
+        (file ?? throw new ArgumentNullException(nameof(file))).MarkDelete();
 
     private static void ValidateSameVolume(string firstPath, string secondPath)
     {
@@ -82,88 +75,192 @@ internal sealed partial class WindowsAtomicFileOperations : IAtomicFileOperation
             throw new IOException("Atomic publication requires paths on the same volume.");
         }
     }
+}
 
-    [LibraryImport(
-        "kernel32.dll",
-        EntryPoint = "MoveFileExW",
-        SetLastError = true,
-        StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool MoveFileEx(
-        string existingFileName,
-        string newFileName,
-        uint flags);
+internal sealed class WindowsHandleDurability : IHandleDurability
+{
+    public void FlushToDisk(ValidatedFileHandle file) =>
+        (file ?? throw new ArgumentNullException(nameof(file))).FlushToDisk();
 }
 
 internal sealed class WriteThroughPublisher : IWriteThroughPublisher
 {
     private readonly IAtomicFileOperations _fileOperations;
-    private readonly IValidatedFileAccess _validatedFileAccess;
+    private readonly IHandleDurability _handleDurability;
 
     public WriteThroughPublisher()
-        : this(new WindowsAtomicFileOperations(), new WindowsValidatedFileAccess())
+        : this(new WindowsAtomicFileOperations(), new WindowsHandleDurability())
     {
     }
 
-    public WriteThroughPublisher(
+    public WriteThroughPublisher(IAtomicFileOperations fileOperations)
+        : this(fileOperations, new WindowsHandleDurability())
+    {
+    }
+
+    internal WriteThroughPublisher(
         IAtomicFileOperations fileOperations,
-        IValidatedFileAccess validatedFileAccess)
+        IHandleDurability handleDurability)
     {
         _fileOperations = fileOperations ?? throw new ArgumentNullException(nameof(fileOperations));
-        _validatedFileAccess = validatedFileAccess ??
-            throw new ArgumentNullException(nameof(validatedFileAccess));
+        _handleDurability = handleDurability ??
+            throw new ArgumentNullException(nameof(handleDurability));
     }
 
     public ValueTask PublishNewAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
         string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(temporaryFile);
         cancellationToken.ThrowIfCancellationRequested();
-        var expectedHash = HashFile(temporaryPath);
+        ValidatePinnedFile(temporaryFile, expectedHash.Span, flushToDisk: true);
 
-        _fileOperations.MoveNewFileWriteThrough(temporaryPath, finalPath);
-        VerifyPublishedFile(finalPath, expectedHash);
-        cancellationToken.ThrowIfCancellationRequested();
+        _fileOperations.RenameNoReplace(temporaryFile, finalPath);
+        _handleDurability.FlushToDisk(temporaryFile);
+        ValidatePinnedFile(
+            temporaryFile,
+            expectedHash.Span,
+            flushToDisk: true,
+            ValidatedFileUse.PostPublication);
         return ValueTask.CompletedTask;
     }
 
     public ValueTask ReplaceProjectionAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
         string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
         string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(temporaryFile);
+        ArgumentNullException.ThrowIfNull(targetFile);
         cancellationToken.ThrowIfCancellationRequested();
-        var expectedHash = HashFile(temporaryPath);
+        ValidatePinnedFile(temporaryFile, expectedHash.Span, flushToDisk: true);
+        var targetHash = SHA256.HashData(
+            targetFile.ReadAllBytes(flushToDisk: false));
+        existingLastKnownGoodFile?.RevalidateIdentity();
 
-        _fileOperations.ReplaceFile(temporaryPath, finalPath, lastKnownGoodPath);
-        VerifyPublishedFile(finalPath, expectedHash);
-        cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.CompletedTask;
+        var retainedLastKnownGoodPath = existingLastKnownGoodFile is null
+            ? null
+            : $"{lastKnownGoodPath}.retained.{Guid.NewGuid():N}";
+        var lastKnownGoodRetained = false;
+        var targetMoved = false;
+        var stagedFileMoved = false;
+        try
+        {
+            if (existingLastKnownGoodFile is not null)
+            {
+                _fileOperations.RenameNoReplace(
+                    existingLastKnownGoodFile,
+                    retainedLastKnownGoodPath!);
+                lastKnownGoodRetained = true;
+                _handleDurability.FlushToDisk(existingLastKnownGoodFile);
+            }
+
+            _fileOperations.RenameNoReplace(targetFile, lastKnownGoodPath);
+            targetMoved = true;
+            _handleDurability.FlushToDisk(targetFile);
+            ValidatePinnedFile(targetFile, targetHash, flushToDisk: true);
+
+            _fileOperations.RenameNoReplace(temporaryFile, finalPath);
+            stagedFileMoved = true;
+            _handleDurability.FlushToDisk(temporaryFile);
+            ValidatePinnedFile(
+                temporaryFile,
+                expectedHash.Span,
+                flushToDisk: true,
+                ValidatedFileUse.PostPublication);
+
+            if (existingLastKnownGoodFile is not null)
+            {
+                TryDeleteRetainedLastKnownGood(existingLastKnownGoodFile);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+        catch (Exception primaryFailure)
+        {
+            if (stagedFileMoved)
+            {
+                ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+            }
+
+            List<Exception>? recoveryFailures = null;
+            try
+            {
+                if (targetMoved)
+                {
+                    _fileOperations.RenameNoReplace(targetFile, finalPath);
+                    _handleDurability.FlushToDisk(targetFile);
+                    ValidatePinnedFile(targetFile, targetHash, flushToDisk: true);
+                }
+            }
+            catch (Exception recoveryFailure)
+            {
+                (recoveryFailures ??= []).Add(recoveryFailure);
+            }
+
+            if (lastKnownGoodRetained)
+            {
+                try
+                {
+                    _fileOperations.RenameNoReplace(
+                        existingLastKnownGoodFile!,
+                        lastKnownGoodPath);
+                    _handleDurability.FlushToDisk(existingLastKnownGoodFile!);
+                    existingLastKnownGoodFile!.RevalidateIdentity();
+                }
+                catch (Exception recoveryFailure)
+                {
+                    (recoveryFailures ??= []).Add(recoveryFailure);
+                }
+            }
+
+            if (recoveryFailures is not null)
+            {
+                throw new AggregateException(
+                    "Projection publication failed and one or more retained files could not be restored without replacement.",
+                    new[] { primaryFailure }.Concat(recoveryFailures));
+            }
+
+            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+            throw;
+        }
     }
 
-    private byte[] HashFile(string path)
+    private void TryDeleteRetainedLastKnownGood(ValidatedFileHandle retainedFile)
     {
-        using var file = _validatedFileAccess.Open(
-            path,
-            FileAccess.Read,
-            ValidatedFileUse.PrePublication);
-        return SHA256.HashData(file.ReadAllBytes(flushToDisk: false));
+        try
+        {
+            _fileOperations.Delete(retainedFile);
+        }
+        catch (Exception cleanupFailure) when (!IsFatal(cleanupFailure))
+        {
+            // The new target has already passed durable readback. Leaving the uniquely named
+            // retained copy is safer than reporting the committed publication as failed.
+        }
     }
 
-    private void VerifyPublishedFile(string path, ReadOnlySpan<byte> expectedHash)
+    private static bool IsFatal(Exception exception) =>
+        exception is OutOfMemoryException or AccessViolationException;
+
+    private static void ValidatePinnedFile(
+        ValidatedFileHandle file,
+        ReadOnlySpan<byte> expectedHash,
+        bool flushToDisk,
+        ValidatedFileUse? observedUse = null)
     {
-        using var file = _validatedFileAccess.Open(
-            path,
-            FileAccess.ReadWrite,
-            ValidatedFileUse.PostPublication);
-        var publishedBytes = file.ReadAllBytes(flushToDisk: true);
+        file.RevalidateIdentity();
+        var publishedBytes = file.ReadAllBytes(flushToDisk, observedUse);
         var publishedHash = SHA256.HashData(publishedBytes);
         if (!CryptographicOperations.FixedTimeEquals(expectedHash, publishedHash))
         {
             throw new InvalidDataException(
-                "The published file differs from the durably flushed staging file.");
+                "The pinned publication file differs from its validated bytes.");
         }
     }
 }

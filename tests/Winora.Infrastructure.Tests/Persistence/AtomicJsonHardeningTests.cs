@@ -20,6 +20,10 @@ public sealed class AtomicJsonHardeningTests
         Assert.False(typeof(IWriteThroughPublisher).IsPublic);
         Assert.False(typeof(IAtomicFileOperations).IsPublic);
         Assert.False(typeof(IFileDurability).IsPublic);
+        Assert.DoesNotContain(
+            typeof(IAtomicFileCleanup).GetMethods(),
+            method => method.GetParameters().Any(
+                parameter => parameter.ParameterType == typeof(string)));
     }
 
     [Fact]
@@ -215,6 +219,156 @@ public sealed class AtomicJsonHardeningTests
     }
 
     [Fact]
+    public async Task Public_read_waits_for_a_pinned_projection_publication_instead_of_failing_sharing()
+    {
+        using var root = new TemporaryDirectory();
+        using var publicationGate = new BlockingPublisher();
+        var paths = new WinoraDataPaths(root.Path);
+        var destination = paths.ChangeIndexDocument;
+        var initial = CreateFile(paths);
+        await initial.WriteProjectionAsync(
+            destination,
+            new ValuePayload(1),
+            CancellationToken.None);
+        var writer = new AtomicJsonFile(
+            paths,
+            publisher: publicationGate,
+            serializer: new JsonDocumentSerializer(),
+            timeProvider: new FixedTimeProvider(
+                new DateTimeOffset(2026, 7, 13, 8, 30, 0, TimeSpan.Zero)));
+        var reader = CreateFile(paths);
+
+        var write = writer.WriteProjectionAsync(
+            destination,
+            new ValuePayload(2),
+            CancellationToken.None).AsTask();
+        Assert.True(publicationGate.WaitUntilBlocked(TimeSpan.FromSeconds(5)));
+
+        var read = Task.Run(async () =>
+            await reader.ReadProjectionAsync<ValuePayload>(
+                destination,
+                CancellationToken.None));
+        bool readWasPending;
+        try
+        {
+            await Task.Delay(100);
+            readWasPending = !read.IsCompleted;
+        }
+        finally
+        {
+            publicationGate.Release();
+        }
+
+        await write;
+        var result = await read;
+        Assert.True(readWasPending);
+        Assert.Equal(2, result.Document.Payload.Value);
+    }
+
+    [Fact]
+    public async Task Published_handle_is_released_before_the_next_writer_enters_serialization()
+    {
+        using var root = new TemporaryDirectory();
+        using var releaseGate = new BlockingPreparedHandleReleaseHook();
+        var paths = new WinoraDataPaths(root.Path);
+        var destination = paths.ChangeIndexDocument;
+        var initial = CreateFile(paths);
+        await initial.WriteProjectionAsync(
+            destination,
+            new ValuePayload(1),
+            CancellationToken.None);
+        var firstWriter = new AtomicJsonFile(
+            paths,
+            serializer: new JsonDocumentSerializer(),
+            timeProvider: new FixedTimeProvider(
+                new DateTimeOffset(2026, 7, 13, 8, 30, 0, TimeSpan.Zero)),
+            publicationRaceHook: releaseGate);
+        var secondWriter = CreateFile(paths);
+
+        var firstWrite = firstWriter.WriteProjectionAsync(
+            destination,
+            new ValuePayload(2),
+            CancellationToken.None).AsTask();
+        Assert.True(releaseGate.WaitUntilBlocked(TimeSpan.FromSeconds(5)));
+
+        var secondWrite = secondWriter.WriteProjectionAsync(
+            destination,
+            new ValuePayload(3),
+            CancellationToken.None).AsTask();
+        bool secondWriteWasPending;
+        try
+        {
+            await Task.Delay(100);
+            secondWriteWasPending = !secondWrite.IsCompleted;
+        }
+        finally
+        {
+            releaseGate.Release();
+        }
+
+        await firstWrite;
+        await secondWrite;
+        Assert.True(secondWriteWasPending);
+        var result = await secondWriter.ReadProjectionAsync<ValuePayload>(
+            destination,
+            CancellationToken.None);
+        Assert.Equal(3, result.Document.Payload.Value);
+    }
+
+    [Fact]
+    public async Task Transaction_read_uses_the_owned_serialization_scope_without_reentering_it()
+    {
+        using var root = new TemporaryDirectory();
+        var paths = new WinoraDataPaths(root.Path);
+        var destination = paths.ChangeIndexDocument;
+        var file = CreateFile(paths);
+        await file.WriteProjectionAsync(
+            destination,
+            new ValuePayload(7),
+            CancellationToken.None);
+
+        var read = file.ExecuteTransactionAsync(
+            transaction => transaction.ReadProjection<ValuePayload>(destination),
+            CancellationToken.None).AsTask();
+
+        var result = await read.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(7, result.Document.Payload.Value);
+    }
+
+    [Fact]
+    public async Task Transaction_publish_releases_its_prepared_handle_before_unlocking()
+    {
+        using var root = new TemporaryDirectory();
+        using var releaseGate = new BlockingPreparedHandleReleaseHook();
+        var paths = new WinoraDataPaths(root.Path);
+        var destination = paths.ChangeIndexDocument;
+        var initial = CreateFile(paths);
+        await initial.WriteProjectionAsync(
+            destination,
+            new ValuePayload(1),
+            CancellationToken.None);
+        var transactionOwner = new AtomicJsonFile(
+            paths,
+            serializer: new JsonDocumentSerializer(),
+            timeProvider: new FixedTimeProvider(
+                new DateTimeOffset(2026, 7, 13, 8, 30, 0, TimeSpan.Zero)),
+            publicationRaceHook: releaseGate);
+        using var prepared = transactionOwner.PrepareProjection(
+            destination,
+            new ValuePayload(2),
+            CancellationToken.None);
+
+        var publish = transactionOwner.ExecuteTransactionAsync(
+            transaction => transaction.ReplaceProjection(prepared),
+            CancellationToken.None).AsTask();
+
+        Assert.True(releaseGate.WaitUntilBlocked(TimeSpan.FromSeconds(5)));
+        releaseGate.Release();
+        var result = await publish;
+        Assert.Equal(2, result.Payload.Value);
+    }
+
+    [Fact]
     public async Task Repairing_a_corrupt_projection_preserves_valid_lkg_and_removes_quarantine()
     {
         using var root = new TemporaryDirectory();
@@ -320,31 +474,125 @@ internal sealed class BlockingFlushDurability : IFileDurability, IDisposable
     }
 }
 
+internal sealed class BlockingPublisher : IWriteThroughPublisher, IDisposable
+{
+    private readonly WriteThroughPublisher _inner = new();
+    private readonly ManualResetEventSlim _blocked = new();
+    private readonly ManualResetEventSlim _release = new();
+
+    public ValueTask PublishNewAsync(
+        ValidatedFileHandle temporaryFile,
+        string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
+        CancellationToken cancellationToken)
+    {
+        Block();
+        return _inner.PublishNewAsync(
+            temporaryFile,
+            finalPath,
+            expectedHash,
+            cancellationToken);
+    }
+
+    public ValueTask ReplaceProjectionAsync(
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
+        string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
+        string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
+        CancellationToken cancellationToken)
+    {
+        Block();
+        return _inner.ReplaceProjectionAsync(
+            temporaryFile,
+            targetFile,
+            finalPath,
+            existingLastKnownGoodFile,
+            lastKnownGoodPath,
+            expectedHash,
+            cancellationToken);
+    }
+
+    internal bool WaitUntilBlocked(TimeSpan timeout) => _blocked.Wait(timeout);
+
+    internal void Release() => _release.Set();
+
+    private void Block()
+    {
+        _blocked.Set();
+        _release.Wait();
+    }
+
+    public void Dispose()
+    {
+        _blocked.Dispose();
+        _release.Dispose();
+    }
+}
+
+internal sealed class BlockingPreparedHandleReleaseHook : IAtomicPublicationRaceHook, IDisposable
+{
+    private readonly ManualResetEventSlim _blocked = new();
+    private readonly ManualResetEventSlim _release = new();
+
+    public void AfterInitialIdentityValidation(AtomicPublicationContext context)
+    {
+    }
+
+    public void BeforePreparedHandleRelease()
+    {
+        _blocked.Set();
+        _release.Wait();
+    }
+
+    internal bool WaitUntilBlocked(TimeSpan timeout) => _blocked.Wait(timeout);
+
+    internal void Release() => _release.Set();
+
+    public void Dispose()
+    {
+        _blocked.Dispose();
+        _release.Dispose();
+    }
+}
+
 internal sealed class SignalingPublisher(
     TaskCompletionSource entered) : IWriteThroughPublisher
 {
     private readonly WriteThroughPublisher _inner = new();
 
     public ValueTask PublishNewAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
         string finalPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
         entered.TrySetResult();
-        return _inner.PublishNewAsync(temporaryPath, finalPath, cancellationToken);
+        return _inner.PublishNewAsync(
+            temporaryFile,
+            finalPath,
+            expectedHash,
+            cancellationToken);
     }
 
     public ValueTask ReplaceProjectionAsync(
-        string temporaryPath,
+        ValidatedFileHandle temporaryFile,
+        ValidatedFileHandle targetFile,
         string finalPath,
+        ValidatedFileHandle? existingLastKnownGoodFile,
         string lastKnownGoodPath,
+        ReadOnlyMemory<byte> expectedHash,
         CancellationToken cancellationToken)
     {
         entered.TrySetResult();
         return _inner.ReplaceProjectionAsync(
-            temporaryPath,
+            temporaryFile,
+            targetFile,
             finalPath,
+            existingLastKnownGoodFile,
             lastKnownGoodPath,
+            expectedHash,
             cancellationToken);
     }
 }

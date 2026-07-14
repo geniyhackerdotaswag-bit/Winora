@@ -42,6 +42,14 @@ internal interface IValidatedFileAccess
         string path,
         FileAccess access,
         ValidatedFileUse use);
+
+    ValidatedFileHandle OpenForMutation(
+        string path,
+        ValidatedFileUse use);
+
+    ValidatedFileHandle? TryOpenForMutation(
+        string path,
+        ValidatedFileUse use);
 }
 
 internal sealed partial class WindowsValidatedFileAccess(
@@ -49,15 +57,28 @@ internal sealed partial class WindowsValidatedFileAccess(
 {
     private const uint GenericRead = 0x80000000;
     private const uint GenericWrite = 0x40000000;
+    private const uint Delete = 0x00010000;
     private const uint FileShareRead = 0x00000001;
     private const uint OpenExisting = 3;
     private const uint FileFlagOpenReparsePoint = 0x00200000;
     private const uint FileFlagSequentialScan = 0x08000000;
+    private const uint FileFlagWriteThrough = 0x80000000;
 
     public ValidatedFileHandle Open(
         string path,
         FileAccess access,
-        ValidatedFileUse use)
+        ValidatedFileUse use) => OpenCore(path, access, use, canMutateEntry: false);
+
+    public ValidatedFileHandle OpenForMutation(
+        string path,
+        ValidatedFileUse use) =>
+        OpenCore(path, FileAccess.ReadWrite, use, canMutateEntry: true);
+
+    private ValidatedFileHandle OpenCore(
+        string path,
+        FileAccess access,
+        ValidatedFileUse use,
+        bool canMutateEntry)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (access is not FileAccess.Read and not FileAccess.ReadWrite)
@@ -69,7 +90,8 @@ internal sealed partial class WindowsValidatedFileAccess(
             ? path
             : $"\\\\?\\{path}";
         var desiredAccess = GenericRead |
-            (access == FileAccess.ReadWrite ? GenericWrite : 0);
+            (access == FileAccess.ReadWrite ? GenericWrite : 0) |
+            (canMutateEntry ? Delete : 0);
 
         // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
         var handle = CreateFile(
@@ -78,7 +100,9 @@ internal sealed partial class WindowsValidatedFileAccess(
             FileShareRead,
             IntPtr.Zero,
             OpenExisting,
-            FileFlagOpenReparsePoint | FileFlagSequentialScan,
+            FileFlagOpenReparsePoint |
+            FileFlagSequentialScan |
+            (canMutateEntry ? FileFlagWriteThrough : 0),
             IntPtr.Zero);
         if (handle.IsInvalid)
         {
@@ -98,7 +122,14 @@ internal sealed partial class WindowsValidatedFileAccess(
         {
             var identity = ValidateOpenHandle(handle);
             observer?.OnValidated(path, identity, use);
-            return new ValidatedFileHandle(handle, path, identity, access, use, observer);
+            return new ValidatedFileHandle(
+                handle,
+                path,
+                identity,
+                access,
+                use,
+                observer,
+                canMutateEntry);
         }
         catch
         {
@@ -122,7 +153,23 @@ internal sealed partial class WindowsValidatedFileAccess(
         }
     }
 
-    internal static ValidatedFileIdentity ValidateOpenHandle(SafeFileHandle handle)
+    public ValidatedFileHandle? TryOpenForMutation(
+        string path,
+        ValidatedFileUse use)
+    {
+        try
+        {
+            return OpenForMutation(path, use);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    internal static ValidatedFileIdentity ValidateOpenHandle(
+        SafeFileHandle handle,
+        bool requireSingleLink = true)
     {
         ArgumentNullException.ThrowIfNull(handle);
 
@@ -141,7 +188,7 @@ internal sealed partial class WindowsValidatedFileAccess(
             throw new IOException("Winora persistence accepts only ordinary non-reparse files.");
         }
 
-        if (information.NumberOfLinks != 1)
+        if (requireSingleLink && information.NumberOfLinks != 1)
         {
             throw new IOException("Winora persistence rejects files with hard-link aliases.");
         }
@@ -194,12 +241,13 @@ internal sealed partial class WindowsValidatedFileAccess(
         out ByHandleFileInformation fileInformation);
 }
 
-internal sealed class ValidatedFileHandle : IDisposable
+internal sealed partial class ValidatedFileHandle : IDisposable
 {
     private readonly SafeFileHandle _handle;
     private readonly FileAccess _access;
     private readonly ValidatedFileUse _use;
     private readonly IValidatedFileObserver? _observer;
+    private readonly bool _canMutateEntry;
 
     internal ValidatedFileHandle(
         SafeFileHandle handle,
@@ -207,7 +255,8 @@ internal sealed class ValidatedFileHandle : IDisposable
         ValidatedFileIdentity identity,
         FileAccess access,
         ValidatedFileUse use,
-        IValidatedFileObserver? observer)
+        IValidatedFileObserver? observer,
+        bool canMutateEntry)
     {
         _handle = handle;
         Path = path;
@@ -215,13 +264,29 @@ internal sealed class ValidatedFileHandle : IDisposable
         _access = access;
         _use = use;
         _observer = observer;
+        _canMutateEntry = canMutateEntry;
     }
 
     internal string Path { get; }
 
     internal ValidatedFileIdentity Identity { get; }
 
-    internal byte[] ReadAllBytes(bool flushToDisk)
+    internal bool HasBeenRenamed { get; private set; }
+
+    internal void RevalidateIdentity(bool requireSingleLink = true)
+    {
+        var actualIdentity = WindowsValidatedFileAccess.ValidateOpenHandle(
+            _handle,
+            requireSingleLink);
+        if (actualIdentity != Identity)
+        {
+            throw new IOException("The validated Winora file identity changed while it was pinned.");
+        }
+    }
+
+    internal byte[] ReadAllBytes(
+        bool flushToDisk,
+        ValidatedFileUse? observedUse = null)
     {
         var length = RandomAccess.GetLength(_handle);
         if (length < 0 || length > int.MaxValue)
@@ -253,14 +318,112 @@ internal sealed class ValidatedFileHandle : IDisposable
             RandomAccess.FlushToDisk(_handle);
         }
 
-        var finalIdentity = WindowsValidatedFileAccess.ValidateOpenHandle(_handle);
-        if (finalIdentity != Identity)
+        RevalidateIdentity();
+
+        return _observer?.TransformRead(Path, Identity, observedUse ?? _use, bytes) ?? bytes;
+    }
+
+    internal void RenameNoReplace(string destinationPath)
+    {
+        EnsureEntryMutationAllowed(requireSingleLink: true);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+        var fullPath = System.IO.Path.GetFullPath(destinationPath);
+        var fileName = fullPath.ToCharArray();
+        var fileNameBytes = checked((uint)(fileName.Length * sizeof(char)));
+        var fileNameOffset = IntPtr.Size == 8 ? 20 : 12;
+        var bufferSize = checked(fileNameOffset + (int)fileNameBytes + sizeof(char));
+        var buffer = Marshal.AllocHGlobal(bufferSize);
+        try
         {
-            throw new IOException("The validated Winora file identity changed while it was in use.");
+            Marshal.Copy(new byte[bufferSize], 0, buffer, bufferSize);
+            Marshal.WriteInt32(buffer, 0, 0);
+            Marshal.WriteIntPtr(buffer, IntPtr.Size == 8 ? 8 : 4, IntPtr.Zero);
+            Marshal.WriteInt32(buffer, IntPtr.Size == 8 ? 16 : 8, checked((int)fileNameBytes));
+            Marshal.Copy(fileName, 0, IntPtr.Add(buffer, fileNameOffset), fileName.Length);
+
+            // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle
+            // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_rename_info
+            if (!SetFileInformationByHandle(
+                    _handle,
+                    FileRenameInfo,
+                    buffer,
+                    checked((uint)bufferSize)))
+            {
+                var error = Marshal.GetLastPInvokeError();
+                throw new IOException(
+                    $"The handle-bound Winora rename failed with Win32 error {error}.",
+                    new Win32Exception(error));
+            }
+
+            HasBeenRenamed = true;
+
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    internal void MarkDelete()
+    {
+        EnsureEntryMutationAllowed(requireSingleLink: false);
+        var deleteFile = new byte[] { 1 };
+
+        // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle
+        if (!SetFileInformationByHandle(
+                _handle,
+                FileDispositionInfo,
+                deleteFile,
+                checked((uint)deleteFile.Length)))
+        {
+            var error = Marshal.GetLastPInvokeError();
+            throw new IOException(
+                $"The handle-bound Winora delete failed with Win32 error {error}.",
+                new Win32Exception(error));
+        }
+    }
+
+    internal void FlushToDisk()
+    {
+        if (_access != FileAccess.ReadWrite)
+        {
+            throw new InvalidOperationException(
+                "A durable flush requires a read/write validated handle.");
         }
 
-        return _observer?.TransformRead(Path, Identity, _use, bytes) ?? bytes;
+        RandomAccess.FlushToDisk(_handle);
+        RevalidateIdentity();
+    }
+
+    private void EnsureEntryMutationAllowed(bool requireSingleLink)
+    {
+        if (!_canMutateEntry)
+        {
+            throw new InvalidOperationException(
+                "The validated Winora handle was not opened for entry mutation.");
+        }
+
+        RevalidateIdentity(requireSingleLink);
     }
 
     public void Dispose() => _handle.Dispose();
+
+    private const int FileRenameInfo = 3;
+    private const int FileDispositionInfo = 4;
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetFileInformationByHandle(
+        SafeFileHandle file,
+        int fileInformationClass,
+        IntPtr fileInformation,
+        uint bufferSize);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetFileInformationByHandle(
+        SafeFileHandle file,
+        int fileInformationClass,
+        byte[] fileInformation,
+        uint bufferSize);
 }
