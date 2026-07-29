@@ -309,9 +309,13 @@ public sealed class VisualEffectsOperationTests
     private static RollbackPlan Rollback(ChangePlan plan, ChangeStep step) => RollbackPlan.Create(
         Guid.Parse("6f5f0b1a-1f2d-4a8e-9b3c-5d7e9f0a1b2c"),
         plan,
-        "BACKUP-DIGEST",
-        step.ResultFingerprint,
-        step.SourceFingerprint);
+        BackupReceipt.Verified(
+            "backup",
+            "BACKUP-DIGEST",
+            plan.Digest,
+            plan.SourceFingerprint,
+            plan.SourceFingerprint),
+        step.ResultFingerprint);
 
     private sealed class FakeVisualEffectsAccess : IVisualEffectsAccess
     {

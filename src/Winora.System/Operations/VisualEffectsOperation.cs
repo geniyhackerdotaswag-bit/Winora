@@ -65,6 +65,17 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
         _ => throw new ArgumentOutOfRangeException(nameof(setting)),
     };
 
+    /// <summary>
+    /// The stable step identifier for the single step this operation plans. Step identifiers are
+    /// display-safe by contract, so they cannot reuse the dotted catalog operation identifier.
+    /// </summary>
+    public static string StepIdFor(VisualEffectSetting setting) => setting switch
+    {
+        VisualEffectSetting.ClientAreaAnimation => "visual-effects-client-area-animation",
+        VisualEffectSetting.UiEffects => "visual-effects-ui-effects",
+        _ => throw new ArgumentOutOfRangeException(nameof(setting)),
+    };
+
     public ValueTask<OperationCapability> ProbeAsync(
         OperationTarget target,
         CancellationToken cancellationToken)
@@ -109,7 +120,7 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
         var source = Fingerprint(current);
         var result = Fingerprint(proposed);
         var step = new ChangeStep(
-            $"{OperationId}#1",
+            StepIdFor(_setting),
             new OperationTarget(OperationId),
             new DisplayValue(VisualEffectValues.Kind, VisualEffectValues.For(current)),
             new DisplayValue(VisualEffectValues.Kind, VisualEffectValues.For(proposed)),
