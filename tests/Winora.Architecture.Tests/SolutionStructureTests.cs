@@ -53,6 +53,70 @@ public sealed class SolutionStructureTests
         }
     }
 
+    [Theory]
+    [InlineData("Winora.Infrastructure")]
+    [InlineData("Winora.System")]
+    public void Inner_layers_reference_core_and_nothing_else_from_the_solution(string project)
+    {
+        Assert.Equal(new[] { "Winora.Core" }, WinoraProjectReferences(project));
+    }
+
+    [Fact]
+    public void ElevatedHost_references_the_three_inner_layers_and_never_the_app_or_winui()
+    {
+        Assert.Equal(
+            new[] { "Winora.Core", "Winora.Infrastructure", "Winora.System" },
+            WinoraProjectReferences("Winora.ElevatedHost"));
+        Assert.DoesNotContain(
+            PackageReferences("Winora.ElevatedHost"),
+            x => x.Contains("WindowsAppSDK", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void App_references_the_three_inner_layers_and_never_the_elevated_host()
+    {
+        Assert.Equal(
+            new[] { "Winora.Core", "Winora.Infrastructure", "Winora.System" },
+            WinoraProjectReferences("Winora.App"));
+    }
+
+    [Fact]
+    public void ViewModels_never_reference_infrastructure_or_system_directly()
+    {
+        var viewModels = Path.Combine(Root, "src", "Winora.App", "ViewModels");
+        if (!Directory.Exists(viewModels))
+        {
+            return;
+        }
+
+        var forbidden = new[] { "Winora.Infrastructure", "Winora.System" };
+        foreach (var source in Directory.EnumerateFiles(viewModels, "*.cs", SearchOption.AllDirectories))
+        {
+            var text = File.ReadAllText(source);
+            Assert.DoesNotContain(
+                forbidden,
+                token => text.Contains(token, StringComparison.Ordinal));
+        }
+    }
+
+    private static string[] WinoraProjectReferences(string project) =>
+        References(project, "ProjectReference")
+            .Select(static include => Path.GetFileNameWithoutExtension(include.Replace('\\', '/')))
+            .Where(static name => name.StartsWith("Winora.", StringComparison.Ordinal))
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+    private static string[] PackageReferences(string project) => References(project, "PackageReference");
+
+    private static string[] References(string project, string elementName)
+    {
+        var xml = XDocument.Load(Path.Combine(Root, "src", project, project + ".csproj"));
+        return xml.Descendants()
+            .Where(x => x.Name.LocalName == elementName)
+            .Select(x => (string?)x.Attribute("Include") ?? string.Empty)
+            .ToArray();
+    }
+
     private static string FindRoot([CallerFilePath] string sourceFile = "")
     {
         var candidates = new[]
