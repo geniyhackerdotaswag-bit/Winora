@@ -101,7 +101,12 @@ public sealed record ChangePlan
             throw new ArgumentException("A change plan identifier is required.", nameof(planId));
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(operationId);
+        if (!IsSafeCatalogOperationId(operationId))
+        {
+            throw new ArgumentException(
+                "An allowlisted catalog operation identifier is required.",
+                nameof(operationId));
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(category);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(summary);
@@ -114,9 +119,11 @@ public sealed record ChangePlan
             throw new ArgumentException("A change plan must contain at least one ordered step.", nameof(steps));
         }
 
-        if (steps.Any(step => step is null || string.IsNullOrWhiteSpace(step.StepId)))
+        if (steps.Any(step => step is null || !IsSafeStepId(step.StepId)))
         {
-            throw new ArgumentException("Every change step must have a non-blank identifier.", nameof(steps));
+            throw new ArgumentException(
+                "Every change step must have a display-safe stable identifier.",
+                nameof(steps));
         }
 
         if (steps.Select(step => step.StepId).Distinct(StringComparer.Ordinal).Count() != steps.Count)
@@ -198,4 +205,94 @@ public sealed record ChangePlan
 
     private static void Append(StringBuilder builder, int value) =>
         Append(builder, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    internal static bool IsSafeStepId(string? stepId)
+    {
+        if (string.IsNullOrEmpty(stepId) || stepId.Length > 64)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < stepId.Length; index++)
+        {
+            var character = stepId[index];
+            var isLowerAscii = character is >= 'a' and <= 'z';
+            var isDigit = character is >= '0' and <= '9';
+            if (isLowerAscii || isDigit || (index > 0 && character is '-' or '_'))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    internal static bool IsSafeCatalogOperationId(string? operationId)
+    {
+        if (string.IsNullOrEmpty(operationId) || operationId.Length > 96)
+        {
+            return false;
+        }
+
+        var startsSegment = true;
+        for (var index = 0; index < operationId.Length; index++)
+        {
+            var character = operationId[index];
+            var isLowerAscii = character is >= 'a' and <= 'z';
+            var isDigit = character is >= '0' and <= '9';
+            if (startsSegment)
+            {
+                if (!isLowerAscii)
+                {
+                    return false;
+                }
+
+                startsSegment = false;
+                continue;
+            }
+
+            if (character == '.')
+            {
+                if (operationId[index - 1] == '-')
+                {
+                    return false;
+                }
+
+                startsSegment = true;
+                continue;
+            }
+
+            if (!isLowerAscii && !isDigit && character != '-')
+            {
+                return false;
+            }
+        }
+
+        return !startsSegment && operationId[^1] != '-';
+    }
+
+    internal static bool IsSafeOpaqueStorageId(string? identifier)
+    {
+        if (string.IsNullOrEmpty(identifier) || identifier.Length > 96)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < identifier.Length; index++)
+        {
+            var character = identifier[index];
+            var isLowerAscii = character is >= 'a' and <= 'z';
+            var isDigit = character is >= '0' and <= '9';
+            if (isLowerAscii || isDigit || (index > 0 && character is '-' or '_'))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
 }

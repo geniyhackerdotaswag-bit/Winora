@@ -26,7 +26,16 @@ public sealed partial class ChangeCoordinator
         }
 
         await using var leaseScope = lease;
-        var cursor = new Cursor();
+        if (!IsValidLeaseBinding(lease, plan.RollbackId, isRecovery: false) ||
+            !await lease.RevalidateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return Result(
+                CoordinatorDisposition.Blocked,
+                new Cursor(),
+                "The mutation lease is not bound to this rollback operation.");
+        }
+
+        var cursor = new Cursor(steps: plan.Steps, isRollback: true);
         var facts = DurableOperationFacts.From(plan);
         if (!await MoveAsync(plan.RollbackId, facts, cursor, OperationState.RollbackPlanned, null).ConfigureAwait(false))
         {
@@ -93,7 +102,10 @@ public sealed partial class ChangeCoordinator
                 plan.ChangePlan.Digest,
                 plan.ChangePlan.SourceFingerprint,
                 plan.ChangePlan.SourceFingerprint) ||
-            !StringComparer.Ordinal.Equals(linkedBackup.BackupDigest, plan.BackupDigest))
+            !StringComparer.Ordinal.Equals(linkedBackup.BackupId, plan.BackupId) ||
+            !StringComparer.Ordinal.Equals(linkedBackup.BackupDigest, plan.BackupDigest) ||
+            linkedBackup.CapturedSourceFingerprint != plan.BackupFingerprint ||
+            linkedBackup.LiveSourceFingerprint != plan.BackupFingerprint)
         {
             return await RollbackFailedAsync(
                 plan.RollbackId,
@@ -129,6 +141,17 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.AlreadyRestored,
+                    null,
+                    capability.CurrentFingerprint).ConfigureAwait(false))
+            {
+                return DurabilityFailure(cursor);
+            }
+
+            if (!await MoveAsync(
+                    plan.RollbackId,
+                    facts,
+                    cursor,
+                    OperationState.RolledBack,
                     null).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor);
@@ -144,7 +167,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.RecoveryConflictExternalDrift,
-                    null).ConfigureAwait(false))
+                    null,
+                    capability.CurrentFingerprint).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor);
             }
@@ -239,7 +263,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.AlreadyRestored,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        before.CurrentFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -255,7 +280,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.RecoveryConflictExternalDrift,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        before.CurrentFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -287,7 +313,8 @@ public sealed partial class ChangeCoordinator
                             facts,
                             cursor,
                             OperationState.RecoveryConflictExternalDrift,
-                            step.StepId).ConfigureAwait(false))
+                            step.StepId,
+                            rollback.ObservedFingerprint).ConfigureAwait(false))
                     {
                         return DurabilityFailure(cursor, verifiedStepCount);
                     }
@@ -304,7 +331,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.AlreadyRestored,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        rollback.ObservedFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -329,7 +357,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.RollbackApplied,
-                    step.StepId).ConfigureAwait(false))
+                    step.StepId,
+                    rollback.ObservedFingerprint).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor, verifiedStepCount);
             }
@@ -342,7 +371,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.RecoveryConflictExternalDrift,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        after.CurrentFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }

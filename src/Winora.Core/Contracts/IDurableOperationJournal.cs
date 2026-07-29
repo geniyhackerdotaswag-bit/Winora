@@ -4,42 +4,153 @@ using Winora.Core.Changes;
 
 namespace Winora.Core.Contracts;
 
+public sealed record DurableStepRecoveryDescriptor
+{
+    private DurableStepRecoveryDescriptor(
+        string stepId,
+        string recoveryKey,
+        StateFingerprint sourceFingerprint,
+        StateFingerprint resultFingerprint)
+    {
+        StepId = stepId;
+        RecoveryKey = recoveryKey;
+        SourceFingerprint = sourceFingerprint;
+        ResultFingerprint = resultFingerprint;
+        Digest = ComputeDigest(this);
+    }
+
+    public string StepId { get; }
+
+    /// <summary>
+    /// Opaque allowlisted key used by an operation adapter to locate the exact
+    /// target record inside the verified backup. It is never a path or command.
+    /// </summary>
+    public string RecoveryKey { get; }
+
+    public StateFingerprint SourceFingerprint { get; }
+
+    public StateFingerprint ResultFingerprint { get; }
+
+    public string Digest { get; }
+
+    internal static DurableStepRecoveryDescriptor From(ChangeStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        return Rehydrate(
+            step.StepId,
+            step.StepId,
+            step.SourceFingerprint,
+            step.ResultFingerprint);
+    }
+
+    internal static DurableStepRecoveryDescriptor Rehydrate(
+        string stepId,
+        string recoveryKey,
+        StateFingerprint sourceFingerprint,
+        StateFingerprint resultFingerprint)
+    {
+        if (!ChangePlan.IsSafeStepId(stepId))
+        {
+            throw new ArgumentException(
+                "A recovery step requires a canonical opaque identifier.",
+                nameof(stepId));
+        }
+
+        if (!ChangePlan.IsSafeStepId(recoveryKey))
+        {
+            throw new ArgumentException(
+                "A recovery key must be opaque and path-independent.",
+                nameof(recoveryKey));
+        }
+
+        ValidateFingerprint(sourceFingerprint, nameof(sourceFingerprint));
+        ValidateFingerprint(resultFingerprint, nameof(resultFingerprint));
+        return new DurableStepRecoveryDescriptor(
+            stepId,
+            recoveryKey,
+            sourceFingerprint,
+            resultFingerprint);
+    }
+
+    private static void ValidateFingerprint(StateFingerprint fingerprint, string parameterName)
+    {
+        DurableFingerprintPolicy.Validate(fingerprint, parameterName);
+    }
+
+    private static string ComputeDigest(DurableStepRecoveryDescriptor descriptor)
+    {
+        var canonical = new StringBuilder();
+        Append(canonical, descriptor.StepId);
+        Append(canonical, descriptor.RecoveryKey);
+        Append(canonical, descriptor.SourceFingerprint.Algorithm);
+        Append(canonical, descriptor.SourceFingerprint.Value);
+        Append(canonical, descriptor.ResultFingerprint.Algorithm);
+        Append(canonical, descriptor.ResultFingerprint.Value);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+
+    private static void Append(StringBuilder builder, string value)
+    {
+        builder.Append(Encoding.UTF8.GetByteCount(value));
+        builder.Append(':');
+        builder.Append(value);
+    }
+}
+
 public sealed record DurableOperationFacts
 {
     private DurableOperationFacts(
+        string catalogOperationId,
         string planDigest,
         StateFingerprint sourceFingerprint,
         IReadOnlyList<string> orderedStepIds,
+        IReadOnlyList<DurableStepRecoveryDescriptor> recoverySteps,
         PrivilegeRequirement privilege,
         RiskLevel risk,
         RollbackCapability rollback,
         BackupRequirement backup,
         bool requiresRestorePoint,
         ChangePlanKind kind,
+        string? backupId,
         string? backupDigest,
         string? recoveryCheckpointId,
-        string? recoveryCheckpointDigest)
+        string? recoveryCheckpointDigest,
+        StateFingerprint? backupFingerprint)
     {
+        DurableFingerprintPolicy.Validate(sourceFingerprint, nameof(sourceFingerprint));
+        if (backupFingerprint is not null)
+        {
+            DurableFingerprintPolicy.Validate(backupFingerprint, nameof(backupFingerprint));
+        }
+
+        CatalogOperationId = catalogOperationId;
         PlanDigest = planDigest;
         SourceFingerprint = sourceFingerprint;
         OrderedStepIds = Array.AsReadOnly(orderedStepIds.ToArray());
+        RecoverySteps = Array.AsReadOnly(recoverySteps.ToArray());
         Privilege = privilege;
         Risk = risk;
         Rollback = rollback;
         Backup = backup;
         RequiresRestorePoint = requiresRestorePoint;
         Kind = kind;
+        BackupId = backupId;
         BackupDigest = backupDigest;
         RecoveryCheckpointId = recoveryCheckpointId;
         RecoveryCheckpointDigest = recoveryCheckpointDigest;
+        BackupFingerprint = backupFingerprint;
         Digest = ComputeDigest(this);
     }
+
+    public string CatalogOperationId { get; }
 
     public string PlanDigest { get; }
 
     public StateFingerprint SourceFingerprint { get; }
 
     public IReadOnlyList<string> OrderedStepIds { get; }
+
+    public IReadOnlyList<DurableStepRecoveryDescriptor> RecoverySteps { get; }
 
     public PrivilegeRequirement Privilege { get; }
 
@@ -53,19 +164,29 @@ public sealed record DurableOperationFacts
 
     public ChangePlanKind Kind { get; }
 
+    public string? BackupId { get; }
+
     public string? BackupDigest { get; }
 
     public string? RecoveryCheckpointId { get; }
 
     public string? RecoveryCheckpointDigest { get; }
 
+    public StateFingerprint? BackupFingerprint { get; }
+
     public string Digest { get; }
+
+    internal bool HasBackupBinding =>
+        !string.IsNullOrWhiteSpace(BackupId) &&
+        !string.IsNullOrWhiteSpace(BackupDigest);
 
     internal static DurableOperationFacts From(ChangePlan plan) =>
         new(
+            plan.OperationId,
             plan.Digest,
             plan.SourceFingerprint,
             Array.AsReadOnly(plan.Steps.Select(step => step.StepId).ToArray()),
+            Array.AsReadOnly(plan.Steps.Select(DurableStepRecoveryDescriptor.From).ToArray()),
             plan.Privilege,
             plan.Risk,
             plan.Rollback,
@@ -74,76 +195,236 @@ public sealed record DurableOperationFacts
             plan.Kind,
             null,
             null,
+            null,
+            null,
             null);
 
     internal static DurableOperationFacts From(RollbackPlan plan) =>
         new(
+            plan.ChangePlan.OperationId,
             plan.Digest,
             plan.AppliedFingerprint,
             Array.AsReadOnly(plan.Steps.Select(step => step.StepId).ToArray()),
+            Array.AsReadOnly(plan.Steps.Select(DurableStepRecoveryDescriptor.From).ToArray()),
             plan.ChangePlan.Privilege,
             plan.ChangePlan.Risk,
             plan.ChangePlan.Rollback,
             plan.ChangePlan.Backup,
             plan.ChangePlan.RequiresRestorePoint,
             plan.ChangePlan.Kind,
+            plan.BackupId,
             plan.BackupDigest,
             null,
-            null);
+            null,
+            plan.BackupFingerprint);
 
-    internal DurableOperationFacts WithBackupDigest(string backupDigest)
+    internal static DurableOperationFacts Rehydrate(
+        string catalogOperationId,
+        string planDigest,
+        StateFingerprint sourceFingerprint,
+        IReadOnlyList<string> orderedStepIds,
+        IReadOnlyList<DurableStepRecoveryDescriptor> recoverySteps,
+        PrivilegeRequirement privilege,
+        RiskLevel risk,
+        RollbackCapability rollback,
+        BackupRequirement backup,
+        bool requiresRestorePoint,
+        ChangePlanKind kind,
+        string? backupId,
+        string? backupDigest,
+        string? recoveryCheckpointId,
+        string? recoveryCheckpointDigest,
+        StateFingerprint? backupFingerprint = null)
     {
+        if (!ChangePlan.IsSafeCatalogOperationId(catalogOperationId))
+        {
+            throw new ArgumentException(
+                "Persisted durable facts require a stable catalog operation identifier.",
+                nameof(catalogOperationId));
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(planDigest);
+        DurableFingerprintPolicy.Validate(sourceFingerprint, nameof(sourceFingerprint));
+        ArgumentNullException.ThrowIfNull(orderedStepIds);
+        ArgumentNullException.ThrowIfNull(recoverySteps);
+        if (orderedStepIds.Count == 0 ||
+            orderedStepIds.Any(stepId => !ChangePlan.IsSafeStepId(stepId)) ||
+            orderedStepIds.Distinct(StringComparer.Ordinal).Count() != orderedStepIds.Count)
+        {
+            throw new ArgumentException(
+                "Persisted durable facts require unique non-blank ordered step identifiers.",
+                nameof(orderedStepIds));
+        }
+
+        if (recoverySteps.Count != orderedStepIds.Count ||
+            recoverySteps.Any(descriptor => descriptor is null) ||
+            !recoverySteps.Select(descriptor => descriptor.StepId)
+                .SequenceEqual(orderedStepIds, StringComparer.Ordinal))
+        {
+            throw new ArgumentException(
+                "Persisted recovery descriptors must match the exact ordered step identifiers.",
+                nameof(recoverySteps));
+        }
+
+        if ((backupId is null) != (backupDigest is null))
+        {
+            throw new ArgumentException(
+                "A persisted backup identifier and digest must be present together.");
+        }
+
+        if (backupId is not null && !ChangePlan.IsSafeOpaqueStorageId(backupId))
+        {
+            throw new ArgumentException(
+                "A persisted backup identifier must be opaque and path-independent.",
+                nameof(backupId));
+        }
+
+        if ((recoveryCheckpointId is null) != (recoveryCheckpointDigest is null))
+        {
+            throw new ArgumentException(
+                "A persisted recovery checkpoint identifier and digest must be present together.");
+        }
+
+        if (recoveryCheckpointId is not null &&
+            !ChangePlan.IsSafeOpaqueStorageId(recoveryCheckpointId))
+        {
+            throw new ArgumentException(
+                "A persisted checkpoint identifier must be opaque and path-independent.",
+                nameof(recoveryCheckpointId));
+        }
+
+        if (backupFingerprint is not null)
+        {
+            DurableFingerprintPolicy.Validate(backupFingerprint, nameof(backupFingerprint));
+        }
+
+        if (!Enum.IsDefined(privilege))
+        {
+            throw new ArgumentOutOfRangeException(nameof(privilege));
+        }
+
+        if (!Enum.IsDefined(risk))
+        {
+            throw new ArgumentOutOfRangeException(nameof(risk));
+        }
+
+        if (!Enum.IsDefined(rollback))
+        {
+            throw new ArgumentOutOfRangeException(nameof(rollback));
+        }
+
+        if (!Enum.IsDefined(backup))
+        {
+            throw new ArgumentOutOfRangeException(nameof(backup));
+        }
+
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+
+        return new DurableOperationFacts(
+            catalogOperationId,
+            planDigest,
+            sourceFingerprint,
+            orderedStepIds,
+            recoverySteps,
+            privilege,
+            risk,
+            rollback,
+            backup,
+            requiresRestorePoint,
+            kind,
+            backupId,
+            backupDigest,
+            recoveryCheckpointId,
+            recoveryCheckpointDigest,
+            backupFingerprint);
+    }
+
+    internal DurableOperationFacts WithBackupBinding(string backupId, string backupDigest)
+    {
+        if (!ChangePlan.IsSafeOpaqueStorageId(backupId))
+        {
+            throw new ArgumentException(
+                "A backup identifier must be opaque and path-independent.",
+                nameof(backupId));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(backupDigest);
         return new DurableOperationFacts(
+            CatalogOperationId,
             PlanDigest,
             SourceFingerprint,
             OrderedStepIds,
+            RecoverySteps,
             Privilege,
             Risk,
             Rollback,
             Backup,
             RequiresRestorePoint,
             Kind,
+            backupId,
             backupDigest,
             RecoveryCheckpointId,
-            RecoveryCheckpointDigest);
+            RecoveryCheckpointDigest,
+            BackupFingerprint);
     }
 
     internal DurableOperationFacts WithRecoveryCheckpoint(string checkpointId, string checkpointDigest)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(checkpointId);
+        if (!ChangePlan.IsSafeOpaqueStorageId(checkpointId))
+        {
+            throw new ArgumentException(
+                "A checkpoint identifier must be opaque and path-independent.",
+                nameof(checkpointId));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(checkpointDigest);
         return new DurableOperationFacts(
+            CatalogOperationId,
             PlanDigest,
             SourceFingerprint,
             OrderedStepIds,
+            RecoverySteps,
             Privilege,
             Risk,
             Rollback,
             Backup,
             RequiresRestorePoint,
             Kind,
+            BackupId,
             BackupDigest,
             checkpointId,
-            checkpointDigest);
+            checkpointDigest,
+            BackupFingerprint);
     }
 
     internal bool Continues(DurableOperationFacts previous, OperationState state)
     {
         var planFactsMatch =
+            StringComparer.Ordinal.Equals(CatalogOperationId, previous.CatalogOperationId) &&
             StringComparer.Ordinal.Equals(PlanDigest, previous.PlanDigest) &&
             SourceFingerprint == previous.SourceFingerprint &&
             OrderedStepIds.SequenceEqual(previous.OrderedStepIds, StringComparer.Ordinal) &&
+            RecoverySteps.Select(descriptor => descriptor.Digest)
+                .SequenceEqual(
+                    previous.RecoverySteps.Select(descriptor => descriptor.Digest),
+                    StringComparer.Ordinal) &&
             Privilege == previous.Privilege &&
             Risk == previous.Risk &&
             Rollback == previous.Rollback &&
             Backup == previous.Backup &&
             RequiresRestorePoint == previous.RequiresRestorePoint &&
             Kind == previous.Kind;
-        var backupContinues = previous.BackupDigest is null
-            ? BackupDigest is null ||
-              (state == OperationState.BackupCreated && !string.IsNullOrWhiteSpace(BackupDigest))
-            : StringComparer.Ordinal.Equals(BackupDigest, previous.BackupDigest);
+        planFactsMatch = planFactsMatch && BackupFingerprint == previous.BackupFingerprint;
+        var backupContinues = previous.BackupId is null && previous.BackupDigest is null
+            ? (BackupId is null && BackupDigest is null) ||
+              (state == OperationState.BackupCreated &&
+               !string.IsNullOrWhiteSpace(BackupId) &&
+               !string.IsNullOrWhiteSpace(BackupDigest))
+            : StringComparer.Ordinal.Equals(BackupId, previous.BackupId) &&
+              StringComparer.Ordinal.Equals(BackupDigest, previous.BackupDigest);
         var checkpointContinues = previous.RecoveryCheckpointId is null &&
                                   previous.RecoveryCheckpointDigest is null
             ? (RecoveryCheckpointId is null && RecoveryCheckpointDigest is null) ||
@@ -159,6 +440,7 @@ public sealed record DurableOperationFacts
     private static string ComputeDigest(DurableOperationFacts facts)
     {
         var canonical = new StringBuilder();
+        Append(canonical, facts.CatalogOperationId);
         Append(canonical, facts.PlanDigest);
         Append(canonical, facts.SourceFingerprint.Algorithm);
         Append(canonical, facts.SourceFingerprint.Value);
@@ -168,15 +450,24 @@ public sealed record DurableOperationFacts
             Append(canonical, stepId);
         }
 
+        Append(canonical, facts.RecoverySteps.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        foreach (var descriptor in facts.RecoverySteps)
+        {
+            Append(canonical, descriptor.Digest);
+        }
+
         Append(canonical, ((int)facts.Privilege).ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(canonical, ((int)facts.Risk).ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(canonical, ((int)facts.Rollback).ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(canonical, ((int)facts.Backup).ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(canonical, facts.RequiresRestorePoint ? "1" : "0");
         Append(canonical, ((int)facts.Kind).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AppendOptional(canonical, facts.BackupId);
         AppendOptional(canonical, facts.BackupDigest);
         AppendOptional(canonical, facts.RecoveryCheckpointId);
         AppendOptional(canonical, facts.RecoveryCheckpointDigest);
+        AppendOptional(canonical, facts.BackupFingerprint?.Algorithm);
+        AppendOptional(canonical, facts.BackupFingerprint?.Value);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
     }
 
@@ -222,6 +513,8 @@ public enum RestorePointFinalizationMode
 
 public sealed record RestorePointTransitionFacts
 {
+    public const string WinoraDescription = "Winora restore point";
+
     private RestorePointTransitionFacts(
         Guid correlationId,
         string description,
@@ -291,8 +584,21 @@ public sealed record RestorePointTransitionFacts
             throw new ArgumentException("A restore-point correlation identifier is required.", nameof(correlationId));
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
-        ArgumentNullException.ThrowIfNull(preBeginInventoryFingerprint);
+        if (!StringComparer.Ordinal.Equals(description, WinoraDescription))
+        {
+            throw new ArgumentException(
+                "Restore-point descriptions must use the fixed Winora-owned tag.",
+                nameof(description));
+        }
+        DurableFingerprintPolicy.Validate(
+            preBeginInventoryFingerprint,
+            nameof(preBeginInventoryFingerprint));
+        if (postBeginInventoryFingerprint is not null)
+        {
+            DurableFingerprintPolicy.Validate(
+                postBeginInventoryFingerprint,
+                nameof(postBeginInventoryFingerprint));
+        }
         if (sequenceNumber < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sequenceNumber));
@@ -469,6 +775,193 @@ public sealed record RestorePointTransitionFacts
     }
 }
 
+public enum FingerprintFactKind
+{
+    NotApplicable,
+    Present,
+}
+
+public sealed record DurableFingerprintFact
+{
+    private DurableFingerprintFact(FingerprintFactKind kind, StateFingerprint? value)
+    {
+        Kind = kind;
+        Value = value;
+        Digest = ComputeDigest(kind, value);
+    }
+
+    public FingerprintFactKind Kind { get; }
+
+    public StateFingerprint? Value { get; }
+
+    public string Digest { get; }
+
+    internal static DurableFingerprintFact NotApplicable() =>
+        new(FingerprintFactKind.NotApplicable, null);
+
+    internal static DurableFingerprintFact Present(StateFingerprint value)
+    {
+        DurableFingerprintPolicy.Validate(value, nameof(value));
+        return new DurableFingerprintFact(FingerprintFactKind.Present, value);
+    }
+
+    internal static DurableFingerprintFact Rehydrate(
+        FingerprintFactKind kind,
+        StateFingerprint? value) =>
+        kind switch
+        {
+            FingerprintFactKind.NotApplicable when value is null => NotApplicable(),
+            FingerprintFactKind.Present when value is not null => Present(value),
+            _ => throw new ArgumentException("Persisted fingerprint presence and value disagree."),
+        };
+
+    private static string ComputeDigest(FingerprintFactKind kind, StateFingerprint? value)
+    {
+        var canonical = new StringBuilder();
+        canonical.Append((int)kind);
+        canonical.Append(':');
+        if (value is not null)
+        {
+            canonical.Append(Encoding.UTF8.GetByteCount(value.Algorithm));
+            canonical.Append(':');
+            canonical.Append(value.Algorithm);
+            canonical.Append(Encoding.UTF8.GetByteCount(value.Value));
+            canonical.Append(':');
+            canonical.Append(value.Value);
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+    }
+}
+
+public enum DurableOperationErrorCode
+{
+    None,
+    Canceled,
+    ElevationCanceled,
+    Unsupported,
+    PlanInvalidated,
+    BackupFailed,
+    RestorePointFailed,
+    ApplyFailed,
+    PartialApply,
+    VerificationFailed,
+    ExternalDrift,
+    RollbackFailed,
+    RestorePointRecoveryRequired,
+    RestorePointFinalizationFailed,
+    RestorePointFinalizationOutcomeUnknown,
+}
+
+public sealed record OperationTransitionMetadata
+{
+    private OperationTransitionMetadata(
+        DurableFingerprintFact expectedFingerprint,
+        DurableFingerprintFact resultFingerprint,
+        DurableOperationErrorCode errorCode)
+    {
+        ExpectedFingerprint = expectedFingerprint;
+        ResultFingerprint = resultFingerprint;
+        ErrorCode = errorCode;
+        Digest = ComputeDigest(this);
+    }
+
+    public DurableFingerprintFact ExpectedFingerprint { get; }
+
+    public DurableFingerprintFact ResultFingerprint { get; }
+
+    public DurableOperationErrorCode ErrorCode { get; }
+
+    public string Digest { get; }
+
+    internal static OperationTransitionMetadata Create(
+        DurableFingerprintFact expectedFingerprint,
+        DurableFingerprintFact resultFingerprint,
+        DurableOperationErrorCode errorCode)
+    {
+        ArgumentNullException.ThrowIfNull(expectedFingerprint);
+        ArgumentNullException.ThrowIfNull(resultFingerprint);
+        if (!Enum.IsDefined(errorCode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(errorCode));
+        }
+
+        return new OperationTransitionMetadata(expectedFingerprint, resultFingerprint, errorCode);
+    }
+
+    internal static OperationTransitionMetadata Default(
+        DurableOperationFacts facts,
+        OperationState? expectedState,
+        OperationState state,
+        string? stepId)
+    {
+        var descriptor = stepId is null
+            ? null
+            : facts.RecoverySteps.SingleOrDefault(step =>
+                StringComparer.Ordinal.Equals(step.StepId, stepId));
+        var expected = OperationTransition.ExpectedFingerprintFor(
+            facts,
+            descriptor,
+            expectedState,
+            state);
+        var resultValue = OperationTransition.ExactResultFingerprintFor(
+            facts,
+            descriptor,
+            state) ?? expected;
+        var result = RequiresResultFingerprint(state)
+            ? DurableFingerprintFact.Present(resultValue)
+            : DurableFingerprintFact.NotApplicable();
+        return Create(
+            DurableFingerprintFact.Present(expected),
+            result,
+            ErrorFor(state));
+    }
+
+    internal static bool RequiresResultFingerprint(OperationState state) =>
+        state is OperationState.PlanInvalidatedNoChanges or
+            OperationState.ApplyStepNotApplied or
+            OperationState.Applied or
+            OperationState.Verified or
+            OperationState.VerificationFailedRollbackOffered or
+            OperationState.RecoveryConflictExternalDrift or
+            OperationState.RollbackApplied or
+            OperationState.RollbackVerified or
+            OperationState.AlreadyRestored;
+
+    internal static DurableOperationErrorCode ErrorFor(OperationState state) =>
+        state switch
+        {
+            OperationState.CanceledNoChanges => DurableOperationErrorCode.Canceled,
+            OperationState.ElevationCanceledNoChanges => DurableOperationErrorCode.ElevationCanceled,
+            OperationState.Unsupported => DurableOperationErrorCode.Unsupported,
+            OperationState.PlanInvalidatedNoChanges => DurableOperationErrorCode.PlanInvalidated,
+            OperationState.BackupFailedNoChanges => DurableOperationErrorCode.BackupFailed,
+            OperationState.RestorePointFailedNoChanges => DurableOperationErrorCode.RestorePointFailed,
+            OperationState.ApplyFailedNoChanges or OperationState.ApplyStepNotApplied =>
+                DurableOperationErrorCode.ApplyFailed,
+            OperationState.PartiallyAppliedRecoveryRequired => DurableOperationErrorCode.PartialApply,
+            OperationState.VerificationFailedRollbackOffered => DurableOperationErrorCode.VerificationFailed,
+            OperationState.RecoveryConflictExternalDrift => DurableOperationErrorCode.ExternalDrift,
+            OperationState.RollbackFailedRecoveryRequired => DurableOperationErrorCode.RollbackFailed,
+            OperationState.RestorePointRecoveryRequired => DurableOperationErrorCode.RestorePointRecoveryRequired,
+            OperationState.RestorePointFinalizeFailedRecoveryRequired =>
+                DurableOperationErrorCode.RestorePointFinalizationFailed,
+            OperationState.RestorePointFinalizeOutcomeUnknown =>
+                DurableOperationErrorCode.RestorePointFinalizationOutcomeUnknown,
+            _ => DurableOperationErrorCode.None,
+        };
+
+    private static string ComputeDigest(OperationTransitionMetadata metadata)
+    {
+        var canonical = string.Join(
+            ':',
+            metadata.ExpectedFingerprint.Digest,
+            metadata.ResultFingerprint.Digest,
+            ((int)metadata.ErrorCode).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+    }
+}
+
 public sealed record OperationTransition
 {
     private OperationTransition(
@@ -479,6 +972,7 @@ public sealed record OperationTransition
         OperationState state,
         string? stepId,
         DateTimeOffset occurredAtUtc,
+        OperationTransitionMetadata metadata,
         RestorePointTransitionFacts? restorePoint,
         string? expectedFactsDigest,
         string? expectedRestorePointFactsDigest)
@@ -490,6 +984,7 @@ public sealed record OperationTransition
         State = state;
         StepId = stepId;
         OccurredAtUtc = occurredAtUtc;
+        Metadata = metadata;
         RestorePoint = restorePoint;
         ExpectedFactsDigest = expectedFactsDigest;
         ExpectedRestorePointFactsDigest = expectedRestorePointFactsDigest;
@@ -510,6 +1005,8 @@ public sealed record OperationTransition
 
     public DateTimeOffset OccurredAtUtc { get; }
 
+    public OperationTransitionMetadata Metadata { get; }
+
     public RestorePointTransitionFacts? RestorePoint { get; }
 
     public string? ExpectedFactsDigest { get; }
@@ -528,7 +1025,8 @@ public sealed record OperationTransition
         DateTimeOffset occurredAtUtc,
         RestorePointTransitionFacts? restorePoint = null,
         RestorePointTransitionFacts? previousRestorePoint = null,
-        DurableOperationFacts? previousFacts = null)
+        DurableOperationFacts? previousFacts = null,
+        OperationTransitionMetadata? metadata = null)
     {
         if (operationId == Guid.Empty)
         {
@@ -536,6 +1034,15 @@ public sealed record OperationTransition
         }
 
         ArgumentNullException.ThrowIfNull(facts);
+        if (occurredAtUtc == default || occurredAtUtc.Offset != TimeSpan.Zero)
+        {
+            throw new ArgumentException(
+                "A durable transition timestamp must be a non-default UTC value.",
+                nameof(occurredAtUtc));
+        }
+
+        metadata ??= OperationTransitionMetadata.Default(facts, expectedState, state, stepId);
+        ValidateMetadata(facts, expectedState, state, stepId, metadata);
         if (expectedRevision < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(expectedRevision));
@@ -624,6 +1131,7 @@ public sealed record OperationTransition
             state,
             stepId,
             occurredAtUtc,
+            metadata,
             restorePoint,
             previousFacts?.Digest,
             previousRestorePoint?.Digest);
@@ -638,6 +1146,115 @@ public sealed record OperationTransition
             OperationState.RollingBack or
             OperationState.RollbackApplied or
             OperationState.RollbackVerified;
+
+    private static void ValidateMetadata(
+        DurableOperationFacts facts,
+        OperationState? expectedState,
+        OperationState state,
+        string? stepId,
+        OperationTransitionMetadata metadata)
+    {
+        var requiresResult = OperationTransitionMetadata.RequiresResultFingerprint(state);
+        if (metadata.ExpectedFingerprint.Kind != FingerprintFactKind.Present ||
+            metadata.ErrorCode != OperationTransitionMetadata.ErrorFor(state) ||
+            (requiresResult && metadata.ResultFingerprint.Kind != FingerprintFactKind.Present) ||
+            (state is OperationState.Applying or OperationState.RollingBack &&
+             metadata.ResultFingerprint.Kind != FingerprintFactKind.NotApplicable))
+        {
+            throw new ArgumentException(
+                "Transition metadata does not match the durable state semantics.",
+                nameof(metadata));
+        }
+
+        var descriptor = stepId is null
+            ? null
+            : facts.RecoverySteps.SingleOrDefault(step =>
+                StringComparer.Ordinal.Equals(step.StepId, stepId));
+        var expectedFingerprint = ExpectedFingerprintFor(
+            facts,
+            descriptor,
+            expectedState,
+            state);
+        if (metadata.ExpectedFingerprint.Value != expectedFingerprint)
+        {
+            throw new ArgumentException(
+                "Transition metadata is not bound to the exact durable step expectation.",
+                nameof(metadata));
+        }
+
+        var exactResult = ExactResultFingerprintFor(facts, descriptor, state);
+        if (exactResult is not null && metadata.ResultFingerprint.Value != exactResult)
+        {
+            throw new ArgumentException(
+                "Transition metadata result is not bound to the exact durable step result.",
+                nameof(metadata));
+        }
+    }
+
+    internal static StateFingerprint ExpectedFingerprintFor(
+        DurableOperationFacts facts,
+        DurableStepRecoveryDescriptor? descriptor,
+        OperationState? expectedState,
+        OperationState state)
+    {
+        if (descriptor is null)
+        {
+            if (state == OperationState.AlreadyRestored &&
+                expectedState == OperationState.RollbackPlanned)
+            {
+                return facts.BackupFingerprint ??
+                    throw new InvalidOperationException(
+                        "Aggregate AlreadyRestored requires a durable backup fingerprint.");
+            }
+
+            return facts.SourceFingerprint;
+        }
+
+        return state switch
+        {
+            OperationState.Verified or
+                OperationState.VerificationFailedRollbackOffered or
+                OperationState.RollingBack or
+                OperationState.RollbackApplied => descriptor.ResultFingerprint,
+            OperationState.RollbackFailedRecoveryRequired
+                when expectedState == OperationState.RollingBack =>
+                descriptor.ResultFingerprint,
+            OperationState.RecoveryConflictExternalDrift
+                when expectedState == OperationState.RollbackApplied =>
+                descriptor.SourceFingerprint,
+            OperationState.RecoveryConflictExternalDrift when IsRollbackState(expectedState) =>
+                descriptor.ResultFingerprint,
+            _ => descriptor.SourceFingerprint,
+        };
+    }
+
+    internal static StateFingerprint? ExactResultFingerprintFor(
+        DurableOperationFacts facts,
+        DurableStepRecoveryDescriptor? descriptor,
+        OperationState state) =>
+        state switch
+        {
+            OperationState.ApplyStepNotApplied when descriptor is not null =>
+                descriptor.SourceFingerprint,
+            OperationState.Applied or OperationState.Verified when descriptor is not null =>
+                descriptor.ResultFingerprint,
+            OperationState.RollbackApplied or
+                OperationState.RollbackVerified or
+                OperationState.AlreadyRestored when descriptor is not null =>
+                descriptor.SourceFingerprint,
+            OperationState.AlreadyRestored when facts.BackupFingerprint is not null =>
+                facts.BackupFingerprint,
+            _ => null,
+        };
+
+    private static bool IsRollbackState(OperationState? state) =>
+        state is OperationState.RollbackPlanned or
+            OperationState.RollbackPrepared or
+            OperationState.RollbackCheckpointCreated or
+            OperationState.RollingBack or
+            OperationState.RollbackApplied or
+            OperationState.RollbackVerified or
+            OperationState.AlreadyRestored;
 
     private static bool IsReviewedFinalizationRetry(
         OperationState current,
@@ -675,7 +1292,8 @@ public sealed record OperationTransition
         RestorePointTransitionFacts? restorePoint)
     {
         if (state == OperationState.Planned &&
-            (facts.BackupDigest is not null ||
+            (facts.BackupId is not null ||
+             facts.BackupDigest is not null ||
              facts.RecoveryCheckpointId is not null ||
              facts.RecoveryCheckpointDigest is not null))
         {
@@ -683,7 +1301,7 @@ public sealed record OperationTransition
         }
 
         if (state == OperationState.RollbackPlanned &&
-            (string.IsNullOrWhiteSpace(facts.BackupDigest) ||
+            (!facts.HasBackupBinding ||
              facts.RecoveryCheckpointId is not null ||
              facts.RecoveryCheckpointDigest is not null))
         {
@@ -698,12 +1316,13 @@ public sealed record OperationTransition
                 facts.Kind == ChangePlanKind.TargetMutation &&
                 facts.RequiresRestorePoint &&
                 facts.Backup == BackupRequirement.Required &&
-                !string.IsNullOrWhiteSpace(facts.BackupDigest) &&
+                facts.HasBackupBinding &&
                 expectedState == OperationState.BackupCreated;
             var validManualArtifact =
                 facts.Kind == ChangePlanKind.ManualRestorePointArtifact &&
                 facts.Backup == BackupRequirement.NotApplicable &&
                 facts.Rollback == RollbackCapability.NotApplicable &&
+                facts.BackupId is null &&
                 facts.BackupDigest is null &&
                 expectedState == OperationState.Prepared;
             if (!validTargetMutation && !validManualArtifact)
@@ -715,7 +1334,7 @@ public sealed record OperationTransition
         if (state == OperationState.BackupCreated &&
             (facts.Kind != ChangePlanKind.TargetMutation ||
              facts.Backup != BackupRequirement.Required ||
-             string.IsNullOrWhiteSpace(facts.BackupDigest)))
+             !facts.HasBackupBinding))
         {
             throw new ArgumentException(
                 "BackupCreated requires a target mutation and a verified backup digest.",
@@ -729,7 +1348,7 @@ public sealed record OperationTransition
                 throw new ArgumentException("A safety artifact cannot enter target mutation states.", nameof(state));
             }
 
-            if (facts.Backup != BackupRequirement.Required || string.IsNullOrWhiteSpace(facts.BackupDigest))
+            if (facts.Backup != BackupRequirement.Required || !facts.HasBackupBinding)
             {
                 throw new ArgumentException("Applying requires verified durable backup facts.", nameof(state));
             }
@@ -754,11 +1373,13 @@ public sealed record OperationTransition
         }
 
 
-        if ((state is OperationState.RollbackCheckpointCreated or
-             OperationState.RollingBack or
-             OperationState.RollbackApplied or
-             OperationState.RollbackVerified or
-             OperationState.RolledBack) &&
+        var requiresRecoveryCheckpoint =
+            state is OperationState.RollbackCheckpointCreated or
+                OperationState.RollingBack or
+                OperationState.RollbackApplied or
+                OperationState.RollbackVerified ||
+            (state == OperationState.RolledBack && expectedState != OperationState.AlreadyRestored);
+        if (requiresRecoveryCheckpoint &&
             (string.IsNullOrWhiteSpace(facts.RecoveryCheckpointId) ||
              string.IsNullOrWhiteSpace(facts.RecoveryCheckpointDigest)))
         {
@@ -804,6 +1425,7 @@ public sealed record OperationTransition
         Append(canonical, transition.State.ToString());
         AppendOptional(canonical, transition.StepId);
         Append(canonical, transition.OccurredAtUtc.ToString("O"));
+        Append(canonical, transition.Metadata.Digest);
         AppendOptional(canonical, transition.RestorePoint?.Digest);
         AppendOptional(canonical, transition.ExpectedFactsDigest);
         AppendOptional(canonical, transition.ExpectedRestorePointFactsDigest);
@@ -898,7 +1520,12 @@ public sealed record DurableOperationBoundary
             throw new ArgumentException("This durable boundary requires its exact plan step identifier.", nameof(stepId));
         }
 
-        if (state is OperationState.Applying or OperationState.RollingBack)
+        if (state is OperationState.Applying or
+            OperationState.Applied or
+            OperationState.ApplyStepNotApplied or
+            OperationState.VerificationFailedRollbackOffered or
+            OperationState.RollingBack or
+            OperationState.RollbackApplied)
         {
             var uncertainIndex = FindStepIndex(facts.OrderedStepIds, stepId!);
             var expectedPrefix = facts.OrderedStepIds.Take(uncertainIndex);
@@ -908,6 +1535,28 @@ public sealed record DurableOperationBoundary
                     "Completed steps must be the exact durable prefix before the uncertain mutation step.",
                     nameof(appliedStepIds));
             }
+        }
+
+        if (state is OperationState.Verified or
+            OperationState.RollbackVerified ||
+            (state == OperationState.AlreadyRestored && stepId is not null))
+        {
+            var verifiedIndex = FindStepIndex(facts.OrderedStepIds, stepId!);
+            var expectedPrefix = facts.OrderedStepIds.Take(verifiedIndex + 1);
+            if (!appliedStepIds.SequenceEqual(expectedPrefix, StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Verified steps must be the exact ordered durable prefix through the active step.",
+                    nameof(appliedStepIds));
+            }
+        }
+
+        if (state == OperationState.Completed &&
+            !appliedStepIds.SequenceEqual(facts.OrderedStepIds, StringComparer.Ordinal))
+        {
+            throw new ArgumentException(
+                "Completed requires verified coverage of every ordered durable step.",
+                nameof(appliedStepIds));
         }
 
         if (OperationTransition.IsRestorePointState(state))
@@ -921,7 +1570,7 @@ public sealed record DurableOperationBoundary
         if (state == OperationState.BackupCreated &&
             (facts.Kind != ChangePlanKind.TargetMutation ||
              facts.Backup != BackupRequirement.Required ||
-             string.IsNullOrWhiteSpace(facts.BackupDigest)))
+             !facts.HasBackupBinding))
         {
             throw new ArgumentException("BackupCreated boundary requires verified backup facts.", nameof(facts));
         }
@@ -942,13 +1591,29 @@ public sealed record DurableOperationBoundary
                 nameof(restorePoint));
         }
 
-        if ((state is OperationState.Applying or OperationState.Applied or OperationState.Verified) &&
-            (facts.Backup != BackupRequirement.Required || string.IsNullOrWhiteSpace(facts.BackupDigest)))
+        if (facts.Kind == ChangePlanKind.TargetMutation &&
+            (state is OperationState.Applying or OperationState.Applied or OperationState.Verified) &&
+            (facts.Backup != BackupRequirement.Required || !facts.HasBackupBinding))
         {
             throw new ArgumentException("Target mutation boundaries require verified backup facts.", nameof(facts));
         }
 
-        if ((state is OperationState.RollbackCheckpointCreated or
+        if (state == OperationState.Verified &&
+            facts.Kind == ChangePlanKind.ManualRestorePointArtifact &&
+            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointEnded)))
+        {
+            throw new ArgumentException(
+                "A verified manual restore-point artifact requires a durably ended lifecycle.",
+                nameof(restorePoint));
+        }
+
+        var isNoMutationRollbackCompletion =
+            state == OperationState.RolledBack &&
+            appliedStepIds.Count == 0 &&
+            facts.RecoveryCheckpointId is null &&
+            facts.RecoveryCheckpointDigest is null;
+        if (!isNoMutationRollbackCompletion &&
+            (state is OperationState.RollbackCheckpointCreated or
              OperationState.RollingBack or
              OperationState.RollbackApplied or
              OperationState.RollbackVerified or
@@ -957,6 +1622,24 @@ public sealed record DurableOperationBoundary
              string.IsNullOrWhiteSpace(facts.RecoveryCheckpointDigest)))
         {
             throw new ArgumentException("Rollback mutation boundaries require verified checkpoint facts.", nameof(facts));
+        }
+
+        if (state == OperationState.RolledBack &&
+            !isNoMutationRollbackCompletion &&
+            !appliedStepIds.SequenceEqual(facts.OrderedStepIds, StringComparer.Ordinal))
+        {
+            throw new ArgumentException(
+                "RolledBack requires verified coverage of every reverse-ordered durable step.",
+                nameof(appliedStepIds));
+        }
+
+        if (state == OperationState.RolledBack &&
+            facts.RequiresRestorePoint &&
+            (restorePoint is null || !restorePoint.IsValidFor(OperationState.RestorePointEnded)))
+        {
+            throw new ArgumentException(
+                "Rollback completion requires a durably ended restore lifecycle for this plan.",
+                nameof(restorePoint));
         }
 
         return new DurableOperationBoundary(operationId, facts, revision, state, stepId, appliedStepIds, restorePoint);
@@ -1046,6 +1729,13 @@ public sealed record DurableTransitionResult
 
 public interface IDurableOperationJournal
 {
+    /// <summary>
+    /// Scans the fixed operation store, hash-verifies each immutable chain, and
+    /// returns boundaries that still require completion or explicit recovery.
+    /// </summary>
+    ValueTask<IReadOnlyList<DurableOperationBoundary>> ScanIncompleteAsync(
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Reads and hash-verifies immutable history, then reconstructs its last durable boundary.
     /// A null result means no verified history exists for the operation.

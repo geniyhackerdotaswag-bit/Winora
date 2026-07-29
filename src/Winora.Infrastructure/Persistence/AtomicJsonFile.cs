@@ -78,9 +78,29 @@ public sealed class AtomicJsonFile
         AuthoritativeJsonDestination destination,
         CancellationToken cancellationToken)
     {
-        return RunSerializedAsync(
-            () => ReadAuthoritativeCore<TPayload>(destination, cancellationToken),
-            cancellationToken);
+        return ValueTask.FromResult(
+            ReadAuthoritativeCore<TPayload>(destination, cancellationToken));
+    }
+
+    internal ValueTask<ValidatedJsonRead<TPayload>> ReadAuthoritativeWithIdentityAsync<TPayload>(
+        AuthoritativeJsonDestination destination,
+        CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(
+            ReadAuthoritativeWithIdentityCore<TPayload>(destination, cancellationToken));
+    }
+
+    internal ValidatedJsonRead<TPayload> ReadAuthoritativeWithIdentityCore<TPayload>(
+        AuthoritativeJsonDestination destination,
+        CancellationToken cancellationToken)
+    {
+        ValidateDestinationOwner(destination);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var pathLease = SecureOwnedPathLease.Acquire(_paths, destination.FilePath);
+        return ReadExpectedDocumentWithIdentity<TPayload>(
+            destination.FilePath,
+            destination.DocumentId,
+            ValidatedFileUse.PublicRead);
     }
 
     public ValueTask<ProjectionJsonReadResult<TPayload>> ReadProjectionAsync<TPayload>(
@@ -227,7 +247,7 @@ public sealed class AtomicJsonFile
             cancellationToken);
     }
 
-    private async ValueTask<TResult> ExecutePreparedAsync<TPayload, TResult>(
+    internal async ValueTask<TResult> ExecutePreparedAsync<TPayload, TResult>(
         PreparedJsonWrite<TPayload> prepared,
         Func<AtomicJsonTransaction, TResult> action,
         CancellationToken cancellationToken)
@@ -615,7 +635,7 @@ public sealed class AtomicJsonFile
         string path,
         ValidatedFileUse use)
     {
-        using var file = _validatedFileAccess.Open(path, FileAccess.Read, use);
+        using var file = _validatedFileAccess.OpenPinnedRead(path, use);
         return _serializer.DeserializeAndValidate<TPayload>(
             file.ReadAllBytes(flushToDisk: false));
     }
@@ -663,6 +683,23 @@ public sealed class AtomicJsonFile
         {
             throw new InvalidDataException(message);
         }
+    }
+
+    private ValidatedJsonRead<TPayload> ReadExpectedDocumentWithIdentity<TPayload>(
+        string path,
+        string expectedDocumentId,
+        ValidatedFileUse use)
+    {
+        using var file = _validatedFileAccess.OpenPinnedRead(path, use);
+        var document = _serializer.DeserializeAndValidate<TPayload>(
+            file.ReadAllBytes(flushToDisk: false));
+        if (!StringComparer.Ordinal.Equals(document.DocumentId, expectedDocumentId))
+        {
+            throw new InvalidDataException(
+                "The persisted JSON document identity does not match its fixed-layout destination.");
+        }
+
+        return new ValidatedJsonRead<TPayload>(document, file.Identity);
     }
 
     private void ValidateDestinationOwner(JsonDestination destination)
@@ -754,6 +791,10 @@ public enum ProjectionReadSource
 public sealed record ProjectionJsonReadResult<TPayload>(
     JsonDocumentEnvelope<TPayload> Document,
     ProjectionReadSource Source);
+
+internal readonly record struct ValidatedJsonRead<TPayload>(
+    JsonDocumentEnvelope<TPayload> Document,
+    ValidatedFileIdentity Identity);
 
 internal sealed class PreparedJsonWrite<TPayload> : IDisposable
 {
@@ -918,6 +959,10 @@ internal sealed class AtomicJsonTransaction
     internal JsonDocumentEnvelope<TPayload> ReadAuthoritative<TPayload>(
         AuthoritativeJsonDestination destination) =>
         _owner.ReadAuthoritativeCore<TPayload>(destination, _cancellationToken);
+
+    internal ValidatedJsonRead<TPayload> ReadAuthoritativeWithIdentity<TPayload>(
+        AuthoritativeJsonDestination destination) =>
+        _owner.ReadAuthoritativeWithIdentityCore<TPayload>(destination, _cancellationToken);
 
     internal ProjectionJsonReadResult<TPayload> ReadProjection<TPayload>(
         ProjectionJsonDestination destination) =>

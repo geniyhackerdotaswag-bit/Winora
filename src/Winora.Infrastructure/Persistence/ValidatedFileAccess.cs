@@ -43,6 +43,10 @@ internal interface IValidatedFileAccess
         FileAccess access,
         ValidatedFileUse use);
 
+    ValidatedFileHandle OpenPinnedRead(
+        string path,
+        ValidatedFileUse use);
+
     ValidatedFileHandle OpenForMutation(
         string path,
         ValidatedFileUse use);
@@ -59,6 +63,8 @@ internal sealed partial class WindowsValidatedFileAccess(
     private const uint GenericWrite = 0x40000000;
     private const uint Delete = 0x00010000;
     private const uint FileShareRead = 0x00000001;
+    private const uint FileShareWrite = 0x00000002;
+    private const uint FileShareDelete = 0x00000004;
     private const uint OpenExisting = 3;
     private const uint FileFlagOpenReparsePoint = 0x00200000;
     private const uint FileFlagSequentialScan = 0x08000000;
@@ -67,18 +73,38 @@ internal sealed partial class WindowsValidatedFileAccess(
     public ValidatedFileHandle Open(
         string path,
         FileAccess access,
-        ValidatedFileUse use) => OpenCore(path, access, use, canMutateEntry: false);
+        ValidatedFileUse use) => OpenCore(
+            path,
+            access,
+            use,
+            canMutateEntry: false,
+            blocksEntryMutation: false);
+
+    public ValidatedFileHandle OpenPinnedRead(
+        string path,
+        ValidatedFileUse use) => OpenCore(
+            path,
+            FileAccess.Read,
+            use,
+            canMutateEntry: false,
+            blocksEntryMutation: true);
 
     public ValidatedFileHandle OpenForMutation(
         string path,
         ValidatedFileUse use) =>
-        OpenCore(path, FileAccess.ReadWrite, use, canMutateEntry: true);
+        OpenCore(
+            path,
+            FileAccess.ReadWrite,
+            use,
+            canMutateEntry: true,
+            blocksEntryMutation: true);
 
     private ValidatedFileHandle OpenCore(
         string path,
         FileAccess access,
         ValidatedFileUse use,
-        bool canMutateEntry)
+        bool canMutateEntry,
+        bool blocksEntryMutation)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (access is not FileAccess.Read and not FileAccess.ReadWrite)
@@ -92,12 +118,15 @@ internal sealed partial class WindowsValidatedFileAccess(
         var desiredAccess = GenericRead |
             (access == FileAccess.ReadWrite ? GenericWrite : 0) |
             (canMutateEntry ? Delete : 0);
+        var shareMode = blocksEntryMutation
+            ? FileShareRead
+            : FileShareRead | FileShareWrite | FileShareDelete;
 
         // Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
         var handle = CreateFile(
             extendedPath,
             desiredAccess,
-            FileShareRead,
+            shareMode,
             IntPtr.Zero,
             OpenExisting,
             FileFlagOpenReparsePoint |
@@ -260,6 +289,7 @@ internal sealed partial class ValidatedFileHandle : IDisposable
     {
         _handle = handle;
         Path = path;
+        CurrentPath = path;
         Identity = identity;
         _access = access;
         _use = use;
@@ -268,6 +298,8 @@ internal sealed partial class ValidatedFileHandle : IDisposable
     }
 
     internal string Path { get; }
+
+    internal string CurrentPath { get; private set; }
 
     internal ValidatedFileIdentity Identity { get; }
 
@@ -356,6 +388,7 @@ internal sealed partial class ValidatedFileHandle : IDisposable
             }
 
             HasBeenRenamed = true;
+            CurrentPath = fullPath;
 
         }
         finally

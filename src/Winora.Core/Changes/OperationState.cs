@@ -44,6 +44,18 @@ public enum OperationState
 
 public static class OperationStatePolicy
 {
+    public static bool IsTerminal(OperationState state) =>
+        state is OperationState.Completed or
+            OperationState.CanceledNoChanges or
+            OperationState.ElevationCanceledNoChanges or
+            OperationState.Unsupported or
+            OperationState.PlanInvalidatedNoChanges or
+            OperationState.BackupFailedNoChanges or
+            OperationState.RestorePointFailedNoChanges or
+            OperationState.ApplyFailedNoChanges or
+            OperationState.RolledBack or
+            OperationState.OperationBusy;
+
     public static bool CanStartWith(OperationState state) =>
         state is OperationState.Planned or OperationState.RollbackPlanned;
 
@@ -59,19 +71,20 @@ public static class OperationStatePolicy
             (OperationState.Prepared, OperationState.BackupCreated or
                 OperationState.RestorePointBeginRequested or
                 OperationState.CanceledNoChanges or
+                OperationState.ElevationCanceledNoChanges or
                 OperationState.PlanInvalidatedNoChanges or
                 OperationState.BackupFailedNoChanges) => true,
 
             (OperationState.BackupCreated, OperationState.Applying or
                 OperationState.RestorePointBeginRequested or
                 OperationState.CanceledNoChanges or
+                OperationState.ElevationCanceledNoChanges or
                 OperationState.Unsupported or
                 OperationState.PlanInvalidatedNoChanges or
                 OperationState.RestorePointFailedNoChanges) => true,
 
             (OperationState.Applying, OperationState.Applied or
                 OperationState.ApplyStepNotApplied or
-                OperationState.ApplyFailedNoChanges or
                 OperationState.PartiallyAppliedRecoveryRequired or
                 OperationState.RecoveryConflictExternalDrift) => true,
 

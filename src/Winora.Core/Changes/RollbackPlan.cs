@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Winora.Core.Contracts;
 
 namespace Winora.Core.Changes;
 
@@ -8,12 +9,14 @@ public sealed record RollbackPlan
     private RollbackPlan(
         Guid rollbackId,
         ChangePlan changePlan,
+        string backupId,
         string backupDigest,
         StateFingerprint appliedFingerprint,
         StateFingerprint backupFingerprint)
     {
         RollbackId = rollbackId;
         ChangePlan = changePlan;
+        BackupId = backupId;
         BackupDigest = backupDigest;
         AppliedFingerprint = appliedFingerprint;
         BackupFingerprint = backupFingerprint;
@@ -24,6 +27,8 @@ public sealed record RollbackPlan
     public Guid RollbackId { get; }
 
     public ChangePlan ChangePlan { get; }
+
+    public string BackupId { get; }
 
     public string BackupDigest { get; }
 
@@ -40,9 +45,8 @@ public sealed record RollbackPlan
     public static RollbackPlan Create(
         Guid rollbackId,
         ChangePlan changePlan,
-        string backupDigest,
-        StateFingerprint appliedFingerprint,
-        StateFingerprint backupFingerprint)
+        BackupReceipt linkedBackup,
+        StateFingerprint appliedFingerprint)
     {
         if (rollbackId == Guid.Empty)
         {
@@ -50,15 +54,39 @@ public sealed record RollbackPlan
         }
 
         ArgumentNullException.ThrowIfNull(changePlan);
-        ArgumentException.ThrowIfNullOrWhiteSpace(backupDigest);
+        ArgumentNullException.ThrowIfNull(linkedBackup);
+        if (!linkedBackup.IsVerified ||
+            !StringComparer.Ordinal.Equals(linkedBackup.PlanDigest, changePlan.Digest) ||
+            linkedBackup.CapturedSourceFingerprint != changePlan.SourceFingerprint ||
+            linkedBackup.LiveSourceFingerprint != changePlan.SourceFingerprint)
+        {
+            throw new ArgumentException(
+                "A rollback plan requires a verified backup receipt bound to the exact plan source.",
+                nameof(linkedBackup));
+        }
+
+        if (!ChangePlan.IsSafeOpaqueStorageId(linkedBackup.BackupId))
+        {
+            throw new ArgumentException(
+                "A rollback backup identifier must be opaque and path-independent.",
+                nameof(linkedBackup));
+        }
+
+        if (string.IsNullOrWhiteSpace(linkedBackup.BackupDigest))
+        {
+            throw new ArgumentException(
+                "A rollback backup digest is required.",
+                nameof(linkedBackup));
+        }
+
         ArgumentNullException.ThrowIfNull(appliedFingerprint);
-        ArgumentNullException.ThrowIfNull(backupFingerprint);
         return new RollbackPlan(
             rollbackId,
             changePlan,
-            backupDigest,
+            linkedBackup.BackupId,
+            linkedBackup.BackupDigest,
             appliedFingerprint,
-            backupFingerprint);
+            changePlan.SourceFingerprint);
     }
 
     private static string ComputeDigest(RollbackPlan plan)
@@ -66,6 +94,7 @@ public sealed record RollbackPlan
         var canonical = new StringBuilder();
         Append(canonical, plan.RollbackId.ToString("D"));
         Append(canonical, plan.ChangePlan.Digest);
+        Append(canonical, plan.BackupId);
         Append(canonical, plan.BackupDigest);
         Append(canonical, plan.AppliedFingerprint.Algorithm);
         Append(canonical, plan.AppliedFingerprint.Value);

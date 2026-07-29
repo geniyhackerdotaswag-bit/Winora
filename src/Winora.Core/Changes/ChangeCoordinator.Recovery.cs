@@ -21,13 +21,24 @@ public sealed partial class ChangeCoordinator
                 "Recovery does not match a canonical plan step.");
         }
 
-        var lease = await _mutationLease.TryAcquireAsync(recovery.Plan.PlanId, cancellationToken).ConfigureAwait(false);
+        var lease = await _mutationLease.TryAcquireRecoveryAsync(
+            recovery.Plan.PlanId,
+            cancellationToken).ConfigureAwait(false);
         if (lease is null)
         {
             return Result(CoordinatorDisposition.OperationBusy, new Cursor(), "Another mutation holds the lease.");
         }
 
         await using var leaseScope = lease;
+        if (!IsValidLeaseBinding(lease, recovery.Plan.PlanId, isRecovery: true) ||
+            !await lease.RevalidateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return Result(
+                CoordinatorDisposition.Blocked,
+                new Cursor(OperationState.Applying),
+                "The mutation lease did not grant explicit recovery ownership.");
+        }
+
         DurableOperationBoundary? boundary;
         try
         {
@@ -53,9 +64,50 @@ public sealed partial class ChangeCoordinator
             verifiedBoundary.State,
             verifiedBoundary.Revision,
             verifiedBoundary.Facts,
-            verifiedBoundary.RestorePoint);
+            verifiedBoundary.RestorePoint,
+            recovery.Plan.Steps);
         var facts = verifiedBoundary.Facts;
         var anyPriorStepApplied = verifiedBoundary.AppliedStepIds.Count > 0;
+        try
+        {
+            var receipt = await _backups.ReadAndVerifyOperationBackupAsync(
+                recovery.Plan,
+                facts.BackupId!,
+                facts.BackupDigest!,
+                cancellationToken).ConfigureAwait(false);
+            if (!IsExactRecoveryArtifact(
+                    receipt,
+                    facts.BackupId!,
+                    facts.BackupDigest!,
+                    recovery.Plan.Digest,
+                    recovery.Plan.SourceFingerprint))
+            {
+                throw new InvalidDataException(
+                    "The operation backup receipt does not match the applying boundary.");
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            if (!await MoveAsync(
+                    recovery.Plan.PlanId,
+                    facts,
+                    cursor,
+                    OperationState.PartiallyAppliedRecoveryRequired,
+                    recovery.Step.StepId).ConfigureAwait(false))
+            {
+                return DurabilityFailure(cursor);
+            }
+
+            return Result(
+                CoordinatorDisposition.PartialRecoveryRequired,
+                cursor,
+                "The bound operation backup could not be reverified.");
+        }
+
         var observed = await operation.ProbeAsync(recovery.Step.Target, cancellationToken).ConfigureAwait(false);
 
         if (observed.CurrentFingerprint == recovery.Step.ResultFingerprint)
@@ -65,7 +117,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.Applied,
-                    recovery.Step.StepId).ConfigureAwait(false))
+                    recovery.Step.StepId,
+                    observed.CurrentFingerprint).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor);
             }
@@ -81,7 +134,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.VerificationFailedRollbackOffered,
-                        recovery.Step.StepId).ConfigureAwait(false))
+                        recovery.Step.StepId,
+                        verification.ObservedFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor);
                 }
@@ -109,7 +163,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.ApplyStepNotApplied,
-                    recovery.Step.StepId).ConfigureAwait(false))
+                    recovery.Step.StepId,
+                    observed.CurrentFingerprint).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor);
             }
@@ -140,7 +195,8 @@ public sealed partial class ChangeCoordinator
                 facts,
                 cursor,
                 OperationState.RecoveryConflictExternalDrift,
-                recovery.Step.StepId).ConfigureAwait(false))
+                recovery.Step.StepId,
+                observed.CurrentFingerprint).ConfigureAwait(false))
         {
             return DurabilityFailure(cursor);
         }
@@ -165,13 +221,24 @@ public sealed partial class ChangeCoordinator
                 "Recovery does not match a canonical rollback step.");
         }
 
-        var lease = await _mutationLease.TryAcquireAsync(recovery.Plan.RollbackId, cancellationToken).ConfigureAwait(false);
+        var lease = await _mutationLease.TryAcquireRecoveryAsync(
+            recovery.Plan.RollbackId,
+            cancellationToken).ConfigureAwait(false);
         if (lease is null)
         {
             return Result(CoordinatorDisposition.OperationBusy, new Cursor(), "Another mutation holds the lease.");
         }
 
         await using var leaseScope = lease;
+        if (!IsValidLeaseBinding(lease, recovery.Plan.RollbackId, isRecovery: true) ||
+            !await lease.RevalidateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return Result(
+                CoordinatorDisposition.Blocked,
+                new Cursor(OperationState.RollingBack),
+                "The mutation lease did not grant explicit recovery ownership.");
+        }
+
         DurableOperationBoundary? boundary;
         try
         {
@@ -197,8 +264,64 @@ public sealed partial class ChangeCoordinator
             verifiedBoundary.State,
             verifiedBoundary.Revision,
             verifiedBoundary.Facts,
-            verifiedBoundary.RestorePoint);
+            verifiedBoundary.RestorePoint,
+            recovery.Plan.Steps,
+            isRollback: true);
         var facts = verifiedBoundary.Facts;
+        try
+        {
+            var backupReceipt = await _backups.ReadAndVerifyAsync(
+                recovery.Plan,
+                cancellationToken).ConfigureAwait(false);
+            if (!IsExactRecoveryArtifact(
+                    backupReceipt,
+                    recovery.Plan.BackupId,
+                    recovery.Plan.BackupDigest,
+                    recovery.Plan.ChangePlan.Digest,
+                    recovery.Plan.BackupFingerprint))
+            {
+                throw new InvalidDataException(
+                    "The operation backup receipt does not match the rolling-back boundary.");
+            }
+
+            var checkpointReceipt = await _backups.ReadAndVerifyRecoveryCheckpointAsync(
+                recovery.Plan,
+                facts.RecoveryCheckpointId!,
+                facts.RecoveryCheckpointDigest!,
+                cancellationToken).ConfigureAwait(false);
+            if (!IsExactRecoveryArtifact(
+                    checkpointReceipt,
+                    facts.RecoveryCheckpointId!,
+                    facts.RecoveryCheckpointDigest!,
+                    recovery.Plan.Digest,
+                    recovery.Plan.AppliedFingerprint))
+            {
+                throw new InvalidDataException(
+                    "The recovery checkpoint receipt does not match the rolling-back boundary.");
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            if (!await MoveAsync(
+                    recovery.Plan.RollbackId,
+                    facts,
+                    cursor,
+                    OperationState.RollbackFailedRecoveryRequired,
+                    recovery.Step.StepId).ConfigureAwait(false))
+            {
+                return DurabilityFailure(cursor);
+            }
+
+            return Result(
+                CoordinatorDisposition.RollbackFailed,
+                cursor,
+                "The bound rollback safety artifacts could not be reverified.");
+        }
+
         var observed = await operation.ProbeAsync(recovery.Step.Target, cancellationToken).ConfigureAwait(false);
 
         if (observed.CurrentFingerprint == recovery.Step.SourceFingerprint)
@@ -208,7 +331,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.RollbackApplied,
-                    recovery.Step.StepId).ConfigureAwait(false) ||
+                    recovery.Step.StepId,
+                    observed.CurrentFingerprint).ConfigureAwait(false) ||
                 !await MoveAsync(
                     recovery.Plan.RollbackId,
                     facts,
@@ -242,7 +366,8 @@ public sealed partial class ChangeCoordinator
                 facts,
                 cursor,
                 OperationState.RecoveryConflictExternalDrift,
-                recovery.Step.StepId).ConfigureAwait(false))
+                recovery.Step.StepId,
+                observed.CurrentFingerprint).ConfigureAwait(false))
         {
             return DurabilityFailure(cursor);
         }
@@ -257,6 +382,7 @@ public sealed partial class ChangeCoordinator
             boundary.State != OperationState.Applying ||
             !StringComparer.Ordinal.Equals(boundary.StepId, recovery.Step.StepId) ||
             !StringComparer.Ordinal.Equals(boundary.Facts.PlanDigest, recovery.Plan.Digest) ||
+            string.IsNullOrWhiteSpace(boundary.Facts.BackupId) ||
             string.IsNullOrWhiteSpace(boundary.Facts.BackupDigest) ||
             !boundary.Facts.OrderedStepIds.SequenceEqual(
                 recovery.Plan.Steps.Select(step => step.StepId),
@@ -307,4 +433,17 @@ public sealed partial class ChangeCoordinator
 
         return -1;
     }
+
+    private static bool IsExactRecoveryArtifact(
+        BackupReceipt receipt,
+        string backupId,
+        string backupDigest,
+        string planDigest,
+        StateFingerprint fingerprint) =>
+        receipt.IsVerified &&
+        StringComparer.Ordinal.Equals(receipt.BackupId, backupId) &&
+        StringComparer.Ordinal.Equals(receipt.BackupDigest, backupDigest) &&
+        StringComparer.Ordinal.Equals(receipt.PlanDigest, planDigest) &&
+        receipt.CapturedSourceFingerprint == fingerprint &&
+        receipt.LiveSourceFingerprint == fingerprint;
 }

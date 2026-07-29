@@ -19,6 +19,40 @@ public sealed class SolutionStructureTests
         Assert.DoesNotContain(refs, x => x.Contains("System.Text.Json", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Core_source_remains_serializer_filesystem_and_platform_independent()
+    {
+        var forbidden = new[]
+        {
+            "System.Text.Json",
+            "Winora.Infrastructure",
+            "Winora.System",
+            "Microsoft.UI.Xaml",
+            "Microsoft.Windows.AppLifecycle",
+            "Microsoft.Win32.Registry",
+            "System.Management.Automation",
+        };
+        var sources = Directory.EnumerateFiles(
+            Path.Combine(Root, "src", "Winora.Core"),
+            "*.cs",
+            SearchOption.AllDirectories);
+
+        foreach (var source in sources)
+        {
+            if (StringComparer.OrdinalIgnoreCase.Equals(
+                    Path.GetFileName(source),
+                    "AssemblyInfo.cs"))
+            {
+                continue;
+            }
+
+            var text = File.ReadAllText(source);
+            Assert.DoesNotContain(
+                forbidden,
+                token => text.Contains(token, StringComparison.Ordinal));
+        }
+    }
+
     private static string FindRoot([CallerFilePath] string sourceFile = "")
     {
         var candidates = new[]

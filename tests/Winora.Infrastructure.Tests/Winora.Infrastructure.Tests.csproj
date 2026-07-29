@@ -18,5 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winora.Infrastructure\Winora.Infrastructure.csproj" />
     <ProjectReference Include="..\Winora.Infrastructure.ProcessHost\Winora.Infrastructure.ProcessHost.csproj" />
+    <ProjectReference Include="..\Winora.Lease.ProcessHost\Winora.Lease.ProcessHost.csproj" />
   </ItemGroup>
 </Project>

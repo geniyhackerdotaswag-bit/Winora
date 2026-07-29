@@ -46,17 +46,27 @@ public sealed class WinoraDataPaths
         AppSettingsFile = Path.Combine(DataDirectory, "app-settings.json");
         ChangeIndexFile = Path.Combine(DataDirectory, "change-index.json");
         RecoveryIndexFile = Path.Combine(DataDirectory, "recovery-index.json");
+        MutationLeaseFile = Path.Combine(DataDirectory, "mutation-lease.json");
         BackupsDirectory = Path.Combine(RootDirectory, "Backups");
         OperationsDirectory = Path.Combine(RootDirectory, "Operations");
         JournalDirectory = Path.Combine(RootDirectory, "Journal");
         JournalIndexFile = Path.Combine(JournalDirectory, "index.json");
         JournalEventsDirectory = Path.Combine(JournalDirectory, "Events");
+        JournalRetentionDirectory = Path.Combine(JournalDirectory, "Retention");
         AssetsDirectory = Path.Combine(RootDirectory, "Assets");
         PendingDirectory = Path.Combine(RootDirectory, "Pending");
+        WinoraStateRestoreRecoveryFile = Path.Combine(
+            PendingDirectory,
+            "winora-state-restore-recovery.json");
         AppSettingsDocument = new ProjectionJsonDestination(this, AppSettingsFile, "app-settings");
         ChangeIndexDocument = new ProjectionJsonDestination(this, ChangeIndexFile, "change-index");
         RecoveryIndexDocument = new ProjectionJsonDestination(this, RecoveryIndexFile, "recovery-index");
+        MutationLeaseDocument = new ProjectionJsonDestination(this, MutationLeaseFile, "mutation-lease");
         JournalIndexDocument = new ProjectionJsonDestination(this, JournalIndexFile, "journal-index");
+        WinoraStateRestoreRecoveryDocument = new ProjectionJsonDestination(
+            this,
+            WinoraStateRestoreRecoveryFile,
+            "winora-state-restore-recovery");
     }
 
     public string RootDirectory { get; }
@@ -69,6 +79,8 @@ public sealed class WinoraDataPaths
 
     public string RecoveryIndexFile { get; }
 
+    public string MutationLeaseFile { get; }
+
     public string BackupsDirectory { get; }
 
     public string OperationsDirectory { get; }
@@ -79,9 +91,13 @@ public sealed class WinoraDataPaths
 
     public string JournalEventsDirectory { get; }
 
+    public string JournalRetentionDirectory { get; }
+
     public string AssetsDirectory { get; }
 
     public string PendingDirectory { get; }
+
+    public string WinoraStateRestoreRecoveryFile { get; }
 
     public ProjectionJsonDestination AppSettingsDocument { get; }
 
@@ -89,7 +105,11 @@ public sealed class WinoraDataPaths
 
     public ProjectionJsonDestination RecoveryIndexDocument { get; }
 
+    public ProjectionJsonDestination MutationLeaseDocument { get; }
+
     public ProjectionJsonDestination JournalIndexDocument { get; }
+
+    public ProjectionJsonDestination WinoraStateRestoreRecoveryDocument { get; }
 
     public static WinoraDataPaths ForCurrentUser()
     {
@@ -126,6 +146,17 @@ public sealed class WinoraDataPaths
             JournalEventsDirectory,
             $"{ValidatePathSegment(eventId, nameof(eventId))}.json");
 
+    internal string GetRetentionTransactionDirectory(string transactionId) =>
+        Path.Combine(
+            JournalRetentionDirectory,
+            ValidatePathSegment(transactionId, nameof(transactionId)));
+
+    internal string GetRetentionIntentFile(string transactionId) =>
+        Path.Combine(GetRetentionTransactionDirectory(transactionId), "intent.json");
+
+    internal string GetRetentionStateFile(string transactionId) =>
+        Path.Combine(GetRetentionTransactionDirectory(transactionId), "state.json");
+
     public ProjectionJsonDestination GetOperationManifestDocument(string operationId)
     {
         var canonicalId = ValidatePathSegment(operationId, nameof(operationId));
@@ -151,6 +182,24 @@ public sealed class WinoraDataPaths
     {
         var canonicalId = ValidatePathSegment(eventId, nameof(eventId));
         return new AuthoritativeJsonDestination(this, GetJournalEventFile(canonicalId), canonicalId);
+    }
+
+    internal AuthoritativeJsonDestination GetRetentionIntentDocument(string transactionId)
+    {
+        var canonicalId = ValidatePathSegment(transactionId, nameof(transactionId));
+        return new AuthoritativeJsonDestination(
+            this,
+            GetRetentionIntentFile(canonicalId),
+            $"retention-intent-{canonicalId}");
+    }
+
+    internal ProjectionJsonDestination GetRetentionStateDocument(string transactionId)
+    {
+        var canonicalId = ValidatePathSegment(transactionId, nameof(transactionId));
+        return new ProjectionJsonDestination(
+            this,
+            GetRetentionStateFile(canonicalId),
+            $"retention-state-{canonicalId}");
     }
 
     public AuthoritativeJsonDestination GetBackupStagingManifestDocument(string backupId)

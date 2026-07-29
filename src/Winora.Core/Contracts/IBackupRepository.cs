@@ -21,8 +21,20 @@ public sealed record BackupReceipt(
 
 public interface IBackupRepository
 {
+    ValueTask<BackupReceipt> ReadAndVerifyOperationBackupAsync(
+        ChangePlan plan,
+        string backupId,
+        string backupDigest,
+        CancellationToken cancellationToken);
+
     ValueTask<BackupReceipt> ReadAndVerifyAsync(
         RollbackPlan plan,
+        CancellationToken cancellationToken);
+
+    ValueTask<BackupReceipt> ReadAndVerifyRecoveryCheckpointAsync(
+        RollbackPlan plan,
+        string checkpointId,
+        string checkpointDigest,
         CancellationToken cancellationToken);
 
     ValueTask<BackupReceipt> CreateAndVerifyAsync(

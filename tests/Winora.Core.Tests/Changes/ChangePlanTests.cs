@@ -58,6 +58,27 @@ public sealed class ChangePlanTests
     }
 
     [Theory]
+    [InlineData(@"C:\Users\alice\secret.txt")]
+    [InlineData(@"HKCU\Software\Sensitive\Value")]
+    [InlineData("Winora restore point\nprivate data")]
+    [InlineData("Caller supplied restore point")]
+    public void Restore_point_description_rejects_every_non_Winora_owned_value(string description)
+    {
+        Assert.Throws<ArgumentException>(() => RestorePointTransitionFacts.Create(
+            Guid.NewGuid(),
+            description,
+            PlanFixture.Fingerprint("inventory-before"),
+            null,
+            null,
+            RestorePointApiStatus.NotCalled,
+            RestorePointOwnershipStatus.NotChecked,
+            RestorePointFinalizationMode.None,
+            null,
+            null,
+            RestorePointApiStatus.NotCalled));
+    }
+
+    [Theory]
     [InlineData(typeof(DurableOperationFacts))]
     [InlineData(typeof(RestorePointTransitionFacts))]
     [InlineData(typeof(OperationTransition))]
@@ -396,7 +417,7 @@ public sealed class ChangePlanTests
     public void Applying_boundary_requires_the_exact_prior_applied_prefix()
     {
         var plan = PlanFixture.Create(steps: [PlanFixture.Step("first"), PlanFixture.Step("second")]);
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
 
         Assert.Throws<ArgumentException>(() =>
             DurableOperationBoundary.Create(
@@ -412,7 +433,7 @@ public sealed class ChangePlanTests
     public void Applying_transition_requires_its_exact_step_identifier()
     {
         var plan = PlanFixture.Create();
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
 
         Assert.Throws<ArgumentException>(() =>
             OperationTransition.Create(
@@ -467,8 +488,8 @@ public sealed class ChangePlanTests
     public void Durable_facts_cannot_replace_an_established_backup_digest()
     {
         var plan = PlanFixture.Create();
-        var previousFacts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
-        var replacedFacts = previousFacts.WithBackupDigest("REPLACED-DIGEST");
+        var previousFacts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
+        var replacedFacts = previousFacts.WithBackupBinding("backup", "REPLACED-DIGEST");
 
         Assert.Throws<ArgumentException>(() =>
             OperationTransition.Create(
@@ -490,7 +511,7 @@ public sealed class ChangePlanTests
         Assert.Throws<ArgumentException>(() =>
             OperationTransition.Create(
                 plan.PlanId,
-                DurableOperationFacts.From(plan).WithBackupDigest("UNVERIFIED-DIGEST"),
+                DurableOperationFacts.From(plan).WithBackupBinding("backup", "UNVERIFIED-DIGEST"),
                 expectedRevision: 0,
                 expectedState: null,
                 OperationState.Planned,
@@ -571,7 +592,7 @@ public sealed class ChangePlanTests
         Assert.Throws<ArgumentException>(() =>
             DurableOperationBoundary.Create(
                 plan.PlanId,
-                DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST"),
+                DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST"),
                 revision: 5,
                 OperationState.Applied,
                 stepId: null,
@@ -582,7 +603,7 @@ public sealed class ChangePlanTests
     public void Restore_finalization_facts_cannot_appear_on_a_non_restore_transition()
     {
         var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
         var beginReturnedAt = new DateTimeOffset(2026, 7, 13, 0, 1, 0, TimeSpan.Zero);
         var begun = RestorePointTransitionFacts.Create(
             Guid.Parse("d572f642-1e9b-4e77-a053-1aa781e4dcb9"),
@@ -627,7 +648,7 @@ public sealed class ChangePlanTests
     public void Restore_required_applied_transition_cannot_drop_the_active_lifecycle()
     {
         var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
 
         Assert.Throws<ArgumentException>(() =>
             OperationTransition.Create(
@@ -652,7 +673,7 @@ public sealed class ChangePlanTests
     public void Restore_required_mutation_boundary_cannot_drop_lifecycle_facts(OperationState state)
     {
         var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
         var stepId = OperationTransition.RequiresExactStep(state) ? plan.Steps[0].StepId : null;
 
         Assert.Throws<ArgumentException>(() =>
@@ -669,7 +690,7 @@ public sealed class ChangePlanTests
     public void Finalized_partial_operation_preserves_the_ended_restore_lifecycle()
     {
         var plan = PlanFixture.Create(risk: RiskLevel.High, requiresRestorePoint: true);
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
         var begun = PlanFixture.BegunRestoreFacts();
         var finalizedAt = begun.BeginReturnedAtUtc!.Value.AddMinutes(1);
         var ended = RestorePointTransitionFacts.Create(
@@ -910,9 +931,139 @@ public sealed class ChangePlanTests
             RollbackPlan.Create(
                 Guid.Empty,
                 plan,
+                BackupReceipt.Verified(
+                    plan.PlanId.ToString("N"),
+                    "BACKUP-DIGEST",
+                    plan.Digest,
+                    plan.SourceFingerprint,
+                    plan.SourceFingerprint),
+                PlanFixture.Fingerprint("aggregate-applied")));
+    }
+
+    [Fact]
+    public void Rollback_plan_derives_backup_fingerprint_from_a_verified_linked_receipt()
+    {
+        var plan = PlanFixture.Create();
+        var receipt = BackupReceipt.Verified(
+            plan.PlanId.ToString("N"),
+            "BACKUP-DIGEST",
+            plan.Digest,
+            plan.SourceFingerprint,
+            plan.SourceFingerprint);
+
+        var rollback = RollbackPlan.Create(
+            Guid.NewGuid(),
+            plan,
+            receipt,
+            PlanFixture.Fingerprint("aggregate-applied"));
+
+        Assert.Equal(plan.SourceFingerprint, rollback.BackupFingerprint);
+        Assert.Equal(receipt.BackupId, rollback.BackupId);
+        Assert.Equal(receipt.BackupDigest, rollback.BackupDigest);
+    }
+
+    [Fact]
+    public void Rollback_durable_facts_persist_the_verified_backup_fingerprint()
+    {
+        var plan = PlanFixture.Create();
+        var rollback = RollbackPlan.Create(
+            Guid.NewGuid(),
+            plan,
+            BackupReceipt.Verified(
+                plan.PlanId.ToString("N"),
                 "BACKUP-DIGEST",
-                PlanFixture.Fingerprint("aggregate-applied"),
-                PlanFixture.Fingerprint("aggregate-backup")));
+                plan.Digest,
+                plan.SourceFingerprint,
+                plan.SourceFingerprint),
+            PlanFixture.Fingerprint("aggregate-applied"));
+
+        var facts = DurableOperationFacts.From(rollback);
+
+        Assert.Equal(plan.SourceFingerprint, facts.BackupFingerprint);
+        Assert.Equal(rollback.AppliedFingerprint, facts.SourceFingerprint);
+    }
+
+    [Fact]
+    public void Aggregate_already_restored_metadata_is_bound_to_the_verified_backup_fingerprint()
+    {
+        var plan = PlanFixture.Create();
+        var rollback = RollbackPlan.Create(
+            Guid.NewGuid(),
+            plan,
+            BackupReceipt.Verified(
+                plan.PlanId.ToString("N"),
+                "BACKUP-DIGEST",
+                plan.Digest,
+                plan.SourceFingerprint,
+                plan.SourceFingerprint),
+            PlanFixture.Fingerprint("aggregate-applied"));
+        var facts = DurableOperationFacts.From(rollback);
+
+        var transition = OperationTransition.Create(
+            rollback.RollbackId,
+            facts,
+            expectedRevision: 1,
+            OperationState.RollbackPlanned,
+            OperationState.AlreadyRestored,
+            stepId: null,
+            new DateTimeOffset(2026, 7, 13, 0, 1, 0, TimeSpan.Zero),
+            previousFacts: facts);
+
+        Assert.Equal(
+            plan.SourceFingerprint,
+            transition.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            plan.SourceFingerprint,
+            transition.Metadata.ResultFingerprint.Value);
+    }
+
+    [Theory]
+    [InlineData("unverified")]
+    [InlineData("plan")]
+    [InlineData("captured")]
+    [InlineData("live")]
+    public void Rollback_plan_rejects_a_receipt_not_exactly_bound_to_the_plan_source(string field)
+    {
+        var plan = PlanFixture.Create();
+        var receipt = BackupReceipt.Verified(
+            plan.PlanId.ToString("N"),
+            "BACKUP-DIGEST",
+            plan.Digest,
+            plan.SourceFingerprint,
+            plan.SourceFingerprint);
+        receipt = field switch
+        {
+            "unverified" => receipt with { IsVerified = false },
+            "plan" => receipt with { PlanDigest = "OTHER-PLAN" },
+            "captured" => receipt with
+            {
+                CapturedSourceFingerprint = PlanFixture.Fingerprint("other-captured"),
+            },
+            "live" => receipt with
+            {
+                LiveSourceFingerprint = PlanFixture.Fingerprint("other-live"),
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+
+        Assert.Throws<ArgumentException>(() => RollbackPlan.Create(
+            Guid.NewGuid(),
+            plan,
+            receipt,
+            PlanFixture.Fingerprint("aggregate-applied")));
+    }
+
+    [Fact]
+    public void Rollback_plan_factory_does_not_accept_a_caller_supplied_backup_fingerprint()
+    {
+        Assert.DoesNotContain(
+            typeof(RollbackPlan).GetMethods(
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Static),
+            method =>
+                method.Name == nameof(RollbackPlan.Create) &&
+                method.GetParameters().Count(parameter =>
+                    parameter.ParameterType == typeof(StateFingerprint)) > 1);
     }
 
     [Fact]
@@ -944,15 +1095,23 @@ public sealed class ChangePlanTests
         var first = RollbackPlan.Create(
             rollbackId,
             plan,
-            "backup\u001Falgorithm",
-            new StateFingerprint("applied", "value"),
-            PlanFixture.Fingerprint("backup"));
+            BackupReceipt.Verified(
+                plan.PlanId.ToString("N"),
+                "backup\u001Falgorithm",
+                plan.Digest,
+                plan.SourceFingerprint,
+                plan.SourceFingerprint),
+            new StateFingerprint("applied", "value"));
         var second = RollbackPlan.Create(
             rollbackId,
             plan,
-            "backup",
-            new StateFingerprint("algorithm\u001Fapplied", "value"),
-            PlanFixture.Fingerprint("backup"));
+            BackupReceipt.Verified(
+                plan.PlanId.ToString("N"),
+                "backup",
+                plan.Digest,
+                plan.SourceFingerprint,
+                plan.SourceFingerprint),
+            new StateFingerprint("algorithm\u001Fapplied", "value"));
 
         Assert.NotEqual(first.Digest, second.Digest);
     }
@@ -1010,6 +1169,8 @@ public sealed class ChangePlanTests
     [InlineData(OperationState.Planned, OperationState.Unsupported)]
     [InlineData(OperationState.Planned, OperationState.PlanInvalidatedNoChanges)]
     [InlineData(OperationState.Prepared, OperationState.BackupFailedNoChanges)]
+    [InlineData(OperationState.Prepared, OperationState.ElevationCanceledNoChanges)]
+    [InlineData(OperationState.BackupCreated, OperationState.ElevationCanceledNoChanges)]
     [InlineData(OperationState.Applying, OperationState.ApplyStepNotApplied)]
     [InlineData(OperationState.Applying, OperationState.RecoveryConflictExternalDrift)]
     [InlineData(OperationState.Applied, OperationState.VerificationFailedRollbackOffered)]
@@ -1026,6 +1187,62 @@ public sealed class ChangePlanTests
     public void Applying_cannot_skip_to_completed()
     {
         Assert.False(OperationStatePolicy.CanTransition(OperationState.Applying, OperationState.Completed));
+    }
+
+    [Theory]
+    [InlineData(OperationState.Completed, true)]
+    [InlineData(OperationState.CanceledNoChanges, true)]
+    [InlineData(OperationState.RolledBack, true)]
+    [InlineData(OperationState.Planned, false)]
+    [InlineData(OperationState.Applying, false)]
+    [InlineData(OperationState.PartiallyAppliedRecoveryRequired, false)]
+    [InlineData(OperationState.RecoveryConflictExternalDrift, false)]
+    [InlineData(OperationState.RestorePointFinalizeOutcomeUnknown, false)]
+    public void Terminal_state_policy_distinguishes_recovery_work(
+        OperationState state,
+        bool expected)
+    {
+        Assert.Equal(expected, OperationStatePolicy.IsTerminal(state));
+    }
+
+    [Fact]
+    public void Elevation_cancellation_after_backup_retains_the_verified_backup_binding()
+    {
+        var plan = PlanFixture.Create();
+        var facts = DurableOperationFacts.From(plan)
+            .WithBackupBinding("backup", "BACKUP-DIGEST");
+
+        var canceled = OperationTransition.Create(
+            plan.PlanId,
+            facts,
+            expectedRevision: 3,
+            OperationState.BackupCreated,
+            OperationState.ElevationCanceledNoChanges,
+            stepId: null,
+            new DateTimeOffset(2026, 7, 13, 0, 3, 0, TimeSpan.Zero),
+            previousFacts: facts);
+
+        Assert.Equal("backup", canceled.Facts.BackupId);
+        Assert.Equal("BACKUP-DIGEST", canceled.Facts.BackupDigest);
+        Assert.Equal(OperationState.ElevationCanceledNoChanges, canceled.State);
+    }
+
+    [Fact]
+    public void Aggregate_already_restored_rollback_can_rebuild_a_terminal_boundary_without_checkpoint()
+    {
+        var rollback = RollbackFixture.Create(PlanFixture.Create());
+        var facts = DurableOperationFacts.From(rollback);
+
+        var boundary = DurableOperationBoundary.Create(
+            rollback.RollbackId,
+            facts,
+            revision: 3,
+            OperationState.RolledBack,
+            stepId: null,
+            appliedStepIds: []);
+
+        Assert.Equal(OperationState.RolledBack, boundary.State);
+        Assert.True(OperationStatePolicy.IsTerminal(boundary.State));
     }
 
     [Theory]
@@ -1056,6 +1273,7 @@ public sealed class ChangePlanTests
 
     [Theory]
     [InlineData(OperationState.Applying, OperationState.Applying)]
+    [InlineData(OperationState.Applying, OperationState.ApplyFailedNoChanges)]
     [InlineData(OperationState.Applied, OperationState.Completed)]
     [InlineData(OperationState.Prepared, OperationState.Applying)]
     [InlineData(OperationState.RestorePointBeginRequested, OperationState.RestorePointBegun)]
@@ -1176,11 +1394,12 @@ internal static class PlanFixture
         BackupRequirement backup = BackupRequirement.Required,
         bool requiresRestorePoint = false,
         ChangePlanKind kind = ChangePlanKind.TargetMutation,
-        Guid? planId = null)
+        Guid? planId = null,
+        string operationId = "sample.operation")
     {
         return ChangePlan.Create(
             planId: planId ?? Guid.Parse("5fc03f71-e14e-4d2d-a439-d7f1ed964447"),
-            operationId: "sample.operation",
+            operationId: operationId,
             category: "Sample",
             title: title,
             summary: "Changes a sample value.",
@@ -1209,7 +1428,9 @@ internal static class PlanFixture
             new VerificationProbe($"verify:{id}", $"Expected value for {id}"));
     }
 
-    internal static StateFingerprint Fingerprint(string value) => new("SHA-256", value);
+    internal static StateFingerprint Fingerprint(string value) =>
+        new("SHA-256", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(value))));
 
     internal static RestorePointTransitionFacts BegunRestoreFacts() =>
         RestorePointTransitionFacts.Create(

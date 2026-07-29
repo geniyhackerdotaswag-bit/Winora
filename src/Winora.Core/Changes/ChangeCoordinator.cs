@@ -80,7 +80,16 @@ public sealed partial class ChangeCoordinator
         }
 
         await using var leaseScope = lease;
-        var cursor = new Cursor();
+        if (!IsValidLeaseBinding(lease, plan.PlanId, isRecovery: false) ||
+            !await lease.RevalidateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return Result(
+                CoordinatorDisposition.Blocked,
+                new Cursor(),
+                "The mutation lease is not bound to this apply operation.");
+        }
+
+        var cursor = new Cursor(steps: plan.Steps);
         var facts = DurableOperationFacts.From(plan);
         if (!await MoveAsync(plan.PlanId, facts, cursor, OperationState.Planned, null).ConfigureAwait(false))
         {
@@ -140,7 +149,11 @@ public sealed partial class ChangeCoordinator
 
         if (capability.CurrentFingerprint != plan.SourceFingerprint)
         {
-            return await InvalidateBeforeMutationAsync(plan.PlanId, facts, cursor).ConfigureAwait(false);
+            return await InvalidateBeforeMutationAsync(
+                plan.PlanId,
+                facts,
+                cursor,
+                capability.CurrentFingerprint).ConfigureAwait(false);
         }
 
         if (cancellationToken.IsCancellationRequested)
@@ -177,10 +190,11 @@ public sealed partial class ChangeCoordinator
                 plan.PlanId,
                 facts,
                 cursor,
-                "The verified backup is not bound to the confirmed source and plan.").ConfigureAwait(false);
+                "The verified backup is not bound to the confirmed source and plan.",
+                receipt.LiveSourceFingerprint).ConfigureAwait(false);
         }
 
-        facts = facts.WithBackupDigest(receipt.BackupDigest);
+        facts = facts.WithBackupBinding(receipt.BackupId, receipt.BackupDigest);
 
         if (!await MoveAsync(plan.PlanId, facts, cursor, OperationState.BackupCreated, null).ConfigureAwait(false))
         {
@@ -256,7 +270,13 @@ public sealed partial class ChangeCoordinator
                 var driftState = verifiedStepCount == 0
                     ? OperationState.PlanInvalidatedNoChanges
                     : OperationState.RecoveryConflictExternalDrift;
-                if (!await MoveAsync(plan.PlanId, facts, cursor, driftState, step.StepId).ConfigureAwait(false))
+                if (!await MoveAsync(
+                        plan.PlanId,
+                        facts,
+                        cursor,
+                        driftState,
+                        step.StepId,
+                        stepCapability.CurrentFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -335,7 +355,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.ApplyStepNotApplied,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        stepResult.ObservedFingerprint ?? step.SourceFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -362,7 +383,8 @@ public sealed partial class ChangeCoordinator
                     facts,
                     cursor,
                     OperationState.Applied,
-                    step.StepId).ConfigureAwait(false))
+                    step.StepId,
+                    stepResult.ObservedFingerprint).ConfigureAwait(false))
             {
                 return DurabilityFailure(cursor, verifiedStepCount);
             }
@@ -378,7 +400,8 @@ public sealed partial class ChangeCoordinator
                         facts,
                         cursor,
                         OperationState.VerificationFailedRollbackOffered,
-                        step.StepId).ConfigureAwait(false))
+                        step.StepId,
+                        verification.ObservedFingerprint).ConfigureAwait(false))
                 {
                     return DurabilityFailure(cursor, verifiedStepCount);
                 }
@@ -411,12 +434,22 @@ public sealed partial class ChangeCoordinator
         return Result(CoordinatorDisposition.Completed, cursor, null, verifiedStepCount);
     }
 
+    private static bool IsValidLeaseBinding(
+        IMutationLeaseHandle lease,
+        Guid expectedOperationId,
+        bool isRecovery) =>
+        lease.LeaseId != Guid.Empty &&
+        lease.OperationId == expectedOperationId &&
+        lease.Epoch > 0 &&
+        lease.IsRecoveryTakeover == isRecovery;
+
     private async ValueTask<bool> MoveAsync(
         Guid operationId,
         DurableOperationFacts facts,
         Cursor cursor,
         OperationState state,
-        string? stepId)
+        string? stepId,
+        StateFingerprint? observedFingerprint = null)
     {
         if (cursor.State is { } current)
         {
@@ -444,7 +477,12 @@ public sealed partial class ChangeCoordinator
                 _clock.UtcNow,
                 cursor.RestorePoint,
                 cursor.RestorePoint,
-                previousFacts: cursor.Facts);
+                previousFacts: cursor.Facts,
+                metadata: cursor.CreateTransitionMetadata(
+                    facts,
+                    state,
+                    stepId,
+                    observedFingerprint));
             persisted = await _journal.CompareAndAppendAsync(
                 transition,
                 CancellationToken.None).ConfigureAwait(false);
@@ -486,14 +524,16 @@ public sealed partial class ChangeCoordinator
     private async ValueTask<CoordinatorResult> InvalidateBeforeMutationAsync(
         Guid operationId,
         DurableOperationFacts facts,
-        Cursor cursor)
+        Cursor cursor,
+        StateFingerprint? observedFingerprint = null)
     {
         if (!await MoveAsync(
                 operationId,
                 facts,
                 cursor,
                 OperationState.PlanInvalidatedNoChanges,
-                null).ConfigureAwait(false))
+                null,
+                observedFingerprint).ConfigureAwait(false))
         {
             return DurabilityFailure(cursor);
         }
@@ -505,14 +545,16 @@ public sealed partial class ChangeCoordinator
         Guid operationId,
         DurableOperationFacts facts,
         Cursor cursor,
-        string? detail)
+        string? detail,
+        StateFingerprint? observedFingerprint = null)
     {
         if (!await MoveAsync(
                 operationId,
                 facts,
                 cursor,
                 OperationState.BackupFailedNoChanges,
-                null).ConfigureAwait(false))
+                null,
+                observedFingerprint).ConfigureAwait(false))
         {
             return DurabilityFailure(cursor);
         }
@@ -573,12 +615,16 @@ public sealed partial class ChangeCoordinator
             OperationState? state = null,
             long revision = 0,
             DurableOperationFacts? facts = null,
-            RestorePointTransitionFacts? restorePoint = null)
+            RestorePointTransitionFacts? restorePoint = null,
+            IReadOnlyList<ChangeStep>? steps = null,
+            bool isRollback = false)
         {
             State = state;
             Revision = revision;
             Facts = facts;
             RestorePoint = restorePoint;
+            Steps = steps?.ToDictionary(step => step.StepId, StringComparer.Ordinal);
+            IsRollback = isRollback;
         }
 
         internal OperationState? State { get; set; }
@@ -588,5 +634,58 @@ public sealed partial class ChangeCoordinator
         internal DurableOperationFacts? Facts { get; set; }
 
         internal RestorePointTransitionFacts? RestorePoint { get; set; }
+
+        private IReadOnlyDictionary<string, ChangeStep>? Steps { get; }
+
+        private bool IsRollback { get; }
+
+        internal OperationTransitionMetadata CreateTransitionMetadata(
+            DurableOperationFacts facts,
+            OperationState state,
+            string? stepId,
+            StateFingerprint? observedFingerprint)
+        {
+            var descriptor = stepId is null
+                ? null
+                : facts.RecoverySteps.SingleOrDefault(item =>
+                    StringComparer.Ordinal.Equals(item.StepId, stepId));
+            var expected = OperationTransition.ExpectedFingerprintFor(
+                facts,
+                descriptor,
+                State,
+                state);
+            if (stepId is null ||
+                Steps is null ||
+                !Steps.TryGetValue(stepId, out var step))
+            {
+                return OperationTransitionMetadata.Create(
+                    DurableFingerprintFact.Present(expected),
+                    observedFingerprint is null
+                        ? DurableFingerprintFact.NotApplicable()
+                        : DurableFingerprintFact.Present(observedFingerprint),
+                    OperationTransitionMetadata.ErrorFor(state));
+            }
+
+            var recordsResult = state is OperationState.ApplyStepNotApplied or
+                OperationState.Applied or
+                OperationState.Verified or
+                OperationState.RollbackApplied or
+                OperationState.RollbackVerified or
+                OperationState.AlreadyRestored;
+            var plannedResult = state is OperationState.ApplyStepNotApplied or
+                OperationState.RollbackApplied or
+                OperationState.RollbackVerified or
+                OperationState.AlreadyRestored
+                ? step.SourceFingerprint
+                : step.ResultFingerprint;
+            var result = observedFingerprint ?? (recordsResult ? plannedResult : null);
+
+            return OperationTransitionMetadata.Create(
+                DurableFingerprintFact.Present(expected),
+                result is null
+                    ? DurableFingerprintFact.NotApplicable()
+                    : DurableFingerprintFact.Present(result),
+                OperationTransitionMetadata.ErrorFor(state));
+        }
     }
 }

@@ -7,6 +7,43 @@ namespace Winora.Core.Tests.Changes;
 public sealed class ChangeCoordinatorTests
 {
     [Fact]
+    public async Task Apply_blocks_before_durable_planning_when_lease_membership_cannot_be_revalidated()
+    {
+        var plan = PlanFixture.Create();
+        var harness = CoordinatorHarness.ForApply(plan);
+        harness.Lease.RevalidateResult = false;
+
+        var result = await harness.Coordinator.ApplyAsync(
+            harness.Operation,
+            plan,
+            harness.Confirmation.Confirm(plan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Equal(1, harness.Lease.RevalidationCount);
+        Assert.Empty(harness.Journal.Transitions);
+        Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Fact]
+    public async Task Apply_blocks_a_misbound_mutation_lease_before_durable_planning()
+    {
+        var plan = PlanFixture.Create();
+        var harness = CoordinatorHarness.ForApply(plan);
+        harness.Lease.OperationIdOverride = Guid.NewGuid();
+
+        var result = await harness.Coordinator.ApplyAsync(
+            harness.Operation,
+            plan,
+            harness.Confirmation.Confirm(plan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Empty(harness.Journal.Transitions);
+        Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Fact]
     public async Task Successful_apply_persists_every_authorization_boundary_in_order()
     {
         var plan = PlanFixture.Create();
@@ -37,6 +74,24 @@ public sealed class ChangeCoordinatorTests
             "BACKUP-DIGEST",
             Assert.Single(harness.Journal.Transitions, transition =>
                 transition.State == OperationState.BackupCreated).Facts.BackupDigest);
+        var applying = Assert.Single(
+            harness.Journal.Transitions,
+            transition => transition.State == OperationState.Applying);
+        Assert.Equal(FingerprintFactKind.Present, applying.Metadata.ExpectedFingerprint.Kind);
+        Assert.Equal(plan.Steps[0].SourceFingerprint, applying.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(FingerprintFactKind.NotApplicable, applying.Metadata.ResultFingerprint.Kind);
+        Assert.Equal(DurableOperationErrorCode.None, applying.Metadata.ErrorCode);
+        var applied = Assert.Single(
+            harness.Journal.Transitions,
+            transition => transition.State == OperationState.Applied);
+        Assert.Equal(plan.Steps[0].SourceFingerprint, applied.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(plan.Steps[0].ResultFingerprint, applied.Metadata.ResultFingerprint.Value);
+        Assert.Equal(DurableOperationErrorCode.None, applied.Metadata.ErrorCode);
+        var verified = Assert.Single(
+            harness.Journal.Transitions,
+            transition => transition.State == OperationState.Verified);
+        Assert.Equal(plan.Steps[0].ResultFingerprint, verified.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(plan.Steps[0].ResultFingerprint, verified.Metadata.ResultFingerprint.Value);
         Assert.False(harness.Lease.IsHeld);
     }
 
@@ -364,6 +419,14 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(OperationState.PartiallyAppliedRecoveryRequired, result.DurableState);
         Assert.Equal(["apply:first", "verify:first", "apply:second"], harness.Operation.Actions);
         Assert.Equal(1, result.VerifiedStepCount);
+        var notApplied = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.ApplyStepNotApplied);
+        Assert.Equal(
+            plan.Steps[1].SourceFingerprint,
+            notApplied.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            plan.Steps[1].SourceFingerprint,
+            notApplied.Metadata.ResultFingerprint.Value);
     }
 
     [Fact]
@@ -384,6 +447,12 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(OperationState.VerificationFailedRollbackOffered, result.DurableState);
         Assert.Equal(["apply:first", "verify:first"], harness.Operation.Actions);
         Assert.Equal(0, harness.Operation.RollbackCount);
+        var failed = Assert.Single(
+            harness.Journal.Transitions,
+            transition => transition.State == OperationState.VerificationFailedRollbackOffered);
+        Assert.Equal(plan.Steps[0].ResultFingerprint, failed.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(PlanFixture.Fingerprint("unexpected"), failed.Metadata.ResultFingerprint.Value);
+        Assert.Equal(DurableOperationErrorCode.VerificationFailed, failed.Metadata.ErrorCode);
     }
 
     [Fact]
@@ -452,6 +521,45 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(0, harness.Operation.ApplyCount);
     }
 
+    [Fact]
+    public async Task Recovery_blocks_when_the_lease_does_not_grant_explicit_takeover_ownership()
+    {
+        var plan = PlanFixture.Create();
+        var step = plan.Steps[0];
+        var harness = CoordinatorHarness.ForApplyingRecovery(plan, step);
+        harness.Lease.GrantRecoveryOwnership = false;
+
+        var result = await harness.Coordinator.ReconcileApplyingAsync(
+            harness.Operation,
+            new ApplyingRecovery(plan, step),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
+        Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Fact]
+    public async Task Applying_recovery_requires_the_exact_bound_backup_before_probing_or_advancing()
+    {
+        var plan = PlanFixture.Create();
+        var step = plan.Steps[0];
+        var harness = CoordinatorHarness.ForApplyingRecovery(plan, step);
+        harness.Backups.ApplyRecoveryReadFailure =
+            new InvalidDataException("The operation backup is corrupt.");
+        harness.Operation.Probes.Enqueue(CapabilityFixture.Supported(step.ResultFingerprint));
+
+        var result = await harness.Coordinator.ReconcileApplyingAsync(
+            harness.Operation,
+            new ApplyingRecovery(plan, step),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.PartialRecoveryRequired, result.Disposition);
+        Assert.Equal(OperationState.PartiallyAppliedRecoveryRequired, result.DurableState);
+        Assert.Equal(1, harness.Backups.ApplyRecoveryReadCount);
+        Assert.Equal(0, harness.Operation.ProbeCount);
+        Assert.Equal(0, harness.Operation.ApplyCount);
+    }
+
     [Theory]
     [InlineData(false, OperationState.ApplyFailedNoChanges, CoordinatorDisposition.ApplyFailed)]
     [InlineData(true, OperationState.PartiallyAppliedRecoveryRequired, CoordinatorDisposition.PartialRecoveryRequired)]
@@ -476,6 +584,10 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(expectedDisposition, result.Disposition);
         Assert.Equal(expectedState, result.DurableState);
         Assert.Equal(0, harness.Operation.ApplyCount);
+        var notApplied = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.ApplyStepNotApplied);
+        Assert.Equal(step.SourceFingerprint, notApplied.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(step.SourceFingerprint, notApplied.Metadata.ResultFingerprint.Value);
     }
 
     [Fact]
@@ -560,6 +672,36 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(["rollback:third", "rollback:first"], harness.Operation.Actions);
         Assert.Contains(harness.Journal.Transitions, transition =>
             transition.State == OperationState.AlreadyRestored && transition.StepId == "second");
+        var rollingBack = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.RollingBack && transition.StepId == "third");
+        Assert.Equal(
+            changePlan.Steps[2].ResultFingerprint,
+            rollingBack.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(FingerprintFactKind.NotApplicable, rollingBack.Metadata.ResultFingerprint.Kind);
+        var rollbackApplied = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.RollbackApplied && transition.StepId == "third");
+        Assert.Equal(
+            changePlan.Steps[2].ResultFingerprint,
+            rollbackApplied.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            changePlan.Steps[2].SourceFingerprint,
+            rollbackApplied.Metadata.ResultFingerprint.Value);
+        var rollbackVerified = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.RollbackVerified && transition.StepId == "third");
+        Assert.Equal(
+            changePlan.Steps[2].SourceFingerprint,
+            rollbackVerified.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            changePlan.Steps[2].SourceFingerprint,
+            rollbackVerified.Metadata.ResultFingerprint.Value);
+        var alreadyRestored = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.AlreadyRestored && transition.StepId == "second");
+        Assert.Equal(
+            changePlan.Steps[1].SourceFingerprint,
+            alreadyRestored.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            changePlan.Steps[1].SourceFingerprint,
+            alreadyRestored.Metadata.ResultFingerprint.Value);
         var checkpointTransition = Assert.Single(harness.Journal.Transitions, transition =>
             transition.State == OperationState.RollbackCheckpointCreated);
         Assert.Equal("checkpoint", checkpointTransition.Facts.RecoveryCheckpointId);
@@ -696,6 +838,16 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(CoordinatorDisposition.Conflict, result.Disposition);
         Assert.Equal(OperationState.RecoveryConflictExternalDrift, result.DurableState);
         Assert.Equal(["rollback:third"], harness.Operation.Actions);
+        var conflict = Assert.Single(
+            harness.Journal.Transitions,
+            transition => transition.State == OperationState.RecoveryConflictExternalDrift);
+        Assert.Equal("second", conflict.StepId);
+        Assert.Equal(
+            changePlan.Steps[1].ResultFingerprint,
+            conflict.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            PlanFixture.Fingerprint("third-party"),
+            conflict.Metadata.ResultFingerprint.Value);
     }
 
     [Fact]
@@ -723,6 +875,61 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(CoordinatorDisposition.Blocked, result.Disposition);
         Assert.Equal(OperationState.Unsupported, result.DurableState);
         Assert.Equal(0, harness.Operation.RollbackCount);
+    }
+
+    [Fact]
+    public async Task Rollback_failure_metadata_retains_the_rolling_back_applied_precondition()
+    {
+        var changePlan = PlanFixture.Create();
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+        harness.Operation.RollbackResults.Enqueue(
+            StepResult.NotApplied("The conditional reverse write was rejected."));
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
+        var failure = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.RollbackFailedRecoveryRequired &&
+            transition.StepId == changePlan.Steps[0].StepId);
+        Assert.Equal(
+            changePlan.Steps[0].ResultFingerprint,
+            failure.Metadata.ExpectedFingerprint.Value);
+    }
+
+    [Fact]
+    public async Task Rollback_verification_conflict_metadata_expects_the_backup_postcondition()
+    {
+        var changePlan = PlanFixture.Create();
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var step = changePlan.Steps[0];
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+        harness.Operation.Probes.Clear();
+        harness.Operation.Probes.Enqueue(CapabilityFixture.Supported(rollbackPlan.AppliedFingerprint));
+        harness.Operation.Probes.Enqueue(CapabilityFixture.Supported(step.ResultFingerprint));
+        harness.Operation.Probes.Enqueue(
+            CapabilityFixture.Supported(PlanFixture.Fingerprint("post-rollback-drift")));
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.Conflict, result.Disposition);
+        var conflict = Assert.Single(harness.Journal.Transitions, transition =>
+            transition.State == OperationState.RecoveryConflictExternalDrift &&
+            transition.StepId == step.StepId);
+        Assert.Equal(
+            step.SourceFingerprint,
+            conflict.Metadata.ExpectedFingerprint.Value);
+        Assert.Equal(
+            PlanFixture.Fingerprint("post-rollback-drift"),
+            conflict.Metadata.ResultFingerprint.Value);
     }
 
     [Fact]
@@ -773,6 +980,32 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
         Assert.Equal(OperationState.RollbackFailedRecoveryRequired, result.DurableState);
         Assert.Equal(1, harness.Backups.ExistingReadCount);
+        Assert.Equal(0, harness.Backups.CheckpointCount);
+        Assert.Empty(harness.Operation.Actions);
+    }
+
+    [Fact]
+    public async Task Rollback_requires_the_exact_linked_backup_identifier()
+    {
+        var changePlan = PlanFixture.Create();
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+        harness.Backups.ExistingReceiptFactory = current =>
+            BackupReceipt.Verified(
+                "different-backup",
+                current.BackupDigest,
+                current.ChangePlan.Digest,
+                current.ChangePlan.SourceFingerprint,
+                current.ChangePlan.SourceFingerprint);
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
+        Assert.Equal(OperationState.RollbackFailedRecoveryRequired, result.DurableState);
         Assert.Equal(0, harness.Backups.CheckpointCount);
         Assert.Empty(harness.Operation.Actions);
     }
@@ -835,9 +1068,15 @@ public sealed class ChangeCoordinatorTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(CoordinatorDisposition.AlreadyRestored, result.Disposition);
-        Assert.Equal(OperationState.AlreadyRestored, result.DurableState);
+        Assert.Equal(OperationState.RolledBack, result.DurableState);
         Assert.Equal(0, harness.Backups.CheckpointCount);
         Assert.Equal(0, harness.Operation.RollbackCount);
+        Assert.Collection(
+            harness.Journal.Transitions,
+            transition => Assert.Equal(OperationState.RollbackPlanned, transition.State),
+            transition => Assert.Equal(OperationState.AlreadyRestored, transition.State),
+            transition => Assert.Equal(OperationState.RolledBack, transition.State));
+        Assert.True(OperationStatePolicy.IsTerminal(result.DurableState!.Value));
     }
 
     [Theory]
@@ -871,6 +1110,42 @@ public sealed class ChangeCoordinatorTests
         Assert.Equal(0, harness.Operation.RollbackCount);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Rolling_back_recovery_requires_both_bound_artifacts_before_probing_or_advancing(
+        bool failOperationBackup)
+    {
+        var changePlan = PlanFixture.Create();
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var step = rollbackPlan.Steps[0];
+        var harness = CoordinatorHarness.ForRollingBackRecovery(rollbackPlan, step);
+        if (failOperationBackup)
+        {
+            harness.Backups.ExistingReadFailure =
+                new InvalidDataException("The operation backup is missing.");
+        }
+        else
+        {
+            harness.Backups.RecoveryCheckpointReadFailure =
+                new InvalidDataException("The recovery checkpoint is corrupt.");
+        }
+
+        harness.Operation.Probes.Enqueue(CapabilityFixture.Supported(step.SourceFingerprint));
+
+        var result = await harness.Coordinator.ReconcileRollingBackAsync(
+            harness.Operation,
+            new RollingBackRecovery(rollbackPlan, step),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.RollbackFailed, result.Disposition);
+        Assert.Equal(OperationState.RollbackFailedRecoveryRequired, result.DurableState);
+        Assert.Equal(1, harness.Backups.ExistingReadCount);
+        Assert.Equal(failOperationBackup ? 0 : 1, harness.Backups.RecoveryCheckpointReadCount);
+        Assert.Equal(0, harness.Operation.ProbeCount);
+        Assert.Equal(0, harness.Operation.RollbackCount);
+    }
+
     [Fact]
     public async Task Rolling_back_recovery_rejects_a_step_outside_the_canonical_plan()
     {
@@ -899,9 +1174,13 @@ internal static class RollbackFixture
         return RollbackPlan.Create(
             rollbackId: Guid.Parse("223bc02f-e3d2-4e23-8797-c4b8856fac9c"),
             changePlan: plan,
-            backupDigest: "BACKUP-DIGEST",
-            appliedFingerprint: PlanFixture.Fingerprint("aggregate-applied"),
-            backupFingerprint: PlanFixture.Fingerprint("aggregate-backup"));
+            linkedBackup: BackupReceipt.Verified(
+                "backup",
+                "BACKUP-DIGEST",
+                plan.Digest,
+                plan.SourceFingerprint,
+                plan.SourceFingerprint),
+            appliedFingerprint: PlanFixture.Fingerprint("aggregate-applied"));
     }
 }
 
@@ -987,7 +1266,7 @@ internal sealed class CoordinatorHarness
         var appliedStepIds = anyPriorApplied
             ? plan.Steps.TakeWhile(step => step != uncertainStep).Select(step => step.StepId).ToArray()
             : [];
-        var facts = DurableOperationFacts.From(plan).WithBackupDigest("BACKUP-DIGEST");
+        var facts = DurableOperationFacts.From(plan).WithBackupBinding("backup", "BACKUP-DIGEST");
         var boundary = DurableOperationBoundary.Create(
             plan.PlanId,
             facts,
@@ -1010,7 +1289,15 @@ internal sealed class CoordinatorHarness
             OperationState.RollingBack,
             uncertainStep.StepId,
             []);
-        return new CoordinatorHarness(new InMemoryJournal(boundary));
+        var harness = new CoordinatorHarness(new InMemoryJournal(boundary));
+        harness.Backups.ExistingReceiptFactory = current =>
+            BackupReceipt.Verified(
+                current.BackupId,
+                current.BackupDigest,
+                current.ChangePlan.Digest,
+                current.ChangePlan.SourceFingerprint,
+                current.ChangePlan.SourceFingerprint);
+        return harness;
     }
 }
 
@@ -1040,11 +1327,14 @@ internal sealed class InMemoryOperation : IOperation, IConditionalSystemMutation
 
     internal int RollbackCount => Actions.Count(action => action.StartsWith("rollback:", StringComparison.Ordinal));
 
+    internal int ProbeCount { get; private set; }
+
     public ValueTask<OperationCapability> ProbeAsync(
         OperationTarget target,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ProbeCount++;
         var result = Probes.Dequeue();
         AfterProbe?.Invoke(target);
         return ValueTask.FromResult(result);
@@ -1130,11 +1420,63 @@ internal sealed class InMemoryBackupRepository : IBackupRepository
 
     internal Action? AfterApplyBackup { get; set; }
 
+    internal Exception? ApplyRecoveryReadFailure { get; set; }
+
+    internal Exception? ExistingReadFailure { get; set; }
+
+    internal Exception? RecoveryCheckpointReadFailure { get; set; }
+
     internal int ApplyBackupCount { get; private set; }
 
     internal int CheckpointCount { get; private set; }
 
     internal int ExistingReadCount { get; private set; }
+
+    internal int ApplyRecoveryReadCount { get; private set; }
+
+    internal int RecoveryCheckpointReadCount { get; private set; }
+
+    public ValueTask<BackupReceipt> ReadAndVerifyOperationBackupAsync(
+        ChangePlan plan,
+        string backupId,
+        string backupDigest,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ApplyRecoveryReadCount++;
+        if (ApplyRecoveryReadFailure is not null)
+        {
+            throw ApplyRecoveryReadFailure;
+        }
+
+        return ValueTask.FromResult(BackupReceipt.Verified(
+            backupId,
+            backupDigest,
+            plan.Digest,
+            plan.SourceFingerprint,
+            plan.SourceFingerprint));
+    }
+
+    public ValueTask<BackupReceipt> ReadAndVerifyRecoveryCheckpointAsync(
+        RollbackPlan plan,
+        string checkpointId,
+        string checkpointDigest,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RecoveryCheckpointReadCount++;
+        if (RecoveryCheckpointReadFailure is not null)
+        {
+            throw RecoveryCheckpointReadFailure;
+        }
+
+        return ValueTask.FromResult(BackupReceipt.Verified(
+            checkpointId,
+            checkpointDigest,
+            plan.Digest,
+            plan.AppliedFingerprint,
+            plan.AppliedFingerprint));
+    }
 
     public ValueTask<BackupReceipt> CreateAndVerifyAsync(ChangePlan plan, CancellationToken cancellationToken)
     {
@@ -1160,6 +1502,11 @@ internal sealed class InMemoryBackupRepository : IBackupRepository
     {
         cancellationToken.ThrowIfCancellationRequested();
         ExistingReadCount++;
+        if (ExistingReadFailure is not null)
+        {
+            throw ExistingReadFailure;
+        }
+
         return ValueTask.FromResult(ExistingReceiptFactory!(plan));
     }
 }
@@ -1196,6 +1543,17 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
     internal HashSet<OperationState> SkippedRevisionStates { get; } = [];
 
     internal HashSet<OperationState> MisboundAcknowledgementStates { get; } = [];
+
+    public ValueTask<IReadOnlyList<DurableOperationBoundary>> ScanIncompleteAsync(
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<DurableOperationBoundary> result =
+            _boundary is not null && !OperationStatePolicy.IsTerminal(_boundary.State)
+                ? [_boundary]
+                : [];
+        return ValueTask.FromResult(result);
+    }
 
     public ValueTask<DurableOperationBoundary?> ReadVerifiedBoundaryAsync(
         Guid operationId,
@@ -1268,7 +1626,28 @@ internal sealed class InMemoryMutationLease : IMutationLease
 
     internal int AcquisitionCount { get; private set; }
 
-    public ValueTask<IMutationLeaseHandle?> TryAcquireAsync(Guid operationId, CancellationToken cancellationToken)
+    internal bool GrantRecoveryOwnership { get; set; } = true;
+
+    internal Guid? OperationIdOverride { get; set; }
+
+    internal bool RevalidateResult { get; set; } = true;
+
+    internal int RevalidationCount { get; private set; }
+
+    public ValueTask<IMutationLeaseHandle?> TryAcquireAsync(
+        Guid operationId,
+        CancellationToken cancellationToken) =>
+        TryAcquireCore(operationId, isRecoveryTakeover: false, cancellationToken);
+
+    public ValueTask<IMutationLeaseHandle?> TryAcquireRecoveryAsync(
+        Guid incompleteOperationId,
+        CancellationToken cancellationToken) =>
+        TryAcquireCore(incompleteOperationId, GrantRecoveryOwnership, cancellationToken);
+
+    private ValueTask<IMutationLeaseHandle?> TryAcquireCore(
+        Guid operationId,
+        bool isRecoveryTakeover,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         AcquisitionCount++;
@@ -1278,12 +1657,40 @@ internal sealed class InMemoryMutationLease : IMutationLease
         }
 
         IsHeld = true;
-        return ValueTask.FromResult<IMutationLeaseHandle?>(new Handle(this));
+        return ValueTask.FromResult<IMutationLeaseHandle?>(
+            new Handle(
+                this,
+                Guid.NewGuid(),
+                OperationIdOverride ?? operationId,
+                isRecoveryTakeover));
     }
 
-    private sealed class Handle(InMemoryMutationLease owner) : IMutationLeaseHandle
+    private sealed class Handle(
+        InMemoryMutationLease owner,
+        Guid leaseId,
+        Guid operationId,
+        bool isRecoveryTakeover) : IMutationLeaseHandle
     {
+        public Guid LeaseId => leaseId;
+
+        public Guid OperationId => operationId;
+
         public long Epoch => 1;
+
+        public bool IsRecoveryTakeover => isRecoveryTakeover;
+
+        public ValueTask<bool> HeartbeatAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(owner.IsHeld);
+        }
+
+        public ValueTask<bool> RevalidateAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            owner.RevalidationCount++;
+            return ValueTask.FromResult(owner.IsHeld && owner.RevalidateResult);
+        }
 
         public ValueTask DisposeAsync()
         {
