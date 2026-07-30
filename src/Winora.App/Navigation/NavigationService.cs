@@ -37,11 +37,10 @@ public sealed class NavigationService : INavigationService
             throw new InvalidOperationException("The navigation service has no frame attached.");
         }
 
-        if (string.Equals(CurrentRouteKey, route.Key, StringComparison.Ordinal))
-        {
-            return;
-        }
-
+        // Deliberately no "already on this route" short circuit. A screen that reads live system
+        // state must re-probe when the user returns to it, and after an apply the user returns to
+        // the very route they left. Skipping the navigation left the previous values on screen,
+        // which is how a toggle came to show a value the system no longer held.
         _frame.Navigate(
             PageCatalog.PageTypeFor(route.Key),
             parameter ?? route.Key,

@@ -35,10 +35,13 @@ public sealed class OperationBackupCaptureProvider : IBackupCaptureProvider
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);
+
+        // A pre-rollback checkpoint records the state rollback is about to overwrite, which is the
+        // applied value, never the original one. The coordinator enforces this: it requires both
+        // fingerprints on the receipt to equal the plan's applied fingerprint, so reporting the
+        // original source here fails the rollback instead of silently checkpointing the wrong state.
         var live = await LiveFingerprintAsync(plan.ChangePlan, cancellationToken).ConfigureAwait(false);
 
-        // A pre-rollback checkpoint records the state rollback is about to leave behind, which is the
-        // applied value, not the original one.
         var artifacts = plan.ChangePlan.Steps
             .Select(static step => BackupArtifact.Create(
                 step.StepId,
@@ -46,7 +49,9 @@ public sealed class OperationBackupCaptureProvider : IBackupCaptureProvider
                 Encoding.UTF8.GetBytes(step.ProposedValue.Text)))
             .ToArray();
 
-        return BackupCapture.ForRecoveryCheckpoint(plan.ChangePlan.SourceFingerprint, live, artifacts);
+        // Passing the fresh probe as the live fingerprint is what makes drift between apply and
+        // rollback surface as a refusal rather than an overwrite.
+        return BackupCapture.ForRecoveryCheckpoint(plan.AppliedFingerprint, live, artifacts);
     }
 
     private static IReadOnlyList<BackupArtifact> ArtifactsFor(ChangePlan plan) =>

@@ -5,6 +5,14 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWinUI>true</UseWinUI>
     <DefaultLanguage>ru-RU</DefaultLanguage>
+    <!--
+      The Windows App SDK DeploymentManager auto-initializer runs from a static constructor and
+      activates a WinRT type before the runtime is reachable, throwing REGDB_E_CLASSNOTREG. A throw
+      in a .cctor kills the process instantly with no window, no Windows Error Reporting entry, and
+      no chance for any handler to record it. A packaged app declares a framework dependency, so the
+      OS guarantees the runtime and this initializer has nothing to do.
+    -->
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
