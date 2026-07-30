@@ -41,14 +41,18 @@ Introduces the registry adapter that Task 4's `HKCU ...\Run` work later reuses, 
 - Create: `src/Winora.System/Operations/UserShellPreferenceOperation.cs`.
 - Create: `tests/Winora.System.Tests/Windows/UserShellPreferenceAccessTests.cs`, `tests/Winora.System.Tests/Operations/UserShellPreferenceOperationTests.cs`.
 
-In scope: `TaskbarAl`, `ShowTaskViewButton`, `TaskbarDa`, `TaskbarGlomLevel`, `MMTaskbarGlomLevel`, `TaskbarSd`, `TaskbarSn`, `TaskbarBadges`, `MMTaskbarEnabled`, `MMTaskbarMode`, `Start_Layout`, `Start_TrackDocs`, `Start_IrisRecommendations`.
+In scope, and confirmed against the live registry before being encoded: `TaskbarAl`, `ShowTaskViewButton`, `TaskbarDa`, `TaskbarGlomLevel`, `MMTaskbarGlomLevel`, `MMTaskbarEnabled`, `MMTaskbarMode`, `Start_Layout`, `Start_TrackDocs`, `Start_IrisRecommendations`. `TaskbarSd`, `TaskbarSn` and `TaskbarBadges` were dropped from the earlier draft list: they are not described by the reference page with a documented allowed set, and a plausible-looking name is not documentation.
 
-Explicitly `Unsupported` with a reason code and a guided route: `TaskbarSi`, `StuckRects3`, `Taskband\FavoritesMigration`.
+Excluded with the reason recorded in the catalog source: `TaskbarSi`, `StuckRects3`, `Taskband\FavoritesMigration`, `UserPreferencesMask`, `VisualFXSetting`. The catalog is the boundary — an excluded name has no code path at all, which a test asserts.
 
-- [ ] **Step 1: Write failing tests** — documented-kind versus live-`RegistryValueKind` mismatch degrades to `Unknown`/guided instead of writing; a value outside the documented allowed set is refused; the excluded three report `Unsupported` with a stable code; conditional write re-reads before and after and refuses drift; `RestartRequirement` is `Explorer` or `SignOut` and Winora never terminates `explorer.exe`.
-- [ ] **Step 2: Verify RED**
-- [ ] **Step 3: Implement** the adapter, catalog, and operation.
-- [ ] **Step 4: Verify GREEN**
+**Absence is a state.** Eight of the ten values do not exist on a fresh profile; Windows then applies its own default. Absence is therefore modelled as the first-class value `unset`, and restoring it deletes the value rather than writing a number Winora chose. Writing a guessed default would leave the registry in a shape the user never had while reporting a successful rollback.
+
+- [x] **Step 1: Write failing tests**
+- [x] **Step 2: Verify RED**
+- [x] **Step 3: Implement** the adapter, catalog, and operation.
+- [x] **Step 4: Verify GREEN** — 163 System tests.
+- [x] **Step 5: Prove the write is not virtualized. Redirection was real and is now disabled.** Applying `ShowTaskViewButton` through the packaged app left the value at `0` in the real `HKCU\...\Explorer\Advanced` when read from a separate unpackaged process, while the package's private hive (`SystemAppData\Helium\User.dat`) existed and absorbed the write. Because MSIX registry redirection is copy-on-write, the app's own verification read hit its own write and could not detect this. The manifest now declares `windows.registryWriteVirtualization` as `disabled` with the required `unvirtualizedResources` capability. **Re-verify after any manifest change**: this is the one defect class the safety pipeline cannot catch by itself, since every layer behaves correctly and still reports success.
+- [ ] **Step 6: Confirm the screen** — every row shows its live value or an explicit reason, `unset` is offered, and preview stays disabled until the selection differs from the observed value.
 
 ---
 

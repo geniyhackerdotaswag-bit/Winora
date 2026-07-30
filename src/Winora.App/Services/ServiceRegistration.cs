@@ -43,6 +43,7 @@ public static class ServiceRegistration
         // Owns draft state for the visual-effect toggles, so it lives as long as the shell and resets
         // its drafts on load rather than being rebuilt per navigation.
         services.AddSingleton<ThemesViewModel>();
+        services.AddSingleton<TaskbarViewModel>();
 
         // Carries the plan between review, applying, and result, so all three observe one instance.
         services.AddSingleton<ChangeSessionViewModel>();
@@ -60,6 +61,16 @@ public static class ServiceRegistration
             services.AddSingleton<IOperation>(provider => new VisualEffectsOperation(
                 captured,
                 provider.GetRequiredService<IVisualEffectsAccess>()));
+        }
+
+        services.AddSingleton<IUserShellPreferenceAccess, WindowsUserShellPreferenceAccess>();
+        services.AddSingleton<IShellPreferenceCatalog, ShellPreferenceCatalog>();
+        foreach (var entry in DocumentedShellValues.All)
+        {
+            var captured = entry;
+            services.AddSingleton<IOperation>(provider => new UserShellPreferenceOperation(
+                captured,
+                provider.GetRequiredService<IUserShellPreferenceAccess>()));
         }
 
         services.AddSingleton<IBackupCaptureProvider>(provider =>

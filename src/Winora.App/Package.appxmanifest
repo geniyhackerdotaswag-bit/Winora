@@ -4,13 +4,27 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap rescap desktop6">
   <Identity Name="Winora.App" Publisher="CN=Winora" Version="0.1.0.0" />
   <mp:PhoneIdentity PhoneProductId="4370573d-525e-4af2-b3e3-d035695b3753" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Winora</DisplayName>
     <PublisherDisplayName>Winora</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
+    <!--
+      Without this, MSIX redirects this app's HKCU writes into the package's private hive and serves
+      them back on read. Winora would then write a taskbar value, read its own write, report
+      "applied and verified", and leave the real user hive untouched — a verification that lies,
+      which is the one outcome this project exists to prevent. Measured, not assumed: after an apply
+      the real HKCU value was still 0 while the app reported success.
+      Requires the unvirtualizedResources restricted capability. Microsoft documents this element as
+      intended for a narrow set of partner-published titles, so it is incompatible with ordinary
+      Store certification; the MVP ships sideloaded or through an enterprise channel, which the
+      specification already fixes, and any future Store build must revisit this.
+      Microsoft Learn: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-desktop6-registrywritevirtualization
+    -->
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0" />
@@ -34,5 +48,7 @@
   </Applications>
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <!-- Required by windows.registryWriteVirtualization above. -->
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>

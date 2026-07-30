@@ -110,6 +110,65 @@
   <data name="Themes_PlanSummary"><value>Изменение документированной настройки визуальных эффектов через SystemParametersInfo с проверкой результата.</value></data>
   <data name="Themes_ProbeFailed"><value>Не удалось прочитать состояние одной или нескольких настроек. Такие строки недоступны для изменения.</value></data>
 
+  <data name="Taskbar_Subtitle"><value>Документированные пользовательские значения панели задач и меню «Пуск». Значения, которые Microsoft описывает как непрозрачные или недокументированные, сюда не попадают.</value></data>
+  <data name="Taskbar_PlanSummary"><value>Изменение документированного значения Explorer с проверкой типа, условной записью и уведомлением оболочки.</value></data>
+  <data name="Taskbar_ProbeFailed"><value>Не удалось прочитать одно или несколько значений. Такие строки недоступны для изменения.</value></data>
+  <data name="Shell_RestartNote"><value>Изменение появится после перезапуска Проводника или входа в систему заново. Winora не завершает explorer.exe.</value></data>
+  <data name="Shell_Value_unset"><value>Не задано (умолчание Windows)</value></data>
+
+  <data name="Shell_TaskbarAlignment"><value>Выравнивание панели задач</value></data>
+  <data name="Shell_TaskbarAlignment_Description"><value>Значение TaskbarAl.</value></data>
+  <data name="Shell_TaskbarAlignment_0"><value>По левому краю</value></data>
+  <data name="Shell_TaskbarAlignment_1"><value>По центру</value></data>
+
+  <data name="Shell_TaskViewButton"><value>Кнопка «Представление задач»</value></data>
+  <data name="Shell_TaskViewButton_Description"><value>Значение ShowTaskViewButton.</value></data>
+  <data name="Shell_TaskViewButton_0"><value>Скрыть</value></data>
+  <data name="Shell_TaskViewButton_1"><value>Показывать</value></data>
+
+  <data name="Shell_TaskbarWidgets"><value>Виджеты на панели задач</value></data>
+  <data name="Shell_TaskbarWidgets_Description"><value>Значение TaskbarDa.</value></data>
+  <data name="Shell_TaskbarWidgets_0"><value>Скрыть</value></data>
+  <data name="Shell_TaskbarWidgets_1"><value>Показывать</value></data>
+
+  <data name="Shell_TaskbarButtonGrouping"><value>Группировка кнопок</value></data>
+  <data name="Shell_TaskbarButtonGrouping_Description"><value>Значение TaskbarGlomLevel.</value></data>
+  <data name="Shell_TaskbarButtonGrouping_0"><value>Всегда объединять</value></data>
+  <data name="Shell_TaskbarButtonGrouping_1"><value>При заполнении панели</value></data>
+  <data name="Shell_TaskbarButtonGrouping_2"><value>Никогда не объединять</value></data>
+
+  <data name="Shell_TaskbarButtonGroupingOtherDisplays"><value>Группировка на других экранах</value></data>
+  <data name="Shell_TaskbarButtonGroupingOtherDisplays_Description"><value>Значение MMTaskbarGlomLevel.</value></data>
+  <data name="Shell_TaskbarButtonGroupingOtherDisplays_0"><value>Всегда объединять</value></data>
+  <data name="Shell_TaskbarButtonGroupingOtherDisplays_1"><value>При заполнении панели</value></data>
+  <data name="Shell_TaskbarButtonGroupingOtherDisplays_2"><value>Никогда не объединять</value></data>
+
+  <data name="Shell_TaskbarOnAllDisplays"><value>Панель задач на всех экранах</value></data>
+  <data name="Shell_TaskbarOnAllDisplays_Description"><value>Значение MMTaskbarEnabled.</value></data>
+  <data name="Shell_TaskbarOnAllDisplays_0"><value>Только на основном</value></data>
+  <data name="Shell_TaskbarOnAllDisplays_1"><value>На всех экранах</value></data>
+
+  <data name="Shell_TaskbarButtonsOnOtherDisplays"><value>Кнопки на других экранах</value></data>
+  <data name="Shell_TaskbarButtonsOnOtherDisplays_Description"><value>Значение MMTaskbarMode.</value></data>
+  <data name="Shell_TaskbarButtonsOnOtherDisplays_0"><value>На всех панелях</value></data>
+  <data name="Shell_TaskbarButtonsOnOtherDisplays_1"><value>На основной и на панели окна</value></data>
+  <data name="Shell_TaskbarButtonsOnOtherDisplays_2"><value>Только на панели окна</value></data>
+
+  <data name="Shell_StartLayout"><value>Макет меню «Пуск»</value></data>
+  <data name="Shell_StartLayout_Description"><value>Значение Start_Layout.</value></data>
+  <data name="Shell_StartLayout_0"><value>По умолчанию</value></data>
+  <data name="Shell_StartLayout_1"><value>Больше закреплённых</value></data>
+
+  <data name="Shell_StartRecentFiles"><value>Недавние файлы в «Пуске»</value></data>
+  <data name="Shell_StartRecentFiles_Description"><value>Значение Start_TrackDocs.</value></data>
+  <data name="Shell_StartRecentFiles_0"><value>Не показывать</value></data>
+  <data name="Shell_StartRecentFiles_1"><value>Показывать</value></data>
+
+  <data name="Shell_StartRecommendations"><value>Рекомендации в «Пуске»</value></data>
+  <data name="Shell_StartRecommendations_Description"><value>Значение Start_IrisRecommendations.</value></data>
+  <data name="Shell_StartRecommendations_0"><value>Не показывать</value></data>
+  <data name="Shell_StartRecommendations_1"><value>Показывать</value></data>
+
   <data name="Action_Preview"><value>Предпросмотр</value></data>
   <data name="Action_Confirm"><value>Подтвердить</value></data>
   <data name="Action_Cancel"><value>Отмена</value></data>

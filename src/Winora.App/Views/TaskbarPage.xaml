@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.TaskbarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:conv="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="{StaticResource WinoraPagePadding}">
+
+            <TextBlock Style="{StaticResource WinoraPageTitle}"
+                       Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+
+            <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                       Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+
+            <InfoBar IsOpen="{x:Bind ViewModel.HasLoadError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Warning"
+                     Message="{x:Bind ViewModel.LoadError, Mode=OneWay}" />
+
+            <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ShellPreferenceRowViewModel">
+                        <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapM}">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Label}"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind Description}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                    <TextBlock Text="{x:Bind SupportBadge}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Margin="0,2,0,0" />
+                                    <!-- Winora never restarts Explorer, so it states what is needed. -->
+                                    <TextBlock Text="{x:Bind RestartNote}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                    <TextBlock Text="{x:Bind BlockReason, Mode=OneWay}"
+                                               Visibility="{x:Bind conv:XamlConvert.Show(HasBlockReason), Mode=OneWay}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <ComboBox Grid.Column="1"
+                                          MinWidth="180"
+                                          VerticalAlignment="Center"
+                                          ItemsSource="{x:Bind Choices}"
+                                          DisplayMemberPath="Label"
+                                          SelectedItem="{x:Bind SelectedChoice, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                          AutomationProperties.Name="{x:Bind Label}"
+                                          AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
+
+                                <Button Grid.Column="2"
+                                        VerticalAlignment="Center"
+                                        Content="{x:Bind PreviewLabel}"
+                                        Tag="{x:Bind}"
+                                        IsEnabled="{x:Bind CanPreview, Mode=OneWay}"
+                                        Click="OnPreviewClick" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

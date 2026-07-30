@@ -15,6 +15,7 @@ public static class PageCatalog
     public static Type PageTypeFor(string routeKey) => routeKey switch
     {
         RouteKeys.Themes => typeof(ThemesPage),
+        RouteKeys.Taskbar => typeof(TaskbarPage),
         RouteKeys.ChangeReview => typeof(ChangeReviewPage),
         RouteKeys.Applying => typeof(ResultPage),
         RouteKeys.ResultSuccess => typeof(ResultPage),
