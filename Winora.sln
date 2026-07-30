@@ -28,6 +28,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Winora.Architecture.Tests",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Winora.Lease.ProcessHost", "tests\Winora.Lease.ProcessHost\Winora.Lease.ProcessHost.csproj", "{22222222-2222-4222-8222-222222222206}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Winora.Infrastructure.ProcessHost", "tests\Winora.Infrastructure.ProcessHost\Winora.Infrastructure.ProcessHost.csproj", "{22222222-2222-4222-8222-222222222207}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|x64 = Debug|x64
@@ -78,6 +80,10 @@ Global
         {22222222-2222-4222-8222-222222222206}.Debug|x64.Build.0 = Debug|x64
         {22222222-2222-4222-8222-222222222206}.Release|x64.ActiveCfg = Release|x64
         {22222222-2222-4222-8222-222222222206}.Release|x64.Build.0 = Release|x64
+        {22222222-2222-4222-8222-222222222207}.Debug|x64.ActiveCfg = Debug|x64
+        {22222222-2222-4222-8222-222222222207}.Debug|x64.Build.0 = Debug|x64
+        {22222222-2222-4222-8222-222222222207}.Release|x64.ActiveCfg = Release|x64
+        {22222222-2222-4222-8222-222222222207}.Release|x64.Build.0 = Release|x64
     EndGlobalSection
     GlobalSection(SolutionProperties) = preSolution
         HideSolutionNode = FALSE
@@ -94,6 +100,7 @@ Global
         {22222222-2222-4222-8222-222222222204} = {22222222-2222-4222-8222-222222222222}
         {22222222-2222-4222-8222-222222222205} = {22222222-2222-4222-8222-222222222222}
         {22222222-2222-4222-8222-222222222206} = {22222222-2222-4222-8222-222222222222}
+        {22222222-2222-4222-8222-222222222207} = {22222222-2222-4222-8222-222222222222}
     EndGlobalSection
     GlobalSection(ExtensibilityGlobals) = postSolution
         SolutionGuid = {33333333-3333-4333-8333-333333333333}
