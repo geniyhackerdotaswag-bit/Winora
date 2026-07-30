@@ -177,7 +177,9 @@
   <data name="Shell_StartRecommendations_1"><value>Показывать</value></data>
 
   <data name="Startup_Subtitle"><value>Что запускается при входе в систему, по документированным ключам Run. Показано, откуда пришла каждая запись.</value></data>
-  <data name="Startup_NotAvailable"><value>Включение и отключение записей пока недоступно. Идентификатор операции не вмещает длинные имена записей, а восстановление после сбоя должно воссоздавать операцию по одному идентификатору — способ представления отключённой записи ещё не выбран.</value></data>
+  <data name="Startup_PlanSummary"><value>Перенос документированной записи автозагрузки между ключом Run и служебным ключом Winora с проверкой результата.</value></data>
+  <data name="Startup_HeldByWinora"><value>Отключено Winora. Значение сохранено в служебном ключе и может быть возвращено.</value></data>
+  <data name="Startup_MachineReadOnly"><value>Общесистемная запись. Для изменения нужны права администратора — Winora их не запрашивает.</value></data>
   <data name="Startup_CountFormat"><value>Пользовательских записей: {0} · общесистемных: {1}</value></data>
   <data name="Startup_Source_User"><value>Пользователь (HKCU)</value></data>
   <data name="Startup_Source_Machine"><value>Система (HKLM) · нужны права администратора</value></data>

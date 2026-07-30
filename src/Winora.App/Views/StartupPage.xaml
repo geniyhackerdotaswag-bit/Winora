@@ -18,12 +18,6 @@
             <TextBlock Style="{StaticResource WinoraPageSubtitle}"
                        Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
-            <InfoBar IsOpen="True"
-                     IsClosable="False"
-                     Severity="Informational"
-                     Margin="{StaticResource WinoraStackGapL}"
-                     Message="{x:Bind ViewModel.NotAvailableNotice, Mode=OneWay}" />
-
             <TextBlock Style="{StaticResource WinoraSectionHeading}"
                        Text="{x:Bind ViewModel.CountSummary, Mode=OneWay}" />
 
@@ -55,11 +49,24 @@
                                                Margin="0,2,0,0" />
                                 </StackPanel>
 
-                                <TextBlock Grid.Column="1"
-                                           VerticalAlignment="Top"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           Text="{x:Bind SourceBadge}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                                    <TextBlock HorizontalAlignment="Right"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Text="{x:Bind SourceBadge}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+                                        <ToggleSwitch VerticalAlignment="Center"
+                                                      IsOn="{x:Bind DraftEnabled, Mode=TwoWay}"
+                                                      IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                      AutomationProperties.Name="{x:Bind Name}"
+                                                      AutomationProperties.HelpText="{x:Bind Note, Mode=OneWay}" />
+                                        <Button VerticalAlignment="Center"
+                                                Content="{x:Bind PreviewLabel}"
+                                                Tag="{x:Bind}"
+                                                IsEnabled="{x:Bind CanPreview, Mode=OneWay}"
+                                                Click="OnPreviewClick" />
+                                    </StackPanel>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>

@@ -68,6 +68,8 @@ public static class ServiceRegistration
         }
 
         services.AddSingleton<IRunEntryProbe, WindowsRunEntryProbe>();
+        services.AddSingleton<IRunEntryStore, WindowsRunEntryStore>();
+        services.AddSingleton<IOperationFactory, RunEntryOperationFactory>();
         services.AddSingleton<IStartupInventoryService, StartupInventoryService>();
         services.AddSingleton<ITempLocationProbe, WindowsTempLocationProbe>();
         services.AddSingleton<ICleanupSurveyService, CleanupSurveyService>();
