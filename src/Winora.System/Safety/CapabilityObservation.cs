@@ -32,6 +32,12 @@ namespace Winora.System.Safety;
 /// <see cref="PrivilegeRequirement.StandardUser"/>.
 /// </param>
 /// <param name="CurrentFingerprint">The fingerprint of the observed source state.</param>
+/// <param name="CurrentValue">
+/// The observed source state in the adapter's stable value vocabulary, or null when the state could
+/// not be read. A fingerprint is a hash and cannot be turned back into a value, so a presentation
+/// layer that must show the current state needs this alongside it. It is the same read, so the two
+/// can never disagree.
+/// </param>
 public sealed record CapabilityObservation(
     bool IsApiAvailable,
     bool IsTargetStateKnown,
@@ -44,4 +50,5 @@ public sealed record CapabilityObservation(
     bool IsConditionalMutationAvailable,
     PrivilegeRequirement RequiredPrivilege,
     bool IsElevationSupportedForAccount,
-    StateFingerprint CurrentFingerprint);
+    StateFingerprint CurrentFingerprint,
+    DisplayValue? CurrentValue = null);

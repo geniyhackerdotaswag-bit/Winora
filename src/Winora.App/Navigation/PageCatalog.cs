@@ -14,6 +14,12 @@ public static class PageCatalog
     /// </summary>
     public static Type PageTypeFor(string routeKey) => routeKey switch
     {
+        RouteKeys.Themes => typeof(ThemesPage),
+        RouteKeys.ChangeReview => typeof(ChangeReviewPage),
+        RouteKeys.Applying => typeof(ResultPage),
+        RouteKeys.ResultSuccess => typeof(ResultPage),
+        RouteKeys.ResultFailure => typeof(ResultPage),
+        RouteKeys.ResultPartialRecovery => typeof(ResultPage),
         _ => typeof(PlaceholderPage),
     };
 }

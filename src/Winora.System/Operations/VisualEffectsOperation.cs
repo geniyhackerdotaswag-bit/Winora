@@ -289,7 +289,10 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
             IsConditionalMutationAvailable: isUsable,
             RequiredPrivilege: PrivilegeRequirement.StandardUser,
             IsElevationSupportedForAccount: true,
-            CurrentFingerprint: reading.IsReadable ? Fingerprint(reading.Value) : UnknownFingerprint);
+            CurrentFingerprint: reading.IsReadable ? Fingerprint(reading.Value) : UnknownFingerprint,
+            CurrentValue: reading.IsReadable
+                ? new DisplayValue(VisualEffectValues.Kind, VisualEffectValues.For(reading.Value))
+                : null);
     }
 
     private StateFingerprint Fingerprint(bool value) => new(

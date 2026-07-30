@@ -100,10 +100,22 @@ public sealed partial class MainWindow : Window
 
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (args.SelectedItem is NavigationViewItem { Tag: string routeKey })
+        if (args.SelectedItem is not NavigationViewItem { Tag: string routeKey })
+        {
+            return;
+        }
+
+        try
         {
             _shell.SelectedRouteKey = routeKey;
             _navigation.NavigateTo(routeKey);
+        }
+        catch (Exception ex)
+        {
+            // A throw here would be marshalled back to whatever raised the selection and leave the
+            // pane pointing at a page that never loaded. Record it and say so on screen instead.
+            Diagnostics.DiagnosticSink.Write($"Navigate:{routeKey}", ex);
+            throw;
         }
     }
 }

@@ -37,7 +37,8 @@ public static class OperationCapabilityPolicy
             observation.IsVerificationAvailable,
             observation.IsRollbackAvailable,
             observation.IsConditionalMutationAvailable,
-            blockReason);
+            blockReason,
+            observation.CurrentValue);
     }
 
     private static (SupportStatus Support, string? BlockReason) Decide(CapabilityObservation observation)

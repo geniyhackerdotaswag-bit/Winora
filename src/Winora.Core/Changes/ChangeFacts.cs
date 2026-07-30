@@ -61,6 +61,12 @@ public sealed record VerificationProbe(string ProbeId, string ExpectedResult);
 
 public sealed record OperationTarget(string TargetId);
 
+/// <param name="CurrentValue">
+/// The observed source state in the adapter's stable value vocabulary, or null when it could not be
+/// read. <paramref name="CurrentFingerprint"/> is a hash and cannot be reversed, so a screen that
+/// must show the current state reads it from here. Both come from the same probe and so can never
+/// disagree.
+/// </param>
 public sealed record OperationCapability(
     SupportStatus Support,
     PrivilegeRequirement RequiredPrivilege,
@@ -71,7 +77,8 @@ public sealed record OperationCapability(
     bool IsVerificationAvailable,
     bool IsRollbackAvailable,
     bool IsConditionalMutationAvailable,
-    string? BlockReason);
+    string? BlockReason,
+    DisplayValue? CurrentValue = null);
 
 public sealed record ChangeSafetyDecision(bool IsAllowed, string? BlockReason);
 

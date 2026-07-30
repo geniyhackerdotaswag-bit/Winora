@@ -90,6 +90,58 @@
   <data name="Placeholder_InDevelopment_Title"><value>Раздел в разработке</value></data>
   <data name="Placeholder_InDevelopment_Body"><value>Этот раздел ещё не реализован. Он появится вместе с соответствующими операциями и будет работать по тому же контуру безопасности: предпросмотр, подтверждение, резервная копия, проверка и откат.</value></data>
 
+  <data name="Themes_Subtitle"><value>Документированные настройки визуальных эффектов Windows. Это внешний вид и отзывчивость интерфейса, а не тюнинг производительности.</value></data>
+  <data name="Themes_ClientAreaAnimation"><value>Анимация внутри окон</value></data>
+  <data name="Themes_UiEffects"><value>Эффекты интерфейса</value></data>
+  <data name="Themes_PlanSummary"><value>Изменение документированной настройки визуальных эффектов через SystemParametersInfo с проверкой результата.</value></data>
+  <data name="Themes_ProbeFailed"><value>Не удалось прочитать состояние одной или нескольких настроек. Такие строки недоступны для изменения.</value></data>
+
+  <data name="Action_Preview"><value>Предпросмотр</value></data>
+  <data name="Action_Confirm"><value>Подтвердить</value></data>
+  <data name="Action_Cancel"><value>Отмена</value></data>
+  <data name="Action_Rollback"><value>Восстановить автоматически</value></data>
+  <data name="Action_Back"><value>Назад</value></data>
+
+  <data name="Value_on"><value>включено</value></data>
+  <data name="Value_off"><value>выключено</value></data>
+
+  <data name="Fact_Risk"><value>Риск</value></data>
+  <data name="Fact_Privilege"><value>Права</value></data>
+  <data name="Fact_Rollback"><value>Откат</value></data>
+  <data name="Fact_Restart"><value>Перезапуск</value></data>
+  <data name="Fact_Backup"><value>Резервная копия</value></data>
+
+  <data name="Risk_Informational"><value>информационный</value></data>
+  <data name="Risk_Low"><value>низкий</value></data>
+  <data name="Risk_Medium"><value>средний</value></data>
+  <data name="Risk_High"><value>высокий</value></data>
+
+  <data name="Privilege_StandardUser"><value>обычный пользователь</value></data>
+  <data name="Privilege_Administrator"><value>администратор</value></data>
+
+  <data name="Rollback_Full"><value>полный</value></data>
+  <data name="Rollback_Partial"><value>частичный</value></data>
+  <data name="Rollback_NotApplicable"><value>не применяется</value></data>
+  <data name="Rollback_None"><value>отсутствует</value></data>
+
+  <data name="Restart_None"><value>не требуется</value></data>
+  <data name="Restart_Explorer"><value>перезапуск Explorer</value></data>
+  <data name="Restart_SignOut"><value>выход из сеанса</value></data>
+  <data name="Restart_Reboot"><value>перезагрузка</value></data>
+
+  <data name="Backup_Required"><value>обязательна</value></data>
+  <data name="Backup_NotApplicable"><value>не применяется</value></data>
+
+  <data name="Support_Supported"><value>Поддерживается</value></data>
+  <data name="Support_SupportedWithElevation"><value>Поддерживается, нужны права администратора</value></data>
+  <data name="Support_Guided"><value>Через системные настройки</value></data>
+  <data name="Support_Partial"><value>Частично поддерживается</value></data>
+  <data name="Support_Unknown"><value>Состояние неизвестно</value></data>
+  <data name="Support_Unsupported"><value>Не поддерживается</value></data>
+  <data name="Support_UnsupportedForSafeMutation"><value>Небезопасно изменять напрямую</value></data>
+
+  <data name="Deployment_UnpackagedCannotApply"><value>Применение изменений недоступно: приложение запущено не из установленного пакета Winora. Аренда мутаций требует доказанной подписью идентичности пакета, поэтому просмотр, проба и предпросмотр работают, а запись в систему — нет. Установите подписанный пакет, чтобы применять изменения.</value></data>
+  <data name="Result_BackupUnavailable"><value>Проверенная резервная копия не найдена в журнале операции, поэтому автоматический откат недоступен.</value></data>
   <data name="Result_Completed"><value>Изменение применено и проверено независимо.</value></data>
   <data name="Result_Canceled"><value>Изменение отменено. Система не тронута.</value></data>
   <data name="Result_Blocked"><value>Изменение заблокировано политикой безопасности до применения.</value></data>
