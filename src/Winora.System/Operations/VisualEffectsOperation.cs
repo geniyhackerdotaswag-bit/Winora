@@ -58,23 +58,38 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
 
     public string ConditionalMutationMechanismId => "windows.spi.single-value-verified-write";
 
-    public static string IdFor(VisualEffectSetting setting) => setting switch
+    /// <summary>
+    /// Stable slug for one setting. Both the catalog operation id and the step id derive from it, so
+    /// a new setting cannot accidentally ship with an id that collides with an existing one.
+    /// </summary>
+    private static string SlugFor(VisualEffectSetting setting) => setting switch
     {
-        VisualEffectSetting.ClientAreaAnimation => "winora.visual-effects.client-area-animation",
-        VisualEffectSetting.UiEffects => "winora.visual-effects.ui-effects",
+        VisualEffectSetting.ClientAreaAnimation => "client-area-animation",
+        VisualEffectSetting.UiEffects => "ui-effects",
+        VisualEffectSetting.MenuAnimation => "menu-animation",
+        VisualEffectSetting.ComboBoxAnimation => "combo-box-animation",
+        VisualEffectSetting.ListBoxSmoothScrolling => "list-box-smooth-scrolling",
+        VisualEffectSetting.GradientCaptions => "gradient-captions",
+        VisualEffectSetting.HotTracking => "hot-tracking",
+        VisualEffectSetting.MenuFade => "menu-fade",
+        VisualEffectSetting.SelectionFade => "selection-fade",
+        VisualEffectSetting.TooltipAnimation => "tooltip-animation",
+        VisualEffectSetting.TooltipFade => "tooltip-fade",
+        VisualEffectSetting.CursorShadow => "cursor-shadow",
+        VisualEffectSetting.FlatMenu => "flat-menu",
+        VisualEffectSetting.DropShadow => "drop-shadow",
+        VisualEffectSetting.FontSmoothing => "font-smoothing",
+        VisualEffectSetting.DragFullWindows => "drag-full-windows",
         _ => throw new ArgumentOutOfRangeException(nameof(setting)),
     };
+
+    public static string IdFor(VisualEffectSetting setting) => $"winora.visual-effects.{SlugFor(setting)}";
 
     /// <summary>
     /// The stable step identifier for the single step this operation plans. Step identifiers are
     /// display-safe by contract, so they cannot reuse the dotted catalog operation identifier.
     /// </summary>
-    public static string StepIdFor(VisualEffectSetting setting) => setting switch
-    {
-        VisualEffectSetting.ClientAreaAnimation => "visual-effects-client-area-animation",
-        VisualEffectSetting.UiEffects => "visual-effects-ui-effects",
-        _ => throw new ArgumentOutOfRangeException(nameof(setting)),
-    };
+    public static string StepIdFor(VisualEffectSetting setting) => $"visual-effects-{SlugFor(setting)}";
 
     public ValueTask<OperationCapability> ProbeAsync(
         OperationTarget target,

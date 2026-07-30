@@ -13,6 +13,48 @@ public enum VisualEffectSetting
 
     /// <summary>SPI_GETUIEFFECTS / SPI_SETUIEFFECTS.</summary>
     UiEffects,
+
+    /// <summary>SPI_GETMENUANIMATION / SPI_SETMENUANIMATION.</summary>
+    MenuAnimation,
+
+    /// <summary>SPI_GETCOMBOBOXANIMATION / SPI_SETCOMBOBOXANIMATION.</summary>
+    ComboBoxAnimation,
+
+    /// <summary>SPI_GETLISTBOXSMOOTHSCROLLING / SPI_SETLISTBOXSMOOTHSCROLLING.</summary>
+    ListBoxSmoothScrolling,
+
+    /// <summary>SPI_GETGRADIENTCAPTIONS / SPI_SETGRADIENTCAPTIONS.</summary>
+    GradientCaptions,
+
+    /// <summary>SPI_GETHOTTRACKING / SPI_SETHOTTRACKING.</summary>
+    HotTracking,
+
+    /// <summary>SPI_GETMENUFADE / SPI_SETMENUFADE.</summary>
+    MenuFade,
+
+    /// <summary>SPI_GETSELECTIONFADE / SPI_SETSELECTIONFADE.</summary>
+    SelectionFade,
+
+    /// <summary>SPI_GETTOOLTIPANIMATION / SPI_SETTOOLTIPANIMATION.</summary>
+    TooltipAnimation,
+
+    /// <summary>SPI_GETTOOLTIPFADE / SPI_SETTOOLTIPFADE.</summary>
+    TooltipFade,
+
+    /// <summary>SPI_GETCURSORSHADOW / SPI_SETCURSORSHADOW.</summary>
+    CursorShadow,
+
+    /// <summary>SPI_GETFLATMENU / SPI_SETFLATMENU.</summary>
+    FlatMenu,
+
+    /// <summary>SPI_GETDROPSHADOW / SPI_SETDROPSHADOW.</summary>
+    DropShadow,
+
+    /// <summary>SPI_GETFONTSMOOTHING / SPI_SETFONTSMOOTHING.</summary>
+    FontSmoothing,
+
+    /// <summary>SPI_GETDRAGFULLWINDOWS / SPI_SETDRAGFULLWINDOWS.</summary>
+    DragFullWindows,
 }
 
 /// <summary>
@@ -53,11 +95,6 @@ public interface IVisualEffectsAccess
 /// </remarks>
 public sealed partial class WindowsVisualEffectsAccess : IVisualEffectsAccess
 {
-    private const uint SpiGetClientAreaAnimation = 0x1042;
-    private const uint SpiSetClientAreaAnimation = 0x1043;
-    private const uint SpiGetUiEffects = 0x103E;
-    private const uint SpiSetUiEffects = 0x103F;
-
     private const uint SpifUpdateIniFile = 0x0001;
     private const uint SpifSendChange = 0x0002;
 
@@ -66,8 +103,9 @@ public sealed partial class WindowsVisualEffectsAccess : IVisualEffectsAccess
 
     public VisualEffectReading Read(VisualEffectSetting setting)
     {
+        var descriptor = VisualEffectActions.For(setting);
         var value = 0;
-        if (GetSystemParameter(GetAction(setting), 0, ref value, 0))
+        if (GetSystemParameter(descriptor.GetAction, 0, ref value, 0))
         {
             return new VisualEffectReading(IsActionAvailable: true, IsReadable: true, Value: value != 0);
         }
@@ -84,11 +122,21 @@ public sealed partial class WindowsVisualEffectsAccess : IVisualEffectsAccess
 
     public VisualEffectWriteOutcome Write(VisualEffectSetting setting, bool value)
     {
-        var succeeded = SetSystemParameter(
-            SetAction(setting),
-            0,
-            value ? 1 : 0,
-            SpifUpdateIniFile | SpifSendChange);
+        var descriptor = VisualEffectActions.For(setting);
+
+        // The two legacy actions take the value in uiParam with a null pvParam. Sending it the usual
+        // way returns success while setting nothing, which would make a verified write silently lie.
+        var succeeded = descriptor.WriteStyle == VisualEffectWriteStyle.UiParam
+            ? SetSystemParameter(
+                descriptor.SetAction,
+                value ? 1u : 0u,
+                nint.Zero,
+                SpifUpdateIniFile | SpifSendChange)
+            : SetSystemParameter(
+                descriptor.SetAction,
+                0,
+                value ? 1 : 0,
+                SpifUpdateIniFile | SpifSendChange);
         if (succeeded)
         {
             return VisualEffectWriteOutcome.Written;
@@ -100,20 +148,6 @@ public sealed partial class WindowsVisualEffectsAccess : IVisualEffectsAccess
             ? VisualEffectWriteOutcome.OutcomeUnknown
             : VisualEffectWriteOutcome.NotWritten;
     }
-
-    private static uint GetAction(VisualEffectSetting setting) => setting switch
-    {
-        VisualEffectSetting.ClientAreaAnimation => SpiGetClientAreaAnimation,
-        VisualEffectSetting.UiEffects => SpiGetUiEffects,
-        _ => throw new ArgumentOutOfRangeException(nameof(setting)),
-    };
-
-    private static uint SetAction(VisualEffectSetting setting) => setting switch
-    {
-        VisualEffectSetting.ClientAreaAnimation => SpiSetClientAreaAnimation,
-        VisualEffectSetting.UiEffects => SpiSetUiEffects,
-        _ => throw new ArgumentOutOfRangeException(nameof(setting)),
-    };
 
     [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

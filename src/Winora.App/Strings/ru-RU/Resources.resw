@@ -93,6 +93,20 @@
   <data name="Themes_Subtitle"><value>Документированные настройки визуальных эффектов Windows. Это внешний вид и отзывчивость интерфейса, а не тюнинг производительности.</value></data>
   <data name="Themes_ClientAreaAnimation"><value>Анимация внутри окон</value></data>
   <data name="Themes_UiEffects"><value>Эффекты интерфейса</value></data>
+  <data name="Themes_MenuAnimation"><value>Анимация меню</value></data>
+  <data name="Themes_ComboBoxAnimation"><value>Анимация раскрывающихся списков</value></data>
+  <data name="Themes_ListBoxSmoothScrolling"><value>Плавная прокрутка списков</value></data>
+  <data name="Themes_GradientCaptions"><value>Градиент в заголовках окон</value></data>
+  <data name="Themes_HotTracking"><value>Подсветка элементов под курсором</value></data>
+  <data name="Themes_MenuFade"><value>Затухание меню</value></data>
+  <data name="Themes_SelectionFade"><value>Затухание выделения</value></data>
+  <data name="Themes_TooltipAnimation"><value>Анимация всплывающих подсказок</value></data>
+  <data name="Themes_TooltipFade"><value>Затухание всплывающих подсказок</value></data>
+  <data name="Themes_CursorShadow"><value>Тень курсора</value></data>
+  <data name="Themes_FlatMenu"><value>Плоский стиль меню</value></data>
+  <data name="Themes_DropShadow"><value>Тени окон</value></data>
+  <data name="Themes_FontSmoothing"><value>Сглаживание шрифтов</value></data>
+  <data name="Themes_DragFullWindows"><value>Показывать содержимое окна при перетаскивании</value></data>
   <data name="Themes_PlanSummary"><value>Изменение документированной настройки визуальных эффектов через SystemParametersInfo с проверкой результата.</value></data>
   <data name="Themes_ProbeFailed"><value>Не удалось прочитать состояние одной или нескольких настроек. Такие строки недоступны для изменения.</value></data>
 

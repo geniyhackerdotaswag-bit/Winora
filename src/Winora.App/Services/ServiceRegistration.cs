@@ -54,12 +54,13 @@ public static class ServiceRegistration
         services.AddSingleton<WindowsBuildProbe>();
 
         // One instance per setting: an operation addresses exactly one documented target.
-        services.AddSingleton<IOperation>(provider => new VisualEffectsOperation(
-            VisualEffectSetting.ClientAreaAnimation,
-            provider.GetRequiredService<IVisualEffectsAccess>()));
-        services.AddSingleton<IOperation>(provider => new VisualEffectsOperation(
-            VisualEffectSetting.UiEffects,
-            provider.GetRequiredService<IVisualEffectsAccess>()));
+        foreach (var setting in Enum.GetValues<VisualEffectSetting>())
+        {
+            var captured = setting;
+            services.AddSingleton<IOperation>(provider => new VisualEffectsOperation(
+                captured,
+                provider.GetRequiredService<IVisualEffectsAccess>()));
+        }
 
         services.AddSingleton<IBackupCaptureProvider>(provider =>
             new OperationBackupCaptureProvider(provider.GetServices<IOperation>()));

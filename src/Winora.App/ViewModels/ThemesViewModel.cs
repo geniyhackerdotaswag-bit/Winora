@@ -129,10 +129,22 @@ public sealed partial class ThemesViewModel : ObservableObject
         _navigation.NavigateTo(RouteKeys.ChangeReview);
     }
 
-    private static string LabelKeyFor(string operationId) => operationId switch
+    /// <summary>
+    /// Derives the resource key from the catalog id so a newly registered setting cannot silently
+    /// fall back to showing its raw operation id as a label.
+    /// </summary>
+    private static string LabelKeyFor(string operationId)
     {
-        "winora.visual-effects.client-area-animation" => "Themes_ClientAreaAnimation",
-        "winora.visual-effects.ui-effects" => "Themes_UiEffects",
-        _ => operationId,
-    };
+        const string prefix = "winora.visual-effects.";
+        if (!operationId.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return operationId;
+        }
+
+        var slug = operationId[prefix.Length..];
+        var pascal = string.Concat(slug
+            .Split('-', StringSplitOptions.RemoveEmptyEntries)
+            .Select(static part => char.ToUpperInvariant(part[0]) + part[1..]));
+        return $"Themes_{pascal}";
+    }
 }
