@@ -27,3 +27,9 @@ In project-reference terms, the enforced graph is:
 `Winora.ElevatedHost` is a separate non-UI process for versioned, authenticated, allowlisted administrative operations. `Winora.App` is the medium-integrity WinUI process and the only presentation/composition layer.
 
 Tests mirror the production layers. `Winora.Architecture.Tests` reads project files directly so dependency rules fail early without loading application code.
+
+## Adding a capability domain
+
+A new domain is one `IOperation` in `Winora.System/Operations/` plus one narrow adapter that carries its Microsoft Learn URI inline. It never introduces a second coordinator, a second plan type, or a second persistence path — `ChangeCoordinator`, `ChangeSafetyPolicy`, and the existing `Winora.Infrastructure` stores are the only ones. A domain that cannot be expressed this way is a signal that the mechanism is not documented well enough to ship as a direct mutation.
+
+`%LOCALAPPDATA%\Winora\Quarantine` is Infrastructure-owned, like every other path under the Winora data directory. Operations address it through `WinoraDataPaths`, never by composing strings.

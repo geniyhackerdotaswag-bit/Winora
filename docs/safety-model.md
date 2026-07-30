@@ -16,3 +16,12 @@ Direct mutation is blocked for `Unknown`, `Unsupported`, `Partial`, `NotAvailabl
 The medium-integrity app never performs arbitrary elevated work. The elevated helper accepts only versioned, authenticated, same-account, allowlisted requests tied to the active lease and confirmed plan fingerprint. UAC cancellation leaves the verified local backup inspectable and produces no target mutation.
 
 Durable transitions are published before any later system action. App startup reconciles incomplete journals at their last certain boundary; it never blindly replays an uncertain apply, rollback, or restore-point step. Logs and exported journal data are sanitized and omit secrets and full sensitive paths.
+
+## Irreversible byte reclamation
+
+`ChangeSafetyPolicy` refuses any plan that is not `Backup == Required` with `Rollback == Full`. Reclaiming disk space cannot satisfy that, and the rule is not weakened to accommodate it. Reclamation is therefore split in two:
+
+1. **Quarantine — a reversible forward apply.** Items move into `%LOCALAPPDATA%\Winora\Quarantine\{operationId}` preserving their relative structure. The per-step backup is the item manifest (canonical path, length, last-write time, content hash); verification re-hashes at the destination; rollback moves the item back and reports `AlreadyRestored` when it is already home. This is honestly `RollbackCapability.Full` at `RiskLevel.Low` for a standard user and passes the existing policy unchanged. The probe requires a user-owned target on the same volume as `%LOCALAPPDATA%`, refuses protected and remote targets, and checks free space; a cross-volume target copies rather than renames, so it degrades to guided.
+2. **Purge — a separate retention decision.** Freeing the bytes is never part of the step the user just confirmed. Because the bytes now live under `%LOCALAPPDATA%\Winora`, the purge is the retention decision section 7 of the specification already defines: one atomic decision over Winora-owned data, recorded in the action journal, never applied to a quarantine still linked to a recovery-required change. It does not pass through `ChangeCoordinator` and adds no exemption to the safety core.
+
+`RollbackCapability` is never overstated to make a feature look safer. The Recycle Bin illustrates why: `FOF_ALLOWUNDO` is documented, but its undo is scoped to the Explorer session with no documented programmatic restore, so a Recycle Bin destination is at most `Partial` and can never be a direct-apply path.

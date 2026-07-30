@@ -22,6 +22,24 @@
 - The UI uses NavigationView, Mica, the approved Fluent token grid, Russian `.resw` strings, Microsoft Fluent System Icons Regular 20, keyboard access, High Contrast, 200% scaling, and reduced motion.
 - x64 Debug and Release must build with MSBuild 18; non-UI tests must pass with `dotnet test`; packaged launch is a release gate.
 
+## Status as of 2026-07-30
+
+The per-step checkboxes below were never ticked during implementation and no longer reflect reality. Actual state, verified by test run:
+
+| Task | State | Notes |
+|---|---|---|
+| 1. Scaffold and boundaries | **Done** | `Winora.Architecture.Tests` now enforces all five documented dependency rules plus a ViewModel boundary rule (7 facts) |
+| 2. Core plans, capability, state machine | **Done** | 246 tests |
+| 3. Atomic JSON, backups, journals, lease | **Done and exceeded** | Also gained payload-capable backups (`IBackupCaptureProvider`, `BackupPayloadStore`), `IActionJournal` in Core, `IOperationRecoveryResolver`, retention machinery, and `WinoraStateRestorer` — none of which this plan anticipated. 277 tests |
+| 4. Windows capabilities and adapters | **Partial (~20%)** | Only `VisualEffectsOperation` (two toggles), `OperationCapabilityPolicy`, `CapabilityBlockCodes`, `WindowsBuildProbe`. Missing: Run entries, Startup folders, folder/shortcut icons, sound and cursor preview services. 73 tests |
+| 5. ElevatedHost, IPC, restore points | **Not started** | `Program.Main()` has an empty body. Blocks every High-risk domain — see below |
+| 6. WinUI shell, tokens, DI, navigation | **Not started** | `Winora.App` is 30 lines: a blank Mica window. `Winora.App.Tests` has no test files |
+| 7–10 | **Not started** | |
+
+**Known blocker.** `src/Winora.Core/Changes/ChangeCoordinator.cs:102-116` blocks any plan with `RequiresRestorePoint` by delegating to a System Restore lifecycle coordinator that does not exist, while `src/Winora.Core/Changes/ChangeFacts.cs` blocks `Risk == High` without a restore point. Together these make every High-risk operation unimplementable until Task 5 supplies the coordinator. `OperationStatePolicy` already permits the needed transitions, so Task 5 is orchestration, not new state design.
+
+New capability domains are planned separately in `2026-07-30-winora-capability-extension.md`.
+
 ---
 
 ### Task 1: Solution scaffold and enforced layer boundaries

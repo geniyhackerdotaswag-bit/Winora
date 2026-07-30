@@ -58,11 +58,16 @@ The fixed MVP distribution is a signed, per-user MSIX/MSIXBundle delivered by Ap
 - Restore-point creation service for operations classified as high risk.
 - Separate sanitized action journal.
 - Compatibility and administrator-rights reporting.
+- Documented visual-effect and interface-responsiveness preferences exposed as one operation per `SystemParametersInfo` action pair.
+- Documented per-user taskbar and Start values from the Windows 11 settings reference, degrading to guided where the live value kind contradicts the documented semantics.
+- Temporary-file reclamation for user-owned locations, performed as a reversible move into a Winora-owned quarantine.
+- Retention of Winora's own journals, backups, and quarantine as an explicit, separately confirmed decision.
 
 ### Explicit non-goals for MVP
 
-- No undocumented `Explorer`, `DWM`, `StartupApproved`, `AppEvents`, cursor, or theme registry tweaks.
-- No debloat, service disabling, policy bypass, security weakening, shell replacement, taskbar hacks, or patching system binaries.
+- No undocumented `Explorer`, `DWM`, `StartupApproved`, `AppEvents`, cursor, or theme registry tweaks. Documented `Explorer\Advanced` values named in the Windows 11 settings reference are in scope; `TaskbarSi`, `StuckRects3`, `Taskband\FavoritesMigration`, `UserPreferencesMask`, `VisualFXSetting`, and `Win32PrioritySeparation` are not, because Microsoft either documents them as opaque, calls them undocumented, or has disabled them.
+- No debloat, service disabling, policy bypass, security weakening, shell replacement, or patching system binaries. Winora also never terminates `explorer.exe`: restarting the shell is not a documented mechanism, so a pending taskbar change is reported through `RestartRequirement` instead.
+- No operation deletes user bytes in the step the user just confirmed. Reclamation is always a reversible move first; freeing the bytes is a separate, separately confirmed retention decision.
 - No SQLite, cloud synchronization, accounts, telemetry, plugin marketplace, or remote execution.
 - No silent elevation and no always-elevated main application.
 - No claim that a Winora backup is a full Windows image or a substitute for System Restore.
@@ -95,7 +100,10 @@ Winora/
    ├─ Winora.Core.Tests/
    ├─ Winora.Infrastructure.Tests/
    ├─ Winora.System.Tests/
-   └─ Winora.App.Tests/
+   ├─ Winora.App.Tests/
+   ├─ Winora.Architecture.Tests/        # enforces the dependency rules from csproj XML
+   ├─ Winora.Infrastructure.ProcessHost/ # helper exe for cross-process persistence tests
+   └─ Winora.Lease.ProcessHost/          # helper exe for cross-process lease-fencing tests
 ```
 
 ### Project responsibilities
@@ -373,13 +381,24 @@ Backups may contain the minimum exact paths and values needed for rollback. They
 | Folder icon | Documented Unicode `Desktop.ini`, folder attribute handling, managed `.ico` copy, and shell change notification | Usually standard | Full | None; Explorer refresh only | Supported on writable filesystem folders |
 | Shortcut icon | Documented `IShellLink::SetIconLocation` + `IPersistFile::Save` | Usually standard | Full | None; Explorer refresh only | Supported for writable `.lnk` files |
 | Restore point | Documented `SRSetRestorePointW` sequence through elevated host | Admin | Not applicable | None | Supported only when System Restore is enabled and a new sequence can be verified |
+| Visual-effect preferences (expanded set) | One operation instance per documented `SystemParametersInfo` get/set action pair, with the documented broadcast | Standard | Full | None | Supported per action when that action exists on the running build |
+| Taskbar and Start (per-user) | Documented `HKCU ...\Explorer\Advanced` scalar values plus the documented shell change notification | Standard | Full | Explorer or sign-out | Supported only when the live value kind matches the documented semantics; otherwise guided |
+| Taskbar size, autohide, pinned-item order | Read-only status with a stable reason code and a guided route | Standard | — | — | Unsupported: `TaskbarSi` is undocumented and disabled, `StuckRects3` is a documented opaque blob, `Taskband\FavoritesMigration` is explicitly undocumented |
+| Temporary-file reclamation (per-user) | Enumerate with documented `GetTempPath2W`/`SHGetKnownFolderPath`, then move into `%LOCALAPPDATA%\Winora\Quarantine\{operationId}` with `IFileOperation::MoveItem` | Standard | Full | None | Supported only for user-owned locations on the same volume as `%LOCALAPPDATA%`; otherwise guided |
+| Quarantine purge and Winora journal/backup retention | Not a `ChangeCoordinator` operation. An explicit retention decision over Winora-owned data, recorded in the action journal | Standard | Not applicable | None | Supported; never applied to a quarantine still linked to a recovery-required change |
+| Windows event-log channels | Read channel metadata; export-then-clear through documented `EvtClearLog` with a non-null target file | Admin for system channels | Not applicable | None | Guided/unsupported in MVP; direct apply only after the elevated host and restore-point lifecycle exist |
+| Cursor scheme authoring | Write a documented `.theme`-format cursor scheme into `%LOCALAPPDATA%\Winora\Assets` and hand off with documented `ShellExecute` on that file | Standard | Full for the Winora-owned file | None | Guided for the persistent Windows change; the live `HKCU\Control Panel\Cursors` scheme has no Learn documentation and stays out of scope |
 
 Every table row marked direct `Supported` is additionally conditional on a passing `IConditionalSystemMutation` capability probe for the concrete Windows build and target. If Winora cannot protect the final expected-state check through the write, the row degrades to `UnsupportedForSafeMutation`/guided for that target instead of using an unconditional fallback.
+
+Two documentation honesty rules constrain the rows above. First, the Windows 11 settings reference states its purpose as *reading* settings for backup and data portability, and it lists taskbar values as `REG_SZ` under `SystemSettings_*` names while the live registry uses simple DWORDs such as `TaskbarAl`; a probe must therefore compare the documented kind against the live `RegistryValueKind` and degrade to `Unknown`/guided on a mismatch rather than guessing. Second, an exported `.evtx` is evidence, not a restore: Microsoft documents no way to re-inject records into a live channel, so log clearing can never claim `RollbackCapability.Full`.
+
+Reclamation copy must not overstate what these operations do. The `SystemParametersInfo` rows change visual effects and perceived responsiveness; they are not a performance tuner and must never be labelled as one.
 
 ### Restore-point policy by operation
 
 - `Required for forward apply`: direct enable/disable of an `HKLM ...\Run` value and moving a shortcut to/from the common Startup folder. These are machine-wide startup changes; forward apply is blocked unless a verified local backup and a new Winora-owned restore-point sequence are both available. Rollback does not demand a second new restore point, which Windows may coalesce within 24 hours; it uses the verified operation backup plus the bounded pre-rollback checkpoint and retains the original Winora restore point when it still exists.
-- `Local backup only`: documented `SystemParametersInfo` visual effects, `HKCU ...\Run`, the per-user Startup folder, folder `Desktop.ini` icons, and shortcut icon changes. These have exact operation-specific backups and full rollback but do not request UAC solely to create a restore point.
+- `Local backup only`: documented `SystemParametersInfo` visual effects, documented per-user taskbar and Start values, the reversible move into the Winora quarantine, `HKCU ...\Run`, the per-user Startup folder, folder `Desktop.ini` icons, and shortcut icon changes. These have exact operation-specific backups and full rollback but do not request UAC solely to create a restore point.
 - `Neither`: Winora theme, preview/read-only inspection, capability probes, dry-run, and guided Windows-owned settings routes because they do not directly mutate Windows through Winora.
 - `Restore-point operation`: the explicit manual restore-point command is itself a non-destructive safety artifact. It uses the complete lifecycle below but does not recursively create a local operation backup or another restore point.
 
@@ -459,9 +478,14 @@ The explicit manual restore-point command uses the same BEGIN/END pair and durab
 
 ПЕРСОНАЛИЗАЦИЯ
   Темы и эффекты
+  Панель задач
   Звуки
   Курсоры
   Иконки
+
+ОБСЛУЖИВАНИЕ
+  Производительность
+  Очистка
 
 СИСТЕМА
   Автозагрузка
@@ -472,6 +496,8 @@ Footer
   Журнал действий
   Настройки
 ```
+
+Route keys are stable, lowercase, and kebab-cased; they are never derived from a localized label. The registry covers every pane item plus the route-only screens in section 10: `dashboard`, `themes`, `taskbar`, `performance`, `cleanup`, `sounds`, `cursors`, `icons`, `startup`, `changes`, `backups`, `journal`, `settings`, `compatibility`, `change-review`, `rollback-review`, `applying`, `result-success`, `result-failure`, `result-partial-recovery`, and `recovery`.
 
 The pane is 240 px expanded and uses the native compact state when collapsed. Every item has a Microsoft Fluent System Icons Regular icon in the shared 20 px presenter.
 
@@ -742,3 +768,13 @@ There are no silent clicks, inert cards, fake chevrons, or unlabeled disabled co
 - [System Restore API](https://learn.microsoft.com/en-us/windows/win32/sr/system-restore-api)
 - [System Restore WMI classes](https://learn.microsoft.com/en-us/windows/win32/sr/system-restore-wmi-classes)
 - [Calling SRSetRestorePoint](https://learn.microsoft.com/en-us/windows/win32/sr/calling-srsetrestorepoint)
+- [Reference for Windows 11 settings](https://learn.microsoft.com/en-us/windows/apps/develop/settings/settings-windows-11)
+- [SHChangeNotify](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shchangenotify)
+- [GetTempPath2W](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppath2w)
+- [SHGetKnownFolderPath](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath)
+- [IFileOperation::MoveItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-moveitem)
+- [FILEOPERATION_FLAGS](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/ne-shobjidl_core-_fileoperation_flags)
+- [EvtClearLog](https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtclearlog)
+- [Launch the Windows Settings app](https://learn.microsoft.com/en-us/windows/apps/develop/launch/launch-settings)
+
+Mechanisms deliberately excluded, recorded so a later reader does not mistake the omission for an oversight: [IEmptyVolumeCache2](https://learn.microsoft.com/en-us/windows/win32/api/emptyvc/nn-emptyvc-iemptyvolumecache2) and [Creating a Disk Cleanup Handler](https://learn.microsoft.com/en-us/windows/win32/lwef/disk-cleanup) document the contract a cleanup *handler* implements for `cleanmgr`, not a client API Winora may drive; [Storage policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-storage) documents Storage Sense only as machine policy. There is no documented client API to run Disk Cleanup or trigger Storage Sense once, and no Learn page documents the live `HKCU\Control Panel\Cursors` scheme.

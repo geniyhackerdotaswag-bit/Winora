@@ -12,6 +12,9 @@
 - Develop behavior test-first. Every mutation must pass through capability probing, immutable dry-run planning, confirmation, verified backup, conditional apply, independent verification, durable journaling, and idempotent rollback.
 - Block direct mutation for unknown, unsupported, partial, unavailable, or unsafe capabilities. Never replace external state after fingerprint drift.
 - Use documented Windows mechanisms only and include the relevant Microsoft Learn URI next to every mutating adapter.
+- A mechanism you cannot cite a Microsoft Learn URI for ships as `Guided` or `Unsupported` with a stable reason code. It never ships as an unconditional fallback, and a plausible-looking registry value is not documentation.
+- Where a Learn page documents a value's *kind* differently from what the live system holds, probe both and degrade to `Unknown`/`Guided` on a mismatch instead of guessing.
+- No operation deletes user bytes in the step the user just confirmed. Reclamation moves into the Winora quarantine first; freeing the bytes is a separate retention decision. Never overstate `RollbackCapability` to make a feature look safer.
 - Keep user-facing text in `.resw` resources, preserve keyboard/High Contrast/200% support, and do not add inert controls.
 
 ## Build
