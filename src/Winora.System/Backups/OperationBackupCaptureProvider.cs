@@ -11,14 +11,16 @@ namespace Winora.System.Backups;
 /// </summary>
 public sealed class OperationBackupCaptureProvider : IBackupCaptureProvider
 {
-    private readonly IReadOnlyDictionary<string, IOperation> _operations;
+    private readonly IOperationCatalog _catalog;
 
-    public OperationBackupCaptureProvider(IEnumerable<IOperation> operations)
+    /// <remarks>
+    /// Resolves through the catalog rather than a snapshot taken at construction, so a plan from a
+    /// domain whose targets are discovered at runtime can still have its source state captured —
+    /// including in a fresh process during startup reconciliation.
+    /// </remarks>
+    public OperationBackupCaptureProvider(IOperationCatalog catalog)
     {
-        ArgumentNullException.ThrowIfNull(operations);
-        _operations = operations.ToDictionary(
-            static operation => operation.OperationId,
-            StringComparer.Ordinal);
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     }
 
     public async ValueTask<BackupCapture> CaptureOperationAsync(
@@ -66,10 +68,10 @@ public sealed class OperationBackupCaptureProvider : IBackupCaptureProvider
         ChangePlan plan,
         CancellationToken cancellationToken)
     {
-        if (!_operations.TryGetValue(plan.OperationId, out var operation))
+        if (!_catalog.TryResolve(plan.OperationId, out var operation) || operation is null)
         {
             throw new InvalidOperationException(
-                $"No registered operation owns '{plan.OperationId}', so its source state cannot be captured.");
+                $"No operation owns '{plan.OperationId}', so its source state cannot be captured.");
         }
 
         var capability = await operation

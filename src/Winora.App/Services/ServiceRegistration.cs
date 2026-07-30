@@ -79,8 +79,15 @@ public static class ServiceRegistration
                 provider.GetRequiredService<IUserShellPreferenceAccess>()));
         }
 
+        // Resolves both the fixed operations above and, through factories, domains whose targets are
+        // discovered at runtime. Startup reconciliation runs in a fresh process with only the id
+        // from the durable journal, so resolution must not depend on this session's instances.
+        services.AddSingleton<IOperationCatalog>(provider => new CompositeOperationCatalog(
+            provider.GetServices<IOperation>(),
+            provider.GetServices<IOperationFactory>()));
+
         services.AddSingleton<IBackupCaptureProvider>(provider =>
-            new OperationBackupCaptureProvider(provider.GetServices<IOperation>()));
+            new OperationBackupCaptureProvider(provider.GetRequiredService<IOperationCatalog>()));
     }
 
     private static void AddPersistence(IServiceCollection services)

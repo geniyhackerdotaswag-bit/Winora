@@ -22,7 +22,7 @@ public sealed class OperationBackupCaptureProviderTests
     {
         var access = new StubAccess(currentValue: false);
         var operation = new VisualEffectsOperation(VisualEffectSetting.ClientAreaAnimation, access);
-        var provider = new OperationBackupCaptureProvider([operation]);
+        var provider = new OperationBackupCaptureProvider(new CompositeOperationCatalog([operation], []));
         var plan = await PlanAsync(operation, proposed: true);
 
         var capture = await provider.CaptureOperationAsync(plan, CancellationToken.None);
@@ -44,7 +44,7 @@ public sealed class OperationBackupCaptureProviderTests
     {
         var access = new StubAccess(currentValue: false);
         var operation = new VisualEffectsOperation(VisualEffectSetting.ClientAreaAnimation, access);
-        var provider = new OperationBackupCaptureProvider([operation]);
+        var provider = new OperationBackupCaptureProvider(new CompositeOperationCatalog([operation], []));
         var plan = await PlanAsync(operation, proposed: true);
 
         // The apply already happened, so the live system now holds the proposed value.
@@ -68,7 +68,7 @@ public sealed class OperationBackupCaptureProviderTests
     {
         var access = new StubAccess(currentValue: false);
         var operation = new VisualEffectsOperation(VisualEffectSetting.ClientAreaAnimation, access);
-        var provider = new OperationBackupCaptureProvider([operation]);
+        var provider = new OperationBackupCaptureProvider(new CompositeOperationCatalog([operation], []));
         var plan = await PlanAsync(operation, proposed: true);
 
         // Something outside Winora put the value back before rollback ran.
@@ -89,7 +89,7 @@ public sealed class OperationBackupCaptureProviderTests
         var access = new StubAccess(currentValue: false);
         var operation = new VisualEffectsOperation(VisualEffectSetting.ClientAreaAnimation, access);
         var plan = await PlanAsync(operation, proposed: true);
-        var provider = new OperationBackupCaptureProvider([]);
+        var provider = new OperationBackupCaptureProvider(new CompositeOperationCatalog([], []));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await provider.CaptureOperationAsync(plan, CancellationToken.None));
