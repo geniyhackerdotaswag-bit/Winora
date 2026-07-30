@@ -20,5 +20,7 @@
 ## Build
 
 - Use .NET SDK 10.0.203, C# 14, `net10.0-windows10.0.26100.0`, Windows App SDK 2.2.0, and x64.
+- Do not raise the `Microsoft.WindowsAppSDK` pin without first confirming a matching Dynamic Dependency Lifetime Manager package is installed. Unpackaged launches resolve the framework through the DDLM for their exact version; a 2.3.x pin on a machine that only has `DDLM.2.2.0.0` produces a process that starts and exits with no window, no log, and no managed exception.
+- The unpackaged loop (`-p:WindowsPackageType=None`) and the packaged layout share `bin\x64\<Config>\`, and `Add-AppxPackage -Register` points at that directory. Rebuilding one flavour silently corrupts a registration made from the other; always clean between them.
 - Run focused tests while developing, then build `Winora.sln` with MSBuild 18 in both Debug and Release before a release.
 - Do not commit generated output, certificates, packages, `.superpowers/` scratch files, or secrets.

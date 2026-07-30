@@ -3,6 +3,12 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <!--
+      Pinned to 2.2.0 because that is the only version with a Dynamic Dependency Lifetime Manager
+      installed here (Microsoft.WinAppRuntime.DDLM.2.2.0.0). Unpackaged launches need a DDLM for the
+      version they target; 2.3.x frameworks are present but DDLM-less, so building against 2.3.1
+      leaves the app unable to start unpackaged. Raising this pin requires the matching DDLM.
+    -->
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
