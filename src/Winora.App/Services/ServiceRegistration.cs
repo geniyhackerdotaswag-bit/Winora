@@ -45,6 +45,7 @@ public static class ServiceRegistration
         services.AddSingleton<ThemesViewModel>();
         services.AddSingleton<TaskbarViewModel>();
         services.AddTransient<CleanupViewModel>();
+        services.AddTransient<DashboardViewModel>();
 
         // Carries the plan between review, applying, and result, so all three observe one instance.
         services.AddSingleton<ChangeSessionViewModel>();
@@ -53,7 +54,8 @@ public static class ServiceRegistration
     private static void AddOperations(IServiceCollection services)
     {
         services.AddSingleton<IVisualEffectsAccess, WindowsVisualEffectsAccess>();
-        services.AddSingleton<WindowsBuildProbe>();
+        services.AddSingleton<IWindowsBuildProbe, WindowsBuildProbe>();
+        services.AddSingleton<ISystemSummaryService, SystemSummaryService>();
 
         // One instance per setting: an operation addresses exactly one documented target.
         foreach (var setting in Enum.GetValues<VisualEffectSetting>())

@@ -87,6 +87,13 @@
   <data name="Nav_ResultPartialRecovery"><value>Требуется восстановление</value></data>
   <data name="Nav_Recovery"><value>Восстановление</value></data>
 
+  <data name="Dashboard_WindowsVersionFormat"><value>Windows {0}</value></data>
+  <data name="Dashboard_CompatibleNote"><value>Сборка удовлетворяет минимальной поддерживаемой версии Windows 11.</value></data>
+  <data name="Dashboard_IncompatibleNote"><value>Сборка старше минимальной поддерживаемой ({0}). Прямые изменения будут заблокированы.</value></data>
+  <data name="Dashboard_CapabilityFormat"><value>Доступно операций: {0} из {1}</value></data>
+  <data name="Dashboard_BlockedFormat"><value>Заблокировано проверкой возможностей: {0}. Причина указана на соответствующем экране.</value></data>
+  <data name="Dashboard_CanApplyNote"><value>Приложение запущено из установленного пакета — изменения можно применять.</value></data>
+
   <data name="Placeholder_InDevelopment_Title"><value>Раздел в разработке</value></data>
   <data name="Placeholder_InDevelopment_Body"><value>Этот раздел ещё не реализован. Он появится вместе с соответствующими операциями и будет работать по тому же контуру безопасности: предпросмотр, подтверждение, резервная копия, проверка и откат.</value></data>
 

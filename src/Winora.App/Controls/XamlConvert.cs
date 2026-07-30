@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Winora.App.Controls;
 
@@ -9,4 +10,8 @@ namespace Winora.App.Controls;
 public static class XamlConvert
 {
     public static Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Informational when the condition holds, a warning when it does not.</summary>
+    public static InfoBarSeverity InfoSeverity(bool isHealthy) =>
+        isHealthy ? InfoBarSeverity.Informational : InfoBarSeverity.Warning;
 }
