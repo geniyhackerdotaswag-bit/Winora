@@ -92,6 +92,27 @@ The live `HKCU\Control Panel\Cursors` scheme has no Learn documentation, so Wino
 
 ---
 
+---
+
+### Task 15: Startup entries
+
+Inspection is implemented. Disabling and re-enabling are not, and the reason is a concrete constraint worth recording rather than rediscovering.
+
+**The operation id cannot carry the entry name.** `ChangePlan.IsSafeCatalogOperationId` allows 96 lowercase characters, so after the `winora.startup.run.` prefix roughly 38 bytes remain. Measured on a real profile, Run entry names reach 56 bytes — `YandexBrowserAutoLaunch_EFB5B37C64649EA7404EBBBAEC96AF4B` and two more like it. Hex-encoding the name therefore does not fit, and a lossy slug cannot be reversed.
+
+Since `IOperationFactory` must rebuild the operation from the id alone, the id has to be a hash of the entry name and the factory has to find the matching entry by scanning. That works while the entry exists. It does not work for an entry Winora has disabled, if disabling means deleting the value: nothing is left to scan, so the name needed to restore it is gone from the registry.
+
+Two candidate resolutions, to decide before implementing:
+
+1. **Winora-managed disabled store.** Move the value to a Winora-owned key instead of deleting it, mirroring what the specification already prescribes for Startup *folders* ("move a shortcut to/from a Winora-managed disabled directory"). Symmetric, the name is never lost, and a user can find and restore it by hand. Deviates from the current wording for Run entries, which says "disable by backed-up value removal".
+2. **Keep deletion** and have the factory fall back to the durable journal and backup to recover the name. Matches the current wording but makes reconstruction depend on Winora's own state, which is exactly what the factory design set out to avoid.
+
+Option 1 is the recommendation; it needs a specification amendment, not just code.
+
+- [x] Inspect HKCU and HKLM Run entries read-only, with the source of each shown.
+- [ ] Decide the disabled-entry representation and amend the specification.
+- [ ] Implement disable and re-enable through the coordinator.
+
 ## Verification for every task
 
 ```powershell

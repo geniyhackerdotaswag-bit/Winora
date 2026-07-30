@@ -46,6 +46,7 @@ public static class ServiceRegistration
         services.AddSingleton<TaskbarViewModel>();
         services.AddTransient<CleanupViewModel>();
         services.AddTransient<DashboardViewModel>();
+        services.AddTransient<StartupViewModel>();
 
         // Carries the plan between review, applying, and result, so all three observe one instance.
         services.AddSingleton<ChangeSessionViewModel>();
@@ -66,6 +67,8 @@ public static class ServiceRegistration
                 provider.GetRequiredService<IVisualEffectsAccess>()));
         }
 
+        services.AddSingleton<IRunEntryProbe, WindowsRunEntryProbe>();
+        services.AddSingleton<IStartupInventoryService, StartupInventoryService>();
         services.AddSingleton<ITempLocationProbe, WindowsTempLocationProbe>();
         services.AddSingleton<ICleanupSurveyService, CleanupSurveyService>();
 

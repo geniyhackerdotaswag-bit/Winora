@@ -176,6 +176,13 @@
   <data name="Shell_StartRecommendations_0"><value>Не показывать</value></data>
   <data name="Shell_StartRecommendations_1"><value>Показывать</value></data>
 
+  <data name="Startup_Subtitle"><value>Что запускается при входе в систему, по документированным ключам Run. Показано, откуда пришла каждая запись.</value></data>
+  <data name="Startup_NotAvailable"><value>Включение и отключение записей пока недоступно. Идентификатор операции не вмещает длинные имена записей, а восстановление после сбоя должно воссоздавать операцию по одному идентификатору — способ представления отключённой записи ещё не выбран.</value></data>
+  <data name="Startup_CountFormat"><value>Пользовательских записей: {0} · общесистемных: {1}</value></data>
+  <data name="Startup_Source_User"><value>Пользователь (HKCU)</value></data>
+  <data name="Startup_Source_Machine"><value>Система (HKLM) · нужны права администратора</value></data>
+  <data name="Startup_UndocumentedKind"><value>Значение не строкового типа — Winora не показывает его команду и не будет его изменять.</value></data>
+
   <data name="Cleanup_Subtitle"><value>Что Winora рассматривает как кандидатов на освобождение места. Каталоги, обслуживаемые самой Windows, показаны с причиной отказа — трогать их Winora не будет.</value></data>
   <data name="Cleanup_NotAvailable"><value>Освобождение места пока недоступно. Сначала будет реализован обратимый перенос в карантин, и только отдельным подтверждённым шагом — фактическое удаление. Сейчас этот раздел только показывает состояние.</value></data>
   <data name="Cleanup_TotalFormat"><value>Потенциально освобождаемо: {0}</value></data>
