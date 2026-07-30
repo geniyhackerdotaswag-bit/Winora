@@ -11,5 +11,14 @@
     <Window.SystemBackdrop>
         <MicaBackdrop />
     </Window.SystemBackdrop>
-    <Grid />
+
+    <NavigationView x:Name="Navigation"
+                    OpenPaneLength="{StaticResource WinoraNavigationPaneWidth}"
+                    PaneDisplayMode="Left"
+                    IsSettingsVisible="False"
+                    IsBackButtonVisible="Collapsed"
+                    IsPaneToggleButtonVisible="True"
+                    SelectionChanged="OnNavigationSelectionChanged">
+        <Frame x:Name="ContentFrame" />
+    </NavigationView>
 </Window>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="App_Title"><value>Winora</value></data>
+  <data name="App_Safety_Statement"><value>Каждое изменение показывается заранее, сохраняется в резервную копию, проверяется независимо и может быть отменено.</value></data>
+
+  <data name="Nav_Dashboard"><value>Главная</value></data>
+  <data name="Nav_Group_Personalization"><value>Персонализация</value></data>
+  <data name="Nav_Themes"><value>Темы и эффекты</value></data>
+  <data name="Nav_Taskbar"><value>Панель задач</value></data>
+  <data name="Nav_Sounds"><value>Звуки</value></data>
+  <data name="Nav_Cursors"><value>Курсоры</value></data>
+  <data name="Nav_Icons"><value>Иконки</value></data>
+  <data name="Nav_Group_Maintenance"><value>Обслуживание</value></data>
+  <data name="Nav_Performance"><value>Производительность</value></data>
+  <data name="Nav_Cleanup"><value>Очистка</value></data>
+  <data name="Nav_Group_System"><value>Система</value></data>
+  <data name="Nav_Startup"><value>Автозагрузка</value></data>
+  <data name="Nav_Changes"><value>Изменения</value></data>
+  <data name="Nav_Backups"><value>Резервные копии</value></data>
+  <data name="Nav_Journal"><value>Журнал действий</value></data>
+  <data name="Nav_Settings"><value>Настройки</value></data>
+  <data name="Nav_Compatibility"><value>Совместимость</value></data>
+  <data name="Nav_ChangeReview"><value>Проверка изменения</value></data>
+  <data name="Nav_RollbackReview"><value>Проверка отката</value></data>
+  <data name="Nav_Applying"><value>Применение</value></data>
+  <data name="Nav_ResultSuccess"><value>Готово</value></data>
+  <data name="Nav_ResultFailure"><value>Не удалось</value></data>
+  <data name="Nav_ResultPartialRecovery"><value>Требуется восстановление</value></data>
+  <data name="Nav_Recovery"><value>Восстановление</value></data>
+
+  <data name="Placeholder_InDevelopment_Title"><value>Раздел в разработке</value></data>
+  <data name="Placeholder_InDevelopment_Body"><value>Этот раздел ещё не реализован. Он появится вместе с соответствующими операциями и будет работать по тому же контуру безопасности: предпросмотр, подтверждение, резервная копия, проверка и откат.</value></data>
+
+  <data name="Result_Completed"><value>Изменение применено и проверено независимо.</value></data>
+  <data name="Result_Canceled"><value>Изменение отменено. Система не тронута.</value></data>
+  <data name="Result_Blocked"><value>Изменение заблокировано политикой безопасности до применения.</value></data>
+  <data name="Result_Invalidated"><value>Состояние системы изменилось после предпросмотра. Проверьте новый список отличий.</value></data>
+  <data name="Result_BackupFailed"><value>Не удалось создать или проверить резервную копию. Изменение не применялось.</value></data>
+  <data name="Result_ApplyFailed"><value>Не удалось применить изменение. Резервная копия сохранена и доступна.</value></data>
+  <data name="Result_PartialRecoveryRequired"><value>Изменение выполнено частично. Требуется восстановление.</value></data>
+  <data name="Result_VerificationFailed"><value>Независимая проверка не подтвердила результат. Доступен откат.</value></data>
+  <data name="Result_DurabilityFailure"><value>Не удалось надёжно записать журнал операции. Требуется восстановление.</value></data>
+  <data name="Result_OperationBusy"><value>Другая операция Winora уже выполняется. Ничего не записано.</value></data>
+  <data name="Result_Reconciled"><value>Незавершённая операция согласована с последней надёжной границей.</value></data>
+  <data name="Result_Conflict"><value>Обнаружен конфликт состояния. Требуется восстановление.</value></data>
+  <data name="Result_RolledBack"><value>Изменение откачено и проверено.</value></data>
+  <data name="Result_AlreadyRestored"><value>Значение уже восстановлено. Повторная запись не выполнялась.</value></data>
+  <data name="Result_RollbackFailed"><value>Не удалось выполнить откат. Запись о необходимости восстановления сохранена.</value></data>
+</root>

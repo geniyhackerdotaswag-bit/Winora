@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shared surfaces built only from the token grid in DesignTokens.xaml. Native WinUI theme resources
+  supply every colour so High Contrast and the system accent keep working without special cases.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style x:Key="WinoraPageTitle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
+        <Setter Property="Margin" Value="{StaticResource WinoraStackGapS}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WinoraPageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="MaxWidth" Value="{StaticResource WinoraBodyMaxWidth}" />
+        <Setter Property="Margin" Value="{StaticResource WinoraStackGapXl}" />
+    </Style>
+
+    <Style x:Key="WinoraSectionHeading" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
+        <Setter Property="Margin" Value="{StaticResource WinoraStackGapM}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- The single card surface. Card radius is 8 px by specification; controls inside use 4 px. -->
+    <Style x:Key="WinoraCard" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource WinoraCardRadius}" />
+        <Setter Property="Padding" Value="{StaticResource WinoraCardPadding}" />
+    </Style>
+
+</ResourceDictionary>

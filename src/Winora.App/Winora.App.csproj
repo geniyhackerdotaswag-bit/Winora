@@ -4,6 +4,7 @@
     <RootNamespace>Winora.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWinUI>true</UseWinUI>
+    <DefaultLanguage>ru-RU</DefaultLanguage>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
