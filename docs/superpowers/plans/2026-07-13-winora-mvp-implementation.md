@@ -33,8 +33,10 @@ The per-step checkboxes below were never ticked during implementation and no lon
 | 3. Atomic JSON, backups, journals, lease | **Done and exceeded** | Also gained payload-capable backups (`IBackupCaptureProvider`, `BackupPayloadStore`), `IActionJournal` in Core, `IOperationRecoveryResolver`, retention machinery, and `WinoraStateRestorer` — none of which this plan anticipated. 277 tests |
 | 4. Windows capabilities and adapters | **Partial (~20%)** | Only `VisualEffectsOperation` (two toggles), `OperationCapabilityPolicy`, `CapabilityBlockCodes`, `WindowsBuildProbe`. Missing: Run entries, Startup folders, folder/shortcut icons, sound and cursor preview services. 73 tests |
 | 5. ElevatedHost, IPC, restore points | **Not started** | `Program.Main()` has an empty body. Blocks every High-risk domain — see below |
-| 6. WinUI shell, tokens, DI, navigation | **Not started** | `Winora.App` is 30 lines: a blank Mica window. `Winora.App.Tests` has no test files |
-| 7–10 | **Not started** | |
+| 6. WinUI shell, tokens, DI, navigation | **Done** | NavigationView with the section 10 tree, token dictionaries, ru-RU `.resw`, one icon catalog, DI composition root, placeholder pages that state what is unbuilt. 56 tests |
+| 7–10 | **Partial** | Themes is real and drives the full pipeline against live Windows; the remaining screens are placeholders. Packaging, accessibility audit, and release checks not started |
+
+**Verified end to end on 2026-07-30** against the registered package: probe reads live `SystemParametersInfo` state, dry run produces the plan, confirmation applies it, the durable journal records `Planned → Prepared → BackupCreated → Applying → Applied → Verified → Completed`, the backup payload holds the literal previous value, and rollback restores the setting and reports success. Applying requires package identity because `GlobalMutationLease` demands it; unpackaged runs can probe, preview and review but not apply, and the review screen says so.
 
 **Known blocker.** `src/Winora.Core/Changes/ChangeCoordinator.cs:102-116` blocks any plan with `RequiresRestorePoint` by delegating to a System Restore lifecycle coordinator that does not exist, while `src/Winora.Core/Changes/ChangeFacts.cs` blocks `Risk == High` without a restore point. Together these make every High-risk operation unimplementable until Task 5 supplies the coordinator. `OperationStatePolicy` already permits the needed transitions, so Task 5 is orchestration, not new state design.
 
