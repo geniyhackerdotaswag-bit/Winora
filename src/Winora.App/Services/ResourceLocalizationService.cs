@@ -28,9 +28,18 @@ public sealed class ResourceLocalizationService : ILocalizationService
     public string Get(string resourceKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceKey);
-        var value = Lookup(resourceKey);
+        var value = Lookup(Normalize(resourceKey));
         return string.IsNullOrEmpty(value) ? $"⟦{resourceKey}⟧" : value;
     }
+
+    /// <summary>
+    /// Stable reason codes look like <c>winora.capability.unreadable-state</c>, but MRT treats a dot
+    /// as a resource-map path separator, so such a key never resolves as written. Domain code should
+    /// not have to know that, so the separators are normalised here instead of forcing every caller
+    /// to invent a second spelling of its own identifier.
+    /// </summary>
+    private static string Normalize(string resourceKey) =>
+        resourceKey.Replace('.', '_').Replace('-', '_');
 
     private string Lookup(string resourceKey)
     {

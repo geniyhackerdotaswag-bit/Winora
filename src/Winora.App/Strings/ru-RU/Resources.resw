@@ -169,6 +169,21 @@
   <data name="Shell_StartRecommendations_0"><value>Не показывать</value></data>
   <data name="Shell_StartRecommendations_1"><value>Показывать</value></data>
 
+  <data name="Cleanup_Subtitle"><value>Что Winora рассматривает как кандидатов на освобождение места. Каталоги, обслуживаемые самой Windows, показаны с причиной отказа — трогать их Winora не будет.</value></data>
+  <data name="Cleanup_NotAvailable"><value>Освобождение места пока недоступно. Сначала будет реализован обратимый перенос в карантин, и только отдельным подтверждённым шагом — фактическое удаление. Сейчас этот раздел только показывает состояние.</value></data>
+  <data name="Cleanup_TotalFormat"><value>Потенциально освобождаемо: {0}</value></data>
+  <data name="Cleanup_SizeFormat"><value>{0} · файлов: {1}</value></data>
+  <data name="Cleanup_PartiallyRead"><value>Часть каталога прочитать не удалось, итог занижен.</value></data>
+  <data name="Cleanup_Location_user_temp"><value>Временные файлы пользователя</value></data>
+  <data name="Cleanup_Location_crash_dumps"><value>Дампы аварийного завершения</value></data>
+  <data name="Cleanup_Location_windows_temp"><value>Временные файлы Windows</value></data>
+  <data name="Cleanup_Location_software_distribution"><value>Кэш Центра обновления</value></data>
+  <data name="Cleanup_Location_cbs_logs"><value>Журналы обслуживания компонентов</value></data>
+  <data name="Cleanup_Location_windows_old"><value>Предыдущая установка Windows</value></data>
+  <data name="winora_cleanup_windows_serviced"><value>Каталог обслуживается Windows. Winora его не трогает.</value></data>
+  <data name="winora_cleanup_update_servicing"><value>Нужен для обслуживания и отката обновлений. Winora его не трогает.</value></data>
+  <data name="winora_cleanup_previous_installation"><value>Нужен для возврата к предыдущей версии Windows. Удаляется только средствами системы.</value></data>
+
   <data name="Action_Preview"><value>Предпросмотр</value></data>
   <data name="Action_Confirm"><value>Подтвердить</value></data>
   <data name="Action_Cancel"><value>Отмена</value></data>

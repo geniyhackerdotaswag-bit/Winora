@@ -44,6 +44,7 @@ public static class ServiceRegistration
         // its drafts on load rather than being rebuilt per navigation.
         services.AddSingleton<ThemesViewModel>();
         services.AddSingleton<TaskbarViewModel>();
+        services.AddTransient<CleanupViewModel>();
 
         // Carries the plan between review, applying, and result, so all three observe one instance.
         services.AddSingleton<ChangeSessionViewModel>();
@@ -62,6 +63,9 @@ public static class ServiceRegistration
                 captured,
                 provider.GetRequiredService<IVisualEffectsAccess>()));
         }
+
+        services.AddSingleton<ITempLocationProbe, WindowsTempLocationProbe>();
+        services.AddSingleton<ICleanupSurveyService, CleanupSurveyService>();
 
         services.AddSingleton<IUserShellPreferenceAccess, WindowsUserShellPreferenceAccess>();
         services.AddSingleton<IShellPreferenceCatalog, ShellPreferenceCatalog>();

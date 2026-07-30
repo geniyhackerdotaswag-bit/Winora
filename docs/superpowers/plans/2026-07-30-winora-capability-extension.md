@@ -60,8 +60,10 @@ Excluded with the reason recorded in the catalog source: `TaskbarSi`, `StuckRect
 
 Requires the two-part split from `docs/safety-model.md`. Part 2 reuses the retention machinery that already exists in `Winora.Infrastructure/Journal/`; do not write a second one.
 
+**Measured on 2026-07-30, and it changes the design.** File writes from the packaged app are *not* virtualized: a probe run inside the package container wrote to the real `C:\Users\...\AppData\Local\Temp` and an unpackaged process saw the file. But `%LOCALAPPDATA%` *is* redirected — Winora's own backups and journals land under `LocalCache\Local\Winora`. So a quarantine under `%LOCALAPPDATA%\Winora` would live inside the package's redirected storage, which **Windows deletes when the package is uninstalled**. Quarantined items are the user's files, so that would silently destroy data on uninstall. Resolve the quarantine location before moving a single byte: either place it outside package-scoped storage, or make uninstall-time loss impossible by refusing to quarantine anything the user has not already agreed to lose. Do not treat this as a detail.
+
 **Files:**
-- Modify: `src/Winora.Infrastructure/Paths/WinoraDataPaths.cs` — add the owned `Quarantine/{operationId}` layout with the existing traversal guards.
+- Modify: `src/Winora.Infrastructure/Paths/WinoraDataPaths.cs` — add the owned `Quarantine/{operationId}` layout with the existing traversal guards, once the location question above is settled.
 - Create: `src/Winora.System/Windows/TempLocationProbe.cs` — `GetTempPath2W` + `SHGetKnownFolderPath` enumeration, volume and ownership checks, protected-target list.
 - Create: `src/Winora.System/Windows/ShellFileOperationAccess.cs` — `IFileOperation::MoveItem` with documented flags.
 - Create: `src/Winora.System/Operations/QuarantineMoveOperation.cs`.
