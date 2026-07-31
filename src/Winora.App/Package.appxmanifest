@@ -13,15 +13,24 @@
     <PublisherDisplayName>Winora</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <!--
-      Without this, MSIX redirects this app's HKCU writes into the package's private hive and serves
-      them back on read. Winora would then write a taskbar value, read its own write, report
-      "applied and verified", and leave the real user hive untouched — a verification that lies,
-      which is the one outcome this project exists to prevent. Measured, not assumed: after an apply
-      the real HKCU value was still 0 while the app reported success.
-      Requires the unvirtualizedResources restricted capability. Microsoft documents this element as
-      intended for a narrow set of partner-published titles, so it is incompatible with ordinary
-      Store certification; the MVP ships sideloaded or through an enterprise channel, which the
-      specification already fixes, and any future Store build must revisit this.
+      MSIX otherwise redirects this app's HKCU writes into a container view and serves them back on
+      read. Winora would then write a value, read its own write, report "applied and verified", and
+      leave the real user hive untouched — a verification that lies, which is the one outcome this
+      project exists to prevent.
+
+      IMPORTANT, measured on 2026-07-31: this element does NOT take effect for an unsigned package
+      registered with Add-AppxPackage -Register. Get-AppxPackage then reports SignatureKind None and
+      IsDevelopmentMode True, and unvirtualizedResources is a restricted capability the OS does not
+      grant to such a package even though it lists it. The observed symptom is asymmetric and
+      confusing: deleting a value from an existing key propagates to the real hive, but the container
+      keeps a tombstone that masks the value if something outside restores it, and a key the app
+      creates itself exists only inside the container and is invisible from outside. The registry
+      domains therefore cannot be trusted until the package is properly signed. Verify with a
+      separate unpackaged process after any change to signing or to this element.
+
+      Microsoft documents this element as intended for a narrow set of partner-published titles, so
+      it is also incompatible with ordinary Store certification; the MVP ships sideloaded or through
+      an enterprise channel, which the specification already fixes.
       Microsoft Learn: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-desktop6-registrywritevirtualization
     -->
     <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
