@@ -9,13 +9,20 @@ namespace Winora.App.Services;
 public interface IShellPreferenceCatalog
 {
     IReadOnlyList<int> AllowedValuesFor(string operationId);
+
+    /// <summary>What Windows applies when the value is absent, so the list can show it as selected.</summary>
+    int DefaultValueFor(string operationId);
 }
 
 /// <inheritdoc />
 public sealed class ShellPreferenceCatalog : IShellPreferenceCatalog
 {
-    public IReadOnlyList<int> AllowedValuesFor(string operationId) =>
+    public IReadOnlyList<int> AllowedValuesFor(string operationId) => Find(operationId).AllowedValues;
+
+    public int DefaultValueFor(string operationId) => Find(operationId).DefaultValue;
+
+    private static DocumentedShellValue Find(string operationId) =>
         DocumentedShellValues.TryFindByOperationId(operationId, out var entry)
-            ? entry.AllowedValues
+            ? entry
             : throw new KeyNotFoundException($"'{operationId}' is not a documented Winora shell value.");
 }

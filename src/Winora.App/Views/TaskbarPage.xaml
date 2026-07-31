@@ -18,10 +18,11 @@
             <TextBlock Style="{StaticResource WinoraPageSubtitle}"
                        Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
-            <InfoBar IsOpen="{x:Bind ViewModel.HasLoadError, Mode=OneWay}"
+            <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                      IsClosable="False"
                      Severity="Warning"
-                     Message="{x:Bind ViewModel.LoadError, Mode=OneWay}" />
+                     Margin="{StaticResource WinoraStackGapL}"
+                     Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
             <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
                 <ItemsControl.ItemTemplate>
@@ -62,21 +63,23 @@
                                 </StackPanel>
 
                                 <ComboBox Grid.Column="1"
-                                          MinWidth="180"
+                                          MinWidth="200"
                                           VerticalAlignment="Center"
                                           ItemsSource="{x:Bind Choices}"
                                           DisplayMemberPath="Label"
                                           SelectedItem="{x:Bind SelectedChoice, Mode=TwoWay}"
                                           IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                          SelectionChanged="OnSelectionChanged"
+                                          Tag="{x:Bind}"
                                           AutomationProperties.Name="{x:Bind Label}"
                                           AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
 
-                                <Button Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        Content="{x:Bind PreviewLabel}"
-                                        Tag="{x:Bind}"
-                                        IsEnabled="{x:Bind CanPreview, Mode=OneWay}"
-                                        Click="OnPreviewClick" />
+                                <ProgressRing Grid.Column="2"
+                                              IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                              Visibility="{x:Bind conv:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                              Width="20"
+                                              Height="20"
+                                              VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                     </DataTemplate>

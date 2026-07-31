@@ -18,10 +18,11 @@
             <TextBlock Style="{StaticResource WinoraPageSubtitle}"
                        Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
-            <InfoBar IsOpen="{x:Bind ViewModel.HasLoadError, Mode=OneWay}"
+            <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                      IsClosable="False"
                      Severity="Warning"
-                     Message="{x:Bind ViewModel.LoadError, Mode=OneWay}" />
+                     Margin="{StaticResource WinoraStackGapL}"
+                     Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
             <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
                 <ItemsControl.ItemTemplate>
@@ -31,17 +32,12 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="{x:Bind Label}"
                                                Style="{StaticResource BodyStrongTextBlockStyle}"
                                                TextWrapping="Wrap" />
-                                    <TextBlock Text="{x:Bind SupportBadge}"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               Margin="0,2,0,0" />
                                     <!-- A disabled control always states why nearby, never silently. -->
                                     <TextBlock Text="{x:Bind BlockReason, Mode=OneWay}"
                                                Visibility="{x:Bind conv:XamlConvert.Show(HasBlockReason), Mode=OneWay}"
@@ -51,19 +47,27 @@
                                                Margin="0,2,0,0" />
                                 </StackPanel>
 
-                                <ToggleSwitch Grid.Column="1"
-                                              VerticalAlignment="Center"
-                                              IsOn="{x:Bind DraftValue, Mode=TwoWay}"
-                                              IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
-                                              AutomationProperties.Name="{x:Bind Label}"
-                                              AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
-
-                                <Button Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        Content="{x:Bind PreviewLabel}"
-                                        Tag="{x:Bind}"
-                                        IsEnabled="{x:Bind CanPreview, Mode=OneWay}"
-                                        Click="OnPreviewClick" />
+                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                    <!--
+                                      OnContent and OffContent are deliberately empty: the label to the
+                                      left already names the setting, and a switch that also prints
+                                      "On"/"Off" beside itself reads as clutter.
+                                    -->
+                                    <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
+                                                  OnContent=""
+                                                  OffContent=""
+                                                  MinWidth="0"
+                                                  IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                  Toggled="OnToggled"
+                                                  Tag="{x:Bind}"
+                                                  AutomationProperties.Name="{x:Bind Label}"
+                                                  AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
+                                    <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                  Visibility="{x:Bind conv:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                  Width="20"
+                                                  Height="20"
+                                                  HorizontalAlignment="Center" />
+                                </Grid>
                             </Grid>
                         </Border>
                     </DataTemplate>

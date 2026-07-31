@@ -186,7 +186,11 @@
   <data name="Startup_UndocumentedKind"><value>Значение не строкового типа — Winora не показывает его команду и не будет его изменять.</value></data>
 
   <data name="Cleanup_Subtitle"><value>Что Winora рассматривает как кандидатов на освобождение места. Каталоги, обслуживаемые самой Windows, показаны с причиной отказа — трогать их Winora не будет.</value></data>
-  <data name="Cleanup_NotAvailable"><value>Освобождение места пока недоступно. Сначала будет реализован обратимый перенос в карантин, и только отдельным подтверждённым шагом — фактическое удаление. Сейчас этот раздел только показывает состояние.</value></data>
+  <data name="Cleanup_Permanent"><value>Файлы удаляются безвозвратно, мимо корзины. Вернуть их будет нельзя. Каталоги, обслуживаемые Windows, Winora не трогает.</value></data>
+  <data name="Cleanup_Action_Delete"><value>Удалить</value></data>
+  <data name="Cleanup_Done"><value>Удалено файлов: {0}. Освобождено: {1}.</value></data>
+  <data name="Cleanup_DoneWithSkipped"><value>Удалено файлов: {0}. Освобождено: {1}. Пропущено занятых: {2}.</value></data>
+  <data name="Cleanup_Failed"><value>Не удалось выполнить очистку.</value></data>
   <data name="Cleanup_TotalFormat"><value>Потенциально освобождаемо: {0}</value></data>
   <data name="Cleanup_SizeFormat"><value>{0} · файлов: {1}</value></data>
   <data name="Cleanup_PartiallyRead"><value>Часть каталога прочитать не удалось, итог занижен.</value></data>
@@ -208,6 +212,11 @@
 
   <data name="Value_on"><value>включено</value></data>
   <data name="Value_off"><value>выключено</value></data>
+  <data name="Value_enabled"><value>включено</value></data>
+  <data name="Value_disabled"><value>отключено</value></data>
+  <data name="Value_held"><value>в карантине</value></data>
+  <data name="Value_released"><value>на месте</value></data>
+  <data name="Value_unset"><value>не задано</value></data>
 
   <data name="Fact_Risk"><value>Риск</value></data>
   <data name="Fact_Privilege"><value>Права</value></data>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Winora.App.ViewModels;
@@ -19,5 +20,13 @@ public sealed partial class CleanupPage : Page
     {
         base.OnNavigatedTo(e);
         await ViewModel.LoadAsync().ConfigureAwait(true);
+    }
+
+    private async void OnActionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: CleanupRowViewModel row })
+        {
+            await ViewModel.CleanAsync(row).ConfigureAwait(true);
+        }
     }
 }

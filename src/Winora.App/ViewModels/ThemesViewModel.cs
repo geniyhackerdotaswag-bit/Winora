@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Winora.App.Navigation;
 using Winora.App.Services;
 using Winora.Core.Changes;
 using Winora.Core.Contracts;
@@ -9,15 +7,14 @@ using Winora.Core.Contracts;
 namespace Winora.App.ViewModels;
 
 /// <summary>
-/// The first screen that reaches real Windows state. Probes each documented visual-effect operation,
-/// shows its capability honestly, and turns a pending draft into an immutable dry-run plan.
+/// The documented visual-effect toggles. Flipping a switch applies the change immediately; the
+/// safety pipeline underneath is unchanged, only the confirmation moved to the switch itself.
 /// </summary>
 public sealed partial class ThemesViewModel : ObservableObject
 {
     private readonly IReadOnlyList<IOperation> _operations;
+    private readonly IChangeExecutor _executor;
     private readonly ILocalizationService _text;
-    private readonly INavigationService _navigation;
-    private readonly ChangeSessionViewModel _session;
 
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
@@ -25,21 +22,20 @@ public sealed partial class ThemesViewModel : ObservableObject
     [ObservableProperty]
     public partial string Subtitle { get; set; } = string.Empty;
 
-    /// <summary>Set when probing itself failed, so the screen never renders an empty silent list.</summary>
+    /// <summary>Set when probing or applying failed, so nothing fails silently.</summary>
     [ObservableProperty]
-    public partial string LoadError { get; set; } = string.Empty;
+    public partial string StatusMessage { get; set; } = string.Empty;
 
-    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
+    public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
-    partial void OnLoadErrorChanged(string value) => OnPropertyChanged(nameof(HasLoadError));
+    partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(HasStatus));
 
     public ObservableCollection<VisualEffectRowViewModel> Rows { get; } = [];
 
     public ThemesViewModel(
         IEnumerable<IOperation> operations,
-        ILocalizationService text,
-        INavigationService navigation,
-        ChangeSessionViewModel session)
+        IChangeExecutor executor,
+        ILocalizationService text)
     {
         ArgumentNullException.ThrowIfNull(operations);
 
@@ -48,33 +44,80 @@ public sealed partial class ThemesViewModel : ObservableObject
         _operations = operations
             .Where(static operation => operation.OperationId.StartsWith("winora.visual-effects.", StringComparison.Ordinal))
             .ToArray();
+        _executor = executor ?? throw new ArgumentNullException(nameof(executor));
         _text = text ?? throw new ArgumentNullException(nameof(text));
-        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
-        _session = session ?? throw new ArgumentNullException(nameof(session));
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Themes");
         Subtitle = _text.Get("Themes_Subtitle");
-        LoadError = string.Empty;
+        StatusMessage = string.Empty;
         Rows.Clear();
 
         foreach (var operation in _operations)
         {
-            VisualEffectRowViewModel row;
             try
             {
-                row = await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true);
+                Rows.Add(await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                LoadError = _text.Get("Themes_ProbeFailed");
-                continue;
+                StatusMessage = _text.Get("Themes_ProbeFailed");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies the switch the user just moved. On any outcome other than success the row is put back
+    /// to what the system actually holds, so the switch can never show a state that was not applied.
+    /// </summary>
+    public async Task ToggleAsync(VisualEffectRowViewModel row, bool requested)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (row.IsBusy || !row.IsChangeable || requested == row.ObservedValue)
+        {
+            return;
+        }
+
+        row.IsBusy = true;
+        StatusMessage = string.Empty;
+        try
+        {
+            var operation = _operations.Single(candidate =>
+                string.Equals(candidate.OperationId, row.OperationId, StringComparison.Ordinal));
+
+            var draft = new OperationDraft(
+                row.OperationId,
+                "winora.category.personalization",
+                row.Label,
+                _text.Get("Themes_PlanSummary"),
+                new OperationTarget(row.OperationId),
+                new DisplayValue("winora.value.toggle", requested ? "on" : "off"));
+
+            var outcome = await _executor.ApplyAsync(operation, draft, CancellationToken.None).ConfigureAwait(true);
+            if (!outcome.Succeeded)
+            {
+                StatusMessage = outcome.Message;
             }
 
-            Rows.Add(row);
+            await RefreshAsync(row, operation).ConfigureAwait(true);
         }
+        finally
+        {
+            row.IsBusy = false;
+        }
+    }
+
+    private async Task RefreshAsync(VisualEffectRowViewModel row, IOperation operation)
+    {
+        var capability = await operation
+            .ProbeAsync(new OperationTarget(operation.OperationId), CancellationToken.None)
+            .ConfigureAwait(true);
+
+        var isOn = string.Equals(capability.CurrentValue?.Text, "on", StringComparison.Ordinal);
+        row.ObservedValue = isOn;
+        row.SetSwitchWithoutApplying(isOn);
     }
 
     private async Task<VisualEffectRowViewModel> BuildRowAsync(
@@ -86,52 +129,21 @@ public sealed partial class ThemesViewModel : ObservableObject
             .ConfigureAwait(true);
 
         var isChangeable =
-            capability.Support is SupportStatus.Supported or SupportStatus.SupportedWithElevation;
+            capability.Support is SupportStatus.Supported or SupportStatus.SupportedWithElevation &&
+            capability.CurrentValue is not null;
 
-        // Null means the state was not readable. The row then shows its reason and stays unchangeable
-        // rather than guessing a value and offering an action that cannot succeed.
         var isOn = string.Equals(capability.CurrentValue?.Text, "on", StringComparison.Ordinal);
-        if (capability.CurrentValue is null)
-        {
-            isChangeable = false;
-        }
 
-        return new VisualEffectRowViewModel
+        var row = new VisualEffectRowViewModel
         {
             OperationId = operation.OperationId,
             Label = _text.Get(LabelKeyFor(operation.OperationId)),
-            SupportBadge = _text.Get($"Support_{capability.Support}"),
             BlockReason = capability.BlockReason is null ? string.Empty : _text.Get(capability.BlockReason),
             ObservedValue = isOn,
-            DraftValue = isOn,
             IsChangeable = isChangeable,
-            PreviewLabel = _text.Get("Action_Preview"),
         };
-    }
-
-    [RelayCommand]
-    private async Task PreviewAsync(VisualEffectRowViewModel row)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-        if (!row.CanPreview)
-        {
-            return;
-        }
-
-        var operation = _operations.Single(candidate =>
-            string.Equals(candidate.OperationId, row.OperationId, StringComparison.Ordinal));
-
-        var draft = new OperationDraft(
-            row.OperationId,
-            "winora.category.personalization",
-            row.Label,
-            _text.Get("Themes_PlanSummary"),
-            new OperationTarget(row.OperationId),
-            new DisplayValue("winora.value.toggle", row.DraftValue ? "on" : "off"));
-
-        var plan = await operation.PreviewAsync(draft, CancellationToken.None).ConfigureAwait(true);
-        _session.BeginReview(operation, plan);
-        _navigation.NavigateTo(RouteKeys.ChangeReview);
+        row.SetSwitchWithoutApplying(isOn);
+        return row;
     }
 
     /// <summary>

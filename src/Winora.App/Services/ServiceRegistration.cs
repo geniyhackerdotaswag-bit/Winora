@@ -34,6 +34,7 @@ public static class ServiceRegistration
         services.AddSingleton(_ => RouteRegistry.Create());
         services.AddSingleton<IDeploymentState, DeploymentState>();
         services.AddSingleton<ILocalizationService, ResourceLocalizationService>();
+        services.AddSingleton<IChangeExecutor, ChangeExecutor>();
         services.AddSingleton<NavigationService>();
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<NavigationService>());
 
@@ -73,6 +74,8 @@ public static class ServiceRegistration
         services.AddSingleton<IStartupInventoryService, StartupInventoryService>();
         services.AddSingleton<ITempLocationProbe, WindowsTempLocationProbe>();
         services.AddSingleton<ICleanupSurveyService, CleanupSurveyService>();
+
+        services.AddSingleton<ITempCleaner, WindowsTempCleaner>();
 
         services.AddSingleton<IUserShellPreferenceAccess, WindowsUserShellPreferenceAccess>();
         services.AddSingleton<IShellPreferenceCatalog, ShellPreferenceCatalog>();

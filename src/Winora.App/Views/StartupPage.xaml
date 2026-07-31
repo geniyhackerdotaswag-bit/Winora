@@ -18,6 +18,12 @@
             <TextBlock Style="{StaticResource WinoraPageSubtitle}"
                        Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
+            <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Warning"
+                     Margin="{StaticResource WinoraStackGapL}"
+                     Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
             <TextBlock Style="{StaticResource WinoraSectionHeading}"
                        Text="{x:Bind ViewModel.CountSummary, Mode=OneWay}" />
 
@@ -41,7 +47,7 @@
                                                TextWrapping="Wrap"
                                                IsTextSelectionEnabled="True"
                                                Margin="0,2,0,0" />
-                                    <TextBlock Text="{x:Bind Note}"
+                                    <TextBlock Text="{x:Bind Note, Mode=OneWay}"
                                                Visibility="{x:Bind conv:XamlConvert.Show(HasNote)}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -54,18 +60,21 @@
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                Text="{x:Bind SourceBadge}" />
-                                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-                                        <ToggleSwitch VerticalAlignment="Center"
-                                                      IsOn="{x:Bind DraftEnabled, Mode=TwoWay}"
+                                    <Grid HorizontalAlignment="Right">
+                                        <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
+                                                      OnContent=""
+                                                      OffContent=""
+                                                      MinWidth="0"
                                                       IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                      Toggled="OnToggled"
+                                                      Tag="{x:Bind}"
                                                       AutomationProperties.Name="{x:Bind Name}"
                                                       AutomationProperties.HelpText="{x:Bind Note, Mode=OneWay}" />
-                                        <Button VerticalAlignment="Center"
-                                                Content="{x:Bind PreviewLabel}"
-                                                Tag="{x:Bind}"
-                                                IsEnabled="{x:Bind CanPreview, Mode=OneWay}"
-                                                Click="OnPreviewClick" />
-                                    </StackPanel>
+                                        <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                      Visibility="{x:Bind conv:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                      Width="20" Height="20"
+                                                      HorizontalAlignment="Center" />
+                                    </Grid>
                                 </StackPanel>
                             </Grid>
                         </Border>

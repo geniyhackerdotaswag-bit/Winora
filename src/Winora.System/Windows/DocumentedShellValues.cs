@@ -7,12 +7,19 @@ namespace Winora.System.Windows;
 /// <param name="Slug">Stable lowercase identifier; both the operation and step ids derive from it.</param>
 /// <param name="AllowedValues">Every value Microsoft documents for this setting. Nothing else is written.</param>
 /// <param name="DocumentedKind">The kind the documentation describes; a live mismatch blocks mutation.</param>
+/// <param name="DefaultValue">
+///     What Windows applies when the value is absent. Taken from the behaviour of a clean Windows 11
+///     installation, not from the reference page, which documents the value set but not the default.
+///     Used only to show the user which choice is currently in effect; Winora never writes it on its
+///     own, and choosing it explicitly writes the value like any other.
+/// </param>
 /// <param name="Restart">What the user must do for the change to become visible.</param>
 /// <param name="Documentation">The Microsoft Learn page describing this setting.</param>
 public sealed record DocumentedShellValue(
     string ValueName,
     string Slug,
     IReadOnlyList<int> AllowedValues,
+    int DefaultValue,
     RegistryValueKind DocumentedKind,
     RestartRequirement Restart,
     Uri Documentation)
@@ -42,16 +49,16 @@ public static class DocumentedShellValues
 
     public static IReadOnlyList<DocumentedShellValue> All { get; } =
     [
-        new("TaskbarAl", "taskbar-alignment", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("ShowTaskViewButton", "task-view-button", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("TaskbarDa", "taskbar-widgets", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("TaskbarGlomLevel", "taskbar-button-grouping", [0, 1, 2], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("MMTaskbarGlomLevel", "taskbar-button-grouping-other-displays", [0, 1, 2], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("MMTaskbarEnabled", "taskbar-on-all-displays", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("MMTaskbarMode", "taskbar-buttons-on-other-displays", [0, 1, 2], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("Start_Layout", "start-layout", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("Start_TrackDocs", "start-recent-files", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
-        new("Start_IrisRecommendations", "start-recommendations", [0, 1], RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("TaskbarAl", "taskbar-alignment", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("ShowTaskViewButton", "task-view-button", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("TaskbarDa", "taskbar-widgets", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("TaskbarGlomLevel", "taskbar-button-grouping", [0, 1, 2], 0, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("MMTaskbarGlomLevel", "taskbar-button-grouping-other-displays", [0, 1, 2], 0, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("MMTaskbarEnabled", "taskbar-on-all-displays", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("MMTaskbarMode", "taskbar-buttons-on-other-displays", [0, 1, 2], 0, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("Start_Layout", "start-layout", [0, 1], 0, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("Start_TrackDocs", "start-recent-files", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+        new("Start_IrisRecommendations", "start-recommendations", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
     ];
 
     public static bool TryFind(string valueName, out DocumentedShellValue entry)

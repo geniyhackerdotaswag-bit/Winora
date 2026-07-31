@@ -22,11 +22,19 @@ public sealed partial class StartupPage : Page
         await ViewModel.LoadAsync().ConfigureAwait(true);
     }
 
-    private void OnPreviewClick(object sender, RoutedEventArgs e)
+    private async void OnToggled(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: StartupEntryRowViewModel row })
+        if (sender is not ToggleSwitch { Tag: StartupEntryRowViewModel row } toggle)
         {
-            ViewModel.PreviewCommand.Execute(row);
+            return;
         }
+
+        // Moving the switch back to reality also raises Toggled; applying then would fight the user.
+        if (row.IsSettingProgrammatically)
+        {
+            return;
+        }
+
+        await ViewModel.ToggleAsync(row, toggle.IsOn).ConfigureAwait(true);
     }
 }

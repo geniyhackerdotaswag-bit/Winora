@@ -105,8 +105,8 @@ public sealed partial class ChangeSessionViewModel : ObservableObject
         var step = plan.Steps[0];
         Title = plan.Title;
         TargetId = step.Target.TargetId;
-        CurrentValueText = _text.Get($"Value_{step.CurrentValue.Text}");
-        ProposedValueText = _text.Get($"Value_{step.ProposedValue.Text}");
+        CurrentValueText = DescribeValue(step.CurrentValue.Text);
+        ProposedValueText = DescribeValue(step.ProposedValue.Text);
         DocumentationUri = plan.Documentation.ToString();
         PlanDigest = plan.Digest[..16];
 
@@ -118,6 +118,14 @@ public sealed partial class ChangeSessionViewModel : ObservableObject
             $"{_text.Get("Fact_Restart")}: {_text.Get($"Restart_{plan.Restart}")}",
             $"{_text.Get("Fact_Backup")}: {_text.Get($"Backup_{plan.Backup}")}");
     }
+
+    /// <summary>
+    /// Renders a stable value identifier for a human. Numeric identifiers, which some documented
+    /// registry settings use, are shown as themselves: a number reads the same in every language,
+    /// and the plan title already names the setting that gives it meaning.
+    /// </summary>
+    private string DescribeValue(string text) =>
+        int.TryParse(text, out _) ? text : _text.Get($"Value_{text}");
 
     /// <summary>Leaves the review without calling anything. Cancel must never touch the system.</summary>
     [RelayCommand]

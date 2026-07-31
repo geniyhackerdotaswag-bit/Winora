@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Winora.App.ViewModels;
@@ -22,11 +21,20 @@ public sealed partial class TaskbarPage : Page
         await ViewModel.LoadAsync().ConfigureAwait(true);
     }
 
-    private void OnPreviewClick(object sender, RoutedEventArgs e)
+    private async void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is Button { Tag: ShellPreferenceRowViewModel row })
+        if (sender is not ComboBox { Tag: ShellPreferenceRowViewModel row } combo)
         {
-            ViewModel.PreviewCommand.Execute(row);
+            return;
         }
+
+        // Putting the list back to reality also raises SelectionChanged; applying then would fight
+        // the user, and filling the list during load raises it too.
+        if (row.IsSettingProgrammatically)
+        {
+            return;
+        }
+
+        await ViewModel.SelectAsync(row, combo.SelectedItem as ShellPreferenceChoice).ConfigureAwait(true);
     }
 }

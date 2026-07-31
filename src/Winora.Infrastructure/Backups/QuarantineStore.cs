@@ -1,3 +1,4 @@
+using Winora.Core.Contracts;
 using Winora.Infrastructure.Paths;
 
 namespace Winora.Infrastructure.Backups;
@@ -30,7 +31,7 @@ public sealed record QuarantineResult(IReadOnlyList<QuarantineItem> Items, int S
 /// refused rather than copied, which is what keeps that reasoning true.
 /// </para>
 /// </remarks>
-public sealed class QuarantineStore
+public sealed class QuarantineStore : IQuarantineStore
 {
     private readonly WinoraQuarantinePaths _paths;
 
@@ -40,6 +41,23 @@ public sealed class QuarantineStore
     }
 
     public string DirectoryFor(string operationId) => _paths.DirectoryFor(operationId);
+
+    /// <inheritdoc />
+    public bool CanAccept(string sourceDirectory) => IsSameVolume(sourceDirectory);
+
+    /// <inheritdoc />
+    public QuarantineMoveResult MoveIn(string operationId, string sourceDirectory, CancellationToken cancellationToken)
+    {
+        var result = Move(operationId, sourceDirectory, cancellationToken);
+        return new QuarantineMoveResult(result.Items.Count, result.TotalBytes, result.SkippedCount);
+    }
+
+    /// <inheritdoc />
+    public QuarantineMoveResult MoveOut(string operationId, string sourceDirectory, CancellationToken cancellationToken)
+    {
+        var result = Restore(operationId, sourceDirectory, cancellationToken);
+        return new QuarantineMoveResult(result.Items.Count, result.TotalBytes, result.SkippedCount);
+    }
 
     /// <summary>True when a move from <paramref name="sourceDirectory"/> would be a rename.</summary>
     public bool IsSameVolume(string sourceDirectory)

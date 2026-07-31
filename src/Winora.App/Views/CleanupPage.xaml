@@ -18,15 +18,18 @@
             <TextBlock Style="{StaticResource WinoraPageSubtitle}"
                        Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
-            <!--
-              This screen has no reclaim action yet, and says so rather than showing a button that
-              does nothing. Interaction contract item 6.
-            -->
+            <!-- Deletion is irreversible, so the warning sits above the buttons, not after them. -->
             <InfoBar IsOpen="True"
                      IsClosable="False"
-                     Severity="Informational"
+                     Severity="Warning"
+                     Margin="{StaticResource WinoraStackGapM}"
+                     Message="{x:Bind ViewModel.PermanentNotice, Mode=OneWay}" />
+
+            <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Success"
                      Margin="{StaticResource WinoraStackGapL}"
-                     Message="{x:Bind ViewModel.NotAvailableNotice, Mode=OneWay}" />
+                     Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
             <TextBlock Style="{StaticResource WinoraSectionHeading}"
                        Text="{x:Bind ViewModel.ReclaimableTotal, Mode=OneWay}" />
@@ -59,10 +62,22 @@
                                                Margin="0,2,0,0" />
                                 </StackPanel>
 
-                                <TextBlock Grid.Column="1"
-                                           VerticalAlignment="Center"
-                                           Style="{StaticResource BodyTextBlockStyle}"
-                                           Text="{x:Bind Size}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                                    <TextBlock HorizontalAlignment="Right"
+                                               Style="{StaticResource BodyTextBlockStyle}"
+                                               Text="{x:Bind Size, Mode=OneWay}" />
+                                    <Button HorizontalAlignment="Right"
+                                            Content="{x:Bind ActionLabel, Mode=OneWay}"
+                                            Tag="{x:Bind}"
+                                            IsEnabled="{x:Bind CanClean, Mode=OneWay}"
+                                            Visibility="{x:Bind conv:XamlConvert.Show(CanClean), Mode=OneWay}"
+                                            Click="OnActionClick" />
+                                    <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                  Visibility="{x:Bind conv:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                  Width="20"
+                                                  Height="20"
+                                                  HorizontalAlignment="Right" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>
