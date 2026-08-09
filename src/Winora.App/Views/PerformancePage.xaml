@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.PerformancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Grid Background="{ThemeResource WinoraHeaderMaintenance}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xEC4A;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRuleMaintenance}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Padding="32,24,32,32">
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Informational"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                    <!--
+                      The arrangement Task Manager uses, because it is the one people already know
+                      and it answers the question they arrive with: which part of the machine is
+                      busy. The list carries a minute of history each; the panel on the right shows
+                      the selected component full size with its figures underneath.
+                    -->
+                    <Grid ColumnSpacing="16" Margin="{StaticResource WinoraStackGapL}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="320" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <ItemsControl Grid.Column="0" ItemsSource="{x:Bind ViewModel.Panels}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PerformancePanelViewModel">
+                                    <Button Style="{StaticResource WinoraSelectableTile}"
+                                            Margin="0,0,0,8"
+                                            Padding="12,10"
+                                            Tag="{x:Bind}"
+                                            Click="OnPanelClick"
+                                            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <ctl:Sparkline Grid.Column="0"
+                                                           Height="36"
+                                                           Values="{x:Bind History, Mode=OneWay}"
+                                                           LineBrush="{ThemeResource WinoraHueMaintenance}" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Text="{x:Bind Title, Mode=OneWay}" />
+                                                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Text="{x:Bind Reading, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Grid.Column="1"
+                                Style="{StaticResource WinoraCard}"
+                                VerticalAlignment="Top"
+                                Visibility="{x:Bind ctl:XamlConvert.Show(ViewModel.HasSelection), Mode=OneWay}">
+                            <StackPanel Spacing="14">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                                               Margin="0"
+                                               FontSize="22"
+                                               Text="{x:Bind ViewModel.Selected.Title, Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                               TextWrapping="Wrap"
+                                               Visibility="{x:Bind ctl:XamlConvert.Show(ViewModel.Selected.HasSubtitle), Mode=OneWay}"
+                                               Text="{x:Bind ViewModel.Selected.Subtitle, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <ctl:Sparkline Height="180"
+                                               Values="{x:Bind ViewModel.Selected.History, Mode=OneWay}"
+                                               LineBrush="{ThemeResource WinoraHueMaintenance}" />
+
+                                <!-- Figures in columns, the way the detail pane lays them out. -->
+                                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Selected.Stats, Mode=OneWay}">
+                                    <ItemsRepeater.Layout>
+                                        <UniformGridLayout MinItemWidth="180"
+                                                           MinItemHeight="48"
+                                                           MinColumnSpacing="16"
+                                                           MinRowSpacing="4"
+                                                           ItemsStretch="Fill" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StatViewModel">
+                                            <StackPanel Spacing="1" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                           Opacity="0.7"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Text="{x:Bind Label, Mode=OneWay}" />
+                                                <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Text="{x:Bind Value, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

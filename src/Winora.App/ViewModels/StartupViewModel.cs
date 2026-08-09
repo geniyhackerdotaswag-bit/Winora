@@ -17,9 +17,6 @@ public sealed partial class StartupEntryRowViewModel : ObservableObject
     public partial string Command { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string SourceBadge { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string Note { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -124,14 +121,13 @@ public sealed partial class StartupViewModel : ObservableObject
                 OperationId = entry.OperationId ?? string.Empty,
                 ObservedEnabled = entry.IsEnabled,
                 IsChangeable = entry.OperationId is not null && entry.IsDocumentedKind,
-                SourceBadge = _text.Get(entry.IsMachineWide ? "Startup_Source_Machine" : "Startup_Source_User"),
+                // A note only when the switch cannot be used. "This one is off" needs no caption:
+                // the switch already says so, and repeating it on every row was just noise.
                 Note = !entry.IsDocumentedKind
                     ? _text.Get("Startup_UndocumentedKind")
                     : entry.IsMachineWide
                         ? _text.Get("Startup_MachineReadOnly")
-                        : entry.IsEnabled
-                            ? string.Empty
-                            : _text.Get("Startup_HeldByWinora"),
+                        : string.Empty,
             };
             row.SetSwitchWithoutApplying(entry.IsEnabled);
             Rows.Add(row);
@@ -187,7 +183,6 @@ public sealed partial class StartupViewModel : ObservableObject
             {
                 row.ObservedEnabled = actual.IsEnabled;
                 row.SetSwitchWithoutApplying(actual.IsEnabled);
-                row.Note = actual.IsEnabled ? string.Empty : _text.Get("Startup_HeldByWinora");
             }
         }
         finally

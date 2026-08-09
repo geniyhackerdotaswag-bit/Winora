@@ -1,14 +1,18 @@
 using Microsoft.Extensions.DependencyInjection;
 using Winora.App.Navigation;
 using Winora.App.ViewModels;
+using Winora.Core.Appearance;
 using Winora.Core.Changes;
 using Winora.Core.Contracts;
+using Winora.Infrastructure.Appearance;
 using Winora.Infrastructure.Backups;
+using Winora.Infrastructure.History;
 using Winora.Infrastructure.Journal;
 using Winora.Infrastructure.Leases;
 using Winora.Infrastructure.Operations;
 using Winora.Infrastructure.Paths;
 using Winora.Infrastructure.Persistence;
+using Winora.Infrastructure.Recovery;
 using Winora.Infrastructure.Time;
 using Winora.System.Backups;
 using Winora.System.Operations;
@@ -34,6 +38,11 @@ public static class ServiceRegistration
         services.AddSingleton(_ => RouteRegistry.Create());
         services.AddSingleton<IDeploymentState, DeploymentState>();
         services.AddSingleton<ILocalizationService, ResourceLocalizationService>();
+        services.AddSingleton<IChangePlanArchive, ChangePlanArchive>();
+        services.AddSingleton<IRecoveryState, RecoveryState>();
+        services.AddSingleton<IElevationProbe, WindowsElevationProbe>();
+        services.AddSingleton<IPackageIdentityAccessor, PackageIdentityAccessor>();
+        services.AddSingleton<IElevationRelauncher, ElevationRelauncher>();
         services.AddSingleton<IChangeExecutor, ChangeExecutor>();
         services.AddSingleton<NavigationService>();
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<NavigationService>());
@@ -76,6 +85,62 @@ public static class ServiceRegistration
         services.AddSingleton<ICleanupSurveyService, CleanupSurveyService>();
 
         services.AddSingleton<ITempCleaner, WindowsTempCleaner>();
+        services.AddSingleton<ICursorFolderScanner, CursorFolderScanner>();
+        services.AddSingleton<ICursorPreviewRenderer, CursorPreviewRenderer>();
+        services.AddSingleton<ISoundPackBuilder, SoundPackBuilder>();
+        services.AddSingleton<ISoundFolderScanner, SoundFolderScanner>();
+        services.AddSingleton<ISoundSchemeApplier, SoundSchemeApplier>();
+        services.AddSingleton<ISoundPlayer, WindowsSoundPlayer>();
+        services.AddSingleton<ISoundService, SoundService>();
+        services.AddTransient<SoundsViewModel>();
+        services.AddSingleton<ICursorApplier, WindowsCursorApplier>();
+        services.AddSingleton<ICursorService, CursorService>();
+        services.AddTransient<CursorsViewModel>();
+
+        services.AddSingleton<IOperationRollback, OperationRollback>();
+        services.AddSingleton<IChangeHistory, ChangeHistory>();
+        services.AddSingleton<IChangeHistoryService, ChangeHistoryService>();
+        services.AddTransient<ChangesViewModel>();
+        services.AddTransient<RecoveryViewModel>();
+
+        services.AddSingleton(provider =>
+            new WinoraStateBackupService(provider.GetRequiredService<WinoraDataPaths>()));
+        services.AddSingleton<IStateBackupCatalog, StateBackupCatalog>();
+        services.AddSingleton<IStateBackupService, StateBackupService>();
+        services.AddTransient<BackupsViewModel>();
+
+        services.AddSingleton<IActionJournalWriter, ActionJournalWriter>();
+        services.AddSingleton<IActionJournalReader, ActionJournalReader>();
+        services.AddTransient<JournalViewModel>();
+
+        services.AddSingleton<IAppEnvironment, AppEnvironment>();
+        services.AddTransient<SettingsViewModel>();
+
+        // Winora's own colours. Singletons, because the brush service holds the palette in force
+        // and every screen that reads it has to see the same one.
+        services.AddSingleton<IHighContrastProbe, HighContrastProbe>();
+        services.AddSingleton<IThemeBrushService, ThemeBrushService>();
+        services.AddTransient<AppearanceViewModel>();
+
+        // Singletons: the catalog holds the folder every other piece resolves paths against, and the
+        // installer keeps the release the user was shown so the install is of exactly that one.
+        services.AddSingleton<IBypassStrategyCatalog, BypassStrategyCatalog>();
+        services.AddSingleton<IBypassProcessController, BypassProcessController>();
+        services.AddSingleton<IBypassReleaseInstaller, BypassReleaseInstaller>();
+        services.AddSingleton<IBypassService, BypassService>();
+        services.AddTransient<BypassViewModel>();
+
+        services.AddSingleton<IPowerSchemeAccess, WindowsPowerSchemeAccess>();
+        services.AddSingleton<ISystemLoadProbe, WindowsSystemLoadProbe>();
+
+        // Singleton on purpose: processor load and network throughput are rates, computed from the
+        // difference between consecutive samples. A fresh probe per page visit would have nothing
+        // to compare against and would report a flat zero.
+        services.AddSingleton<ILiveMetricsProbe, LiveMetricsProbe>();
+        services.AddSingleton<IHardwareInventoryProbe, WmiHardwareInventoryProbe>();
+        services.AddSingleton<IProcessorFactsProbe, WmiProcessorFactsProbe>();
+        services.AddSingleton<IPerformanceService, PerformanceService>();
+        services.AddTransient<PerformanceViewModel>();
 
         services.AddSingleton<IUserShellPreferenceAccess, WindowsUserShellPreferenceAccess>();
         services.AddSingleton<IShellPreferenceCatalog, ShellPreferenceCatalog>();
@@ -100,18 +165,36 @@ public static class ServiceRegistration
 
     private static void AddPersistence(IServiceCollection services)
     {
-        services.AddSingleton(_ => WinoraDataPaths.ForCurrentUser());
+        services.AddSingleton(_ =>
+        {
+            // Before anything opens the store. An older build kept it inside the package container,
+            // which Windows deletes on uninstall, so a store found there is moved out first. The
+            // migration is idempotent and leaves both locations untouched if it cannot finish.
+            WinoraStoreMigration.ForCurrentUser().Run();
+            return WinoraDataPaths.ForCurrentUser();
+        });
         services.AddSingleton(provider => new AtomicJsonFile(provider.GetRequiredService<WinoraDataPaths>()));
         services.AddSingleton<IClock, SystemClock>();
+
+        services.AddSingleton<IColorSchemeStore>(provider => new ColorSchemeStore(
+            provider.GetRequiredService<WinoraDataPaths>(),
+            provider.GetRequiredService<AtomicJsonFile>()));
 
         services.AddSingleton<IBackupRepository>(provider => new BackupRepository(
             provider.GetRequiredService<WinoraDataPaths>(),
             provider.GetRequiredService<IBackupCaptureProvider>()));
 
-        // This process is the medium-integrity app, never the elevated host.
-        services.AddSingleton<IDurableOperationJournal>(provider => new DurableOperationJournal(
+        // Registered by its concrete type as well, and the interface resolves to the same instance.
+        // The history reader needs the concrete journal because reading the whole catalog, rather
+        // than only the incomplete operations, is an Infrastructure-internal capability that does
+        // not belong on the Core contract. Registering only the interface left that dependency
+        // unresolvable and the app failed to start with nothing in any log.
+        services.AddSingleton(provider => new DurableOperationJournal(
             provider.GetRequiredService<WinoraDataPaths>(),
             DurableJournalActor.App));
+
+        services.AddSingleton<IDurableOperationJournal>(provider =>
+            provider.GetRequiredService<DurableOperationJournal>());
 
         // GlobalMutationLease proves its owner is the signed Winora package and throws without
         // package identity. That is the intended control, not a bug: an unpackaged process must not
@@ -126,12 +209,21 @@ public static class ServiceRegistration
 
         // Only allowlisted catalog operation ids may appear in the sanitized journal, so the catalog
         // is derived from the registered operations rather than accepting anything.
+        // The allowlist itself lives in JournalAllowlist so it can be asserted over directly; see
+        // that type for why. Reclamation contributes no IOperation and is unioned in there.
         services.AddSingleton<IActionJournalOperationCatalog>(provider =>
             new FixedActionJournalOperationCatalog(
-                provider.GetServices<IOperation>().Select(static operation => operation.OperationId)));
+                JournalAllowlist.CatalogOperationIds(
+                    provider.GetServices<IOperation>()
+                        .Select(static operation => operation.OperationId))));
         services.AddSingleton(provider => new ActionJournal(
             provider.GetRequiredService<WinoraDataPaths>(),
             provider.GetRequiredService<IActionJournalOperationCatalog>()));
+
+        // The interface resolves to that same instance. Registering only the concrete type left
+        // every consumer of IActionJournal unresolvable, which is fatal at startup.
+        services.AddSingleton<IActionJournal>(provider =>
+            provider.GetRequiredService<ActionJournal>());
 
         // Must be a singleton: confirmation tokens are single-use and are consumed by the
         // coordinator, so the review screen and the coordinator have to share one authority.

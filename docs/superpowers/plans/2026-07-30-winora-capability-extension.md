@@ -1,5 +1,19 @@
 # Winora Capability Extension Plan
 
+> **Status reconciled 2026-08-09 against the code.** This document had fallen behind: three of the
+> five tasks were finished or deliberately abandoned while their checkboxes stayed empty, and one
+> describes a design the owner rejected. Each task now carries its real state at the top. The
+> per-step checkboxes below are left as written, because they are the record of what was planned,
+> not of what happened — read the status line, not the boxes.
+>
+> | Task | Real state |
+> | --- | --- |
+> | 11 · Visual effects | **Done.** `VisualEffectSetting` carries nineteen members; the plan asked to grow it past two. |
+> | 12 · Taskbar and Start | **Done through step 5.** Step 6 is a look at the screen and needs the owner, since the window cannot be screenshotted. |
+> | 13 · Reclamation via quarantine | **Abandoned by the owner.** Reclamation deletes outright and is not a coordinator operation at all. See the spec's "Temporary-file reclamation: an explicit exception to the change pipeline". No quarantine exists in `WinoraDataPaths`, and none should be added. |
+> | 14 · Cursor scheme authoring | **Superseded.** No `.theme` file is written. Cursors apply through documented `SetSystemCursor` with `CursorSchemeStore`, chosen because a file mechanism sidesteps registry virtualization entirely. `ThemeFileWriter` and `CursorSchemeAuthoringOperation` were never created and are not wanted. |
+> | 15 · Startup entries | **Done, option 1, and verified.** `WindowsRunEntryStore` moves values to `HKCU\Software\Winora\DisabledStartup` instead of deleting them. Confirmed from outside the package on 2026-08-09 — see `AGENTS.md`. |
+
 **Goal:** Add four capability domains the user asked for — visual-effect/performance preferences, per-user taskbar and Start values, temporary-file reclamation, and cursor scheme authoring — without weakening the safety core. Every domain is one `IOperation` in `Winora.System/Operations/` plus one narrow documented adapter. This plan is additive to `2026-07-13-winora-mvp-implementation.md`; the numbering continues from that plan's Task 10.
 
 **Source of truth:** `docs/superpowers/specs/2026-07-12-winora-design.md` sections 3, 8, 10, and 17 as amended on 2026-07-30, plus the "Irreversible byte reclamation" section of `docs/safety-model.md`.

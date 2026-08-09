@@ -8,48 +8,44 @@ public static class RouteKeys
 {
     public const string Dashboard = "dashboard";
     public const string Themes = "themes";
+    public const string Appearance = "appearance";
     public const string Taskbar = "taskbar";
     public const string Performance = "performance";
     public const string Cleanup = "cleanup";
     public const string Sounds = "sounds";
     public const string Cursors = "cursors";
-    public const string Icons = "icons";
     public const string Startup = "startup";
+    public const string Bypass = "bypass";
     public const string Changes = "changes";
     public const string Backups = "backups";
     public const string Journal = "journal";
     public const string Settings = "settings";
-    public const string Compatibility = "compatibility";
     public const string ChangeReview = "change-review";
-    public const string RollbackReview = "rollback-review";
     public const string Applying = "applying";
     public const string ResultSuccess = "result-success";
     public const string ResultFailure = "result-failure";
-    public const string ResultPartialRecovery = "result-partial-recovery";
     public const string Recovery = "recovery";
 
     public static IReadOnlyList<string> All { get; } =
     [
         Dashboard,
         Themes,
+        Appearance,
         Taskbar,
         Performance,
         Cleanup,
         Sounds,
         Cursors,
-        Icons,
         Startup,
+        Bypass,
         Changes,
         Backups,
         Journal,
         Settings,
-        Compatibility,
         ChangeReview,
-        RollbackReview,
         Applying,
         ResultSuccess,
         ResultFailure,
-        ResultPartialRecovery,
         Recovery,
     ];
 }

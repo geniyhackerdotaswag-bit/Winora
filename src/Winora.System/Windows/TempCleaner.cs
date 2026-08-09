@@ -29,13 +29,23 @@ public interface ITempCleaner
 /// </remarks>
 public sealed class WindowsTempCleaner : ITempCleaner
 {
+    private readonly IElevationProbe _elevation;
+
+    public WindowsTempCleaner(IElevationProbe elevation)
+    {
+        _elevation = elevation ?? throw new ArgumentNullException(nameof(elevation));
+    }
+
     public TempCleanResult Clean(TempLocation location, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);
-        if (location.Classification != TempLocationClassification.UserOwned)
+
+        // Re-checked here and not merely upstream: this is the call that deletes, and it must not
+        // depend on a caller having asked the same question correctly.
+        if (!TempReclamationPolicy.CanReclaim(location, _elevation.IsElevated))
         {
             throw new InvalidOperationException(
-                $"'{location.Id}' is not user-owned and is never cleaned.");
+                $"'{location.Id}' cannot be reclaimed at this privilege level and is never cleaned.");
         }
 
         var deleted = 0;

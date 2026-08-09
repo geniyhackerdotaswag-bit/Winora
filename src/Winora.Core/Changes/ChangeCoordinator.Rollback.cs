@@ -20,13 +20,34 @@ public sealed partial class ChangeCoordinator
         }
 
         var lease = await _mutationLease.TryAcquireAsync(plan.RollbackId, cancellationToken).ConfigureAwait(false);
+
+        // An operation left incomplete blocks every ordinary acquisition, and rolling it back is the
+        // only transition the state machine allows out of that state. Asking for an ordinary lease
+        // therefore deadlocked: the guard refused the one action that could clear what it was
+        // guarding against. Fall back to taking recovery ownership of that operation.
+        //
+        // This does not widen the guard. The lease grants recovery ownership only when exactly one
+        // operation is incomplete and the caller names it, so an unrelated rollback still gets
+        // nothing and reports OperationBusy as before.
+        var isRecoveryTakeover = false;
+        if (lease is null)
+        {
+            lease = await _mutationLease
+                .TryAcquireRecoveryAsync(plan.ChangePlan.PlanId, cancellationToken)
+                .ConfigureAwait(false);
+            isRecoveryTakeover = lease is not null;
+        }
+
         if (lease is null)
         {
             return Result(CoordinatorDisposition.OperationBusy, new Cursor(), "Another mutation holds the lease.");
         }
 
         await using var leaseScope = lease;
-        if (!IsValidLeaseBinding(lease, plan.RollbackId, isRecovery: false) ||
+
+        // A recovery lease is bound to the incomplete operation, not to the new rollback record.
+        var expectedLeaseOperationId = isRecoveryTakeover ? plan.ChangePlan.PlanId : plan.RollbackId;
+        if (!IsValidLeaseBinding(lease, expectedLeaseOperationId, isRecoveryTakeover) ||
             !await lease.RevalidateAsync(cancellationToken).ConfigureAwait(false))
         {
             return Result(

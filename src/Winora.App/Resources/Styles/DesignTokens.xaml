@@ -27,8 +27,15 @@
 
     <!-- Corner radii -->
     <CornerRadius x:Key="WinoraControlRadius">4</CornerRadius>
-    <CornerRadius x:Key="WinoraCardRadius">8</CornerRadius>
+    <!-- Larger than the platform default: big soft corners are most of what makes a surface
+         read as designed rather than as a default control. -->
+    <CornerRadius x:Key="WinoraCardRadius">14</CornerRadius>
     <CornerRadius x:Key="WinoraFlyoutRadius">12</CornerRadius>
+
+    <!-- A grouped surface holds many rows, so it carries the larger radius of the two. -->
+    <CornerRadius x:Key="WinoraGroupRadius">16</CornerRadius>
+
+    <Thickness x:Key="WinoraRowPadding">16,14,16,14</Thickness>
 
     <!-- Icon geometry: one size for every icon, one container size per surface -->
     <x:Double x:Key="WinoraIconSize">20</x:Double>

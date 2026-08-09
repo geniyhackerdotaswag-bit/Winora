@@ -13,6 +13,12 @@ public sealed class TempCleanerTests : IDisposable
 
     private TempLocation UserOwned => new("user-temp", _root, TempLocationClassification.UserOwned, null);
 
+    /// <summary>Elevation is a property of the process, so tests state it rather than inherit it.</summary>
+    private sealed class FakeElevation(bool isElevated) : IElevationProbe
+    {
+        public bool IsElevated { get; } = isElevated;
+    }
+
     public void Dispose()
     {
         try
@@ -36,7 +42,35 @@ public sealed class TempCleanerTests : IDisposable
         var location = new TempLocation("windows-temp", _root, classification, "winora.cleanup.windows-serviced");
 
         Assert.Throws<InvalidOperationException>(
-            () => new WindowsTempCleaner().Clean(location, CancellationToken.None));
+            () => new WindowsTempCleaner(new FakeElevation(false)).Clean(location, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Windows.old stays refused even to an administrator: there is no documented programmatic
+    /// removal and deleting it closes the route back to the previous Windows version for good.
+    /// </summary>
+    [Fact]
+    public void A_protected_location_is_refused_even_when_elevated()
+    {
+        var location = new TempLocation(
+            "windows-old", _root, TempLocationClassification.Protected, "winora.cleanup.previous-installation");
+
+        Assert.Throws<InvalidOperationException>(
+            () => new WindowsTempCleaner(new FakeElevation(true)).Clean(location, CancellationToken.None));
+    }
+
+    [Fact]
+    public void A_windows_serviced_location_is_refused_without_rights_and_allowed_with_them()
+    {
+        Seed("a.txt", "12345");
+        var location = new TempLocation(
+            "windows-temp", _root, TempLocationClassification.RequiresElevation, "winora.cleanup.windows-serviced");
+
+        Assert.Throws<InvalidOperationException>(
+            () => new WindowsTempCleaner(new FakeElevation(false)).Clean(location, CancellationToken.None));
+
+        var result = new WindowsTempCleaner(new FakeElevation(true)).Clean(location, CancellationToken.None);
+        Assert.Equal(1, result.DeletedCount);
     }
 
     [Fact]
@@ -45,7 +79,7 @@ public sealed class TempCleanerTests : IDisposable
         Seed("a.txt", "12345");
         Seed(Path.Combine("nested", "b.txt"), "678");
 
-        var result = new WindowsTempCleaner().Clean(UserOwned, CancellationToken.None);
+        var result = new WindowsTempCleaner(new FakeElevation(false)).Clean(UserOwned, CancellationToken.None);
 
         Assert.Equal(2, result.DeletedCount);
         Assert.Equal(8, result.DeletedBytes);
@@ -58,7 +92,7 @@ public sealed class TempCleanerTests : IDisposable
     {
         Seed(Path.Combine("nested", "deeper", "b.txt"), "x");
 
-        new WindowsTempCleaner().Clean(UserOwned, CancellationToken.None);
+        new WindowsTempCleaner(new FakeElevation(false)).Clean(UserOwned, CancellationToken.None);
 
         Assert.True(Directory.Exists(_root));
         Assert.False(Directory.Exists(Path.Combine(_root, "nested")));
@@ -80,7 +114,7 @@ public sealed class TempCleanerTests : IDisposable
             FileAccess.Read,
             FileShare.None);
 
-        var result = new WindowsTempCleaner().Clean(UserOwned, CancellationToken.None);
+        var result = new WindowsTempCleaner(new FakeElevation(false)).Clean(UserOwned, CancellationToken.None);
 
         Assert.Equal(1, result.DeletedCount);
         Assert.Equal(1, result.SkippedCount);
@@ -93,7 +127,7 @@ public sealed class TempCleanerTests : IDisposable
         Seed("scratch.tmp", "installer leftovers");
         File.SetAttributes(Path.Combine(_root, "scratch.tmp"), FileAttributes.ReadOnly);
 
-        var result = new WindowsTempCleaner().Clean(UserOwned, CancellationToken.None);
+        var result = new WindowsTempCleaner(new FakeElevation(false)).Clean(UserOwned, CancellationToken.None);
 
         Assert.Equal(1, result.DeletedCount);
         Assert.False(File.Exists(Path.Combine(_root, "scratch.tmp")));
@@ -108,7 +142,7 @@ public sealed class TempCleanerTests : IDisposable
             TempLocationClassification.UserOwned,
             null);
 
-        var result = new WindowsTempCleaner().Clean(missing, CancellationToken.None);
+        var result = new WindowsTempCleaner(new FakeElevation(false)).Clean(missing, CancellationToken.None);
 
         Assert.Equal(0, result.DeletedCount);
         Assert.Equal(0, result.SkippedCount);

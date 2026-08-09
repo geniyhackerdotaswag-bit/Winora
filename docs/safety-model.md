@@ -19,9 +19,17 @@ Durable transitions are published before any later system action. App startup re
 
 ## Irreversible byte reclamation
 
-`ChangeSafetyPolicy` refuses any plan that is not `Backup == Required` with `Rollback == Full`. Reclaiming disk space cannot satisfy that, and the rule is not weakened to accommodate it. Reclamation is therefore split in two:
+`ChangeSafetyPolicy` refuses any plan that is not `Backup == Required` with `Rollback == Full`. Reclaiming disk space cannot satisfy that, and **the rule is not weakened to accommodate it.** Reclamation is instead kept entirely outside `ChangeCoordinator`.
 
-1. **Quarantine — a reversible forward apply.** Items move into `%LOCALAPPDATA%\Winora\Quarantine\{operationId}` preserving their relative structure. The per-step backup is the item manifest (canonical path, length, last-write time, content hash); verification re-hashes at the destination; rollback moves the item back and reports `AlreadyRestored` when it is already home. This is honestly `RollbackCapability.Full` at `RiskLevel.Low` for a standard user and passes the existing policy unchanged. The probe requires a user-owned target on the same volume as `%LOCALAPPDATA%`, refuses protected and remote targets, and checks free space; a cross-volume target copies rather than renames, so it degrades to guided.
-2. **Purge — a separate retention decision.** Freeing the bytes is never part of the step the user just confirmed. Because the bytes now live under `%LOCALAPPDATA%\Winora`, the purge is the retention decision section 7 of the specification already defines: one atomic decision over Winora-owned data, recorded in the action journal, never applied to a quarantine still linked to a recovery-required change. It does not pass through `ChangeCoordinator` and adds no exemption to the safety core.
+An earlier revision of this document specified a two-step design — move into `%LOCALAPPDATA%\Winora\Quarantine\{operationId}` as a reversible forward apply, then purge as a separate retention decision — so that reclamation could pass the policy unchanged. **It was abandoned and never shipped.** Moving bytes to another folder on the same disk frees nothing, so the step that satisfied the policy would have reported reclaimed space that was still occupied. Buying a rollback capability at the price of a false report is the wrong trade in a project whose whole argument is that a verification must not lie.
+
+What replaces it is narrower and honest about being irreversible:
+
+1. **One location at a time, surveyed before the button is live.** File count and total bytes are shown first; nothing is deleted that Winora has not named.
+2. **`TempReclamationPolicy` is the single authority** on what may be reclaimed, consulted by the probe, the screen and the cleaner. `WindowsTempCleaner.Clean` re-checks it at the call that deletes, because that call must not depend on a caller having asked correctly.
+3. **Privilege is a fact about the process.** User-owned locations need nothing; the Windows-serviced ones are offered only to an elevated process, each stating its own cost. `Windows.old` is refused at every privilege level: no documented programmatic removal, and deleting it closes the route back to the previous Windows version for good.
+4. **The report is of what was removed, not of what was asked for.** Open files are skipped and counted.
+
+5. **Every reclamation is journalled**, successful or not, as a retention decision over a hashed location. Reclamation contributes no `IOperation`, so `JournalAllowlist` unions its identifiers into the journal allowlist explicitly: an identifier the journal rejects is dropped silently by design, which would turn a deletion into an act with no record at all.
 
 `RollbackCapability` is never overstated to make a feature look safer. The Recycle Bin illustrates why: `FOF_ALLOWUNDO` is documented, but its undo is scoped to the Explorer session with no documented programmatic restore, so a Recycle Bin destination is at most `Partial` and can never be a direct-apply path.

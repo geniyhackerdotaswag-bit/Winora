@@ -37,7 +37,17 @@ public sealed partial class CleanupRowViewModel : ObservableObject
 
     public bool HasNote => !string.IsNullOrEmpty(Note);
 
+    /// <summary>
+    /// The action button is offered only when there is something to clean and nothing in flight.
+    /// Two conditions, so it is computed here rather than nested in an x:Bind, which cannot nest.
+    /// </summary>
+    public bool ShowAction => CanClean && !IsBusy;
+
     partial void OnNoteChanged(string value) => OnPropertyChanged(nameof(HasNote));
+
+    partial void OnCanCleanChanged(bool value) => OnPropertyChanged(nameof(ShowAction));
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(ShowAction));
 }
 
 /// <summary>
@@ -56,11 +66,12 @@ public sealed partial class CleanupViewModel : ObservableObject
     [ObservableProperty]
     public partial string Subtitle { get; set; } = string.Empty;
 
+    /// <summary>The reclaimable total on its own, so the page can show it as a figure.</summary>
     [ObservableProperty]
-    public partial string PermanentNotice { get; set; } = string.Empty;
+    public partial string ReclaimableValue { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string ReclaimableTotal { get; set; } = string.Empty;
+    public partial string ReclaimableCaption { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
@@ -80,8 +91,10 @@ public sealed partial class CleanupViewModel : ObservableObject
     public Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Cleanup");
-        Subtitle = _text.Get("Cleanup_Subtitle");
-        PermanentNotice = _text.Get("Cleanup_Permanent");
+
+        // Said once, here. The screen used to repeat it in a warning bar directly underneath.
+        Subtitle = _text.Get("Cleanup_Permanent");
+        ReclaimableCaption = _text.Get("Cleanup_TotalCaption");
         Rows.Clear();
 
         var totalBytes = 0L;
@@ -107,18 +120,11 @@ public sealed partial class CleanupViewModel : ObservableObject
                         FormatBytes(location.TotalBytes ?? 0),
                         location.FileCount ?? 0)
                     : string.Empty,
-                Note = location.ReasonCode is { } reason
-                    ? _text.Get(reason)
-                    : location.IsFullyEnumerated
-                        ? string.Empty
-                        : _text.Get("Cleanup_PartiallyRead"),
+                Note = NoteFor(location),
             });
         }
 
-        ReclaimableTotal = string.Format(
-            CultureInfo.CurrentCulture,
-            _text.Get("Cleanup_TotalFormat"),
-            FormatBytes(totalBytes));
+        ReclaimableValue = FormatBytes(totalBytes);
 
         return Task.CompletedTask;
     }
@@ -136,8 +142,9 @@ public sealed partial class CleanupViewModel : ObservableObject
         StatusMessage = string.Empty;
         try
         {
-            var outcome = await Task.Run(
-                () => _survey.Clean(row.LocationId, CancellationToken.None)).ConfigureAwait(true);
+            var outcome = await _survey
+                .CleanAsync(row.LocationId, CancellationToken.None)
+                .ConfigureAwait(true);
 
             StatusMessage = outcome.SkippedCount > 0
                 ? string.Format(
@@ -162,6 +169,37 @@ public sealed partial class CleanupViewModel : ObservableObject
         {
             row.IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Composes the row note from two independent facts: whether Winora may touch the location at
+    /// all, and what clearing it costs. They used to be one string, which meant that gaining the
+    /// rights also silently dropped the warning about losing update rollback — exactly when it
+    /// started to matter.
+    /// </summary>
+    private string NoteFor(CleanupLocationView location)
+    {
+        var parts = new List<string>(2);
+
+        if (!location.IsUserOwned)
+        {
+            parts.Add(_text.Get("Cleanup_NeedsAdministrator"));
+        }
+
+        if (location.ReasonCode is { } reason)
+        {
+            var consequence = _text.Get(reason);
+            if (consequence.Length > 0)
+            {
+                parts.Add(consequence);
+            }
+        }
+        else if (!location.IsFullyEnumerated)
+        {
+            parts.Add(_text.Get("Cleanup_PartiallyRead"));
+        }
+
+        return string.Join(" ", parts);
     }
 
     private static string FormatBytes(long bytes)

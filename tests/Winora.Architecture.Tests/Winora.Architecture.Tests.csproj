@@ -15,4 +15,13 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <!--
+      The one project reference here. Palette.xaml no longer holds chosen colours — it holds the
+      default preset as produced by SchemeDerivation — so pinning the literals means re-deriving them,
+      and re-deriving them means running the real code rather than a copy of it. Core is platform
+      independent and loads in a plain test host; the rest of this suite stays source-text only.
+    -->
+    <ProjectReference Include="..\..\src\Winora.Core\Winora.Core.csproj" />
+  </ItemGroup>
 </Project>

@@ -29,6 +29,10 @@ public sealed partial class TaskbarViewModel : ObservableObject
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>Stated once for the page instead of repeated under every row.</summary>
+    [ObservableProperty]
+    public partial string RestartNote { get; set; } = string.Empty;
+
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
     partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(HasStatus));
@@ -54,6 +58,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     {
         Title = _text.Get("Nav_Taskbar");
         Subtitle = _text.Get("Taskbar_Subtitle");
+        RestartNote = _text.Get("Shell_RestartNote");
         StatusMessage = string.Empty;
         Rows.Clear();
 
@@ -86,10 +91,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         {
             OperationId = operation.OperationId,
             Label = _text.Get($"Shell_{resourceStem}"),
-            Description = _text.Get($"Shell_{resourceStem}_Description"),
-            SupportBadge = _text.Get($"Support_{capability.Support}"),
             BlockReason = capability.BlockReason is null ? string.Empty : _text.Get(capability.BlockReason),
-            RestartNote = _text.Get("Shell_RestartNote"),
             ObservedText = observed,
             IsChangeable =
                 capability.CurrentValue is not null &&

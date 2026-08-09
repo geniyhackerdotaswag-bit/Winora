@@ -5,18 +5,46 @@ namespace Winora.Infrastructure.Tests.Paths;
 
 public sealed class WinoraDataPathsTests
 {
+    /// <summary>
+    /// The store lives under the user profile.
+    /// </summary>
+    /// <remarks>
+    /// This test used to pin <c>LocalApplicationData</c>, and in doing so it pinned a real defect: a
+    /// packaged app has that folder redirected into its own container, and Windows deletes the
+    /// container when the package is removed. Measured on 2026-08-04 — an uninstall took the
+    /// journal, the plan archive and every backup with it, while the registry changes those backups
+    /// existed to undo stayed applied. The profile root is not redirected.
+    /// </remarks>
     [Fact]
-    public void Current_user_root_is_local_application_data_winora()
+    public void Current_user_root_is_under_the_user_profile()
     {
         var expectedRoot = Path.Combine(
             Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData,
+                Environment.SpecialFolder.UserProfile,
                 Environment.SpecialFolderOption.DoNotVerify),
-            "Winora");
+            "Winora",
+            "State");
 
         Assert.Equal(
             Path.GetFullPath(expectedRoot),
             WinoraDataPaths.ForCurrentUser().RootDirectory);
+    }
+
+    /// <summary>
+    /// The requirement behind that path, stated on its own so a later move cannot quietly put the
+    /// store back inside the container.
+    /// </summary>
+    [Fact]
+    public void Current_user_root_is_not_inside_app_data()
+    {
+        var appData = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData,
+            Environment.SpecialFolderOption.DoNotVerify);
+
+        Assert.DoesNotContain(
+            appData,
+            WinoraDataPaths.ForCurrentUser().RootDirectory,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

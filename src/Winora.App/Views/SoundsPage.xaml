@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.SoundsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xE767;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Padding="32,20,32,32">
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,12"
+                               Text="{x:Bind ViewModel.FolderNote, Mode=OneWay}" />
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,8"
+                               IsTextSelectionEnabled="True"
+                               Text="{x:Bind ViewModel.PackFolder, Mode=OneWay}" />
+
+                    <Button Style="{StaticResource WinoraActionButton}"
+                            HorizontalAlignment="Left"
+                            Margin="{StaticResource WinoraStackGapL}"
+                            Content="{x:Bind ViewModel.OpenFolderLabel, Mode=OneWay}"
+                            Click="OnOpenFolderClick" />
+
+                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Choices}">
+                        <ItemsRepeater.Layout>
+                            <!--
+                              MinItemHeight because this layout gives every card the height of the
+                              first, and the Windows-defaults card has the longest description. It
+                              was being cut off across its own button.
+                            -->
+                            <UniformGridLayout MinItemWidth="340"
+                                               MinItemHeight="178"
+                                               MinColumnSpacing="10"
+                                               MinRowSpacing="10"
+                                               ItemsStretch="Fill" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SoundChoiceViewModel">
+                                <Border Style="{StaticResource WinoraTile}">
+                                    <ctl:HoverRow>
+                                        <StackPanel Padding="16" Spacing="12">
+                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                       FontWeight="SemiBold"
+                                                       Text="{x:Bind Name}" />
+                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                       Text="{x:Bind Description}" />
+
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <!-- Hearing it first is the point of a sound pack. -->
+                                                <Button Style="{StaticResource WinoraActionButton}"
+                                                        Content="{x:Bind PreviewLabel}"
+                                                        Tag="{x:Bind}"
+                                                        Visibility="{x:Bind ctl:XamlConvert.Show(CanPreview)}"
+                                                        Click="OnPreviewClick"
+                                                        AutomationProperties.Name="{x:Bind Name}" />
+                                                <Grid>
+                                                    <!--
+                                                      Two buttons rather than one with a swapped
+                                                      style: a Style cannot be re-bound per item,
+                                                      and only one of the pair is ever visible.
+                                                    -->
+                                                    <Button Style="{StaticResource WinoraActionButton}"
+                                                            Content="{x:Bind ApplyLabel}"
+                                                            Tag="{x:Bind}"
+                                                            Visibility="{x:Bind ctl:XamlConvert.Show(ShowSecondaryApply), Mode=OneWay}"
+                                                            Click="OnApplyClick"
+                                                            AutomationProperties.Name="{x:Bind Name}" />
+
+                                                    <!-- Going back to the Windows sounds always works, so it leads. -->
+                                                    <Button Style="{StaticResource AccentButtonStyle}"
+                                                            Content="{x:Bind ApplyLabel}"
+                                                            Tag="{x:Bind}"
+                                                            Visibility="{x:Bind ctl:XamlConvert.Show(ShowPrimaryApply), Mode=OneWay}"
+                                                            Click="OnApplyClick"
+                                                            AutomationProperties.Name="{x:Bind Name}" />
+
+                                                    <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                                  Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                                  Width="18" Height="18" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </ctl:HoverRow>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

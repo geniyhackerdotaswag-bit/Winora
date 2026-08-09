@@ -1,4 +1,5 @@
 using Winora.App.ViewModels;
+using Winora.Infrastructure.Recovery;
 using Winora.Core.Changes;
 using Winora.Core.Contracts;
 
@@ -30,17 +31,26 @@ public sealed class ChangeExecutor : IChangeExecutor
     private readonly ChangeCoordinator _coordinator;
     private readonly ConfirmationAuthority _confirmation;
     private readonly IDeploymentState _deployment;
+    private readonly IRecoveryState _recovery;
+    private readonly IChangePlanArchive _planArchive;
+    private readonly IActionJournalWriter _actionJournal;
     private readonly ILocalizationService _text;
 
     public ChangeExecutor(
         ChangeCoordinator coordinator,
         ConfirmationAuthority confirmation,
         IDeploymentState deployment,
+        IRecoveryState recovery,
+        IChangePlanArchive planArchive,
+        IActionJournalWriter actionJournal,
         ILocalizationService text)
     {
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _confirmation = confirmation ?? throw new ArgumentNullException(nameof(confirmation));
         _deployment = deployment ?? throw new ArgumentNullException(nameof(deployment));
+        _recovery = recovery ?? throw new ArgumentNullException(nameof(recovery));
+        _planArchive = planArchive ?? throw new ArgumentNullException(nameof(planArchive));
+        _actionJournal = actionJournal ?? throw new ArgumentNullException(nameof(actionJournal));
         _text = text ?? throw new ArgumentNullException(nameof(text));
     }
 
@@ -60,6 +70,17 @@ public sealed class ChangeExecutor : IChangeExecutor
                 CoordinatorDisposition.Blocked);
         }
 
+        // Asked before planning, because the lease will refuse anyway and its refusal cannot say
+        // why. Without this the user is told another operation is running when in fact an earlier
+        // one never finished and nothing can proceed until it is reconciled.
+        if (await _recovery.PendingCountAsync(cancellationToken).ConfigureAwait(true) > 0)
+        {
+            return new ChangeOutcome(
+                false,
+                _text.Get("Result_RecoveryPending"),
+                CoordinatorDisposition.PartialRecoveryRequired);
+        }
+
         ChangePlan plan;
         try
         {
@@ -71,6 +92,10 @@ public sealed class ChangeExecutor : IChangeExecutor
             return new ChangeOutcome(false, _text.Get("Result_Blocked"), CoordinatorDisposition.Blocked);
         }
 
+        // Archived before anything is written. If the apply stops halfway, this is the only copy of
+        // the plan that can drive a rollback, and a plan saved afterwards would be too late.
+        await _planArchive.SaveAsync(plan, cancellationToken).ConfigureAwait(true);
+
         // A fresh token per attempt: the authority consumes it, so a retry cannot replay one.
         var token = _confirmation.Confirm(plan);
 
@@ -78,6 +103,12 @@ public sealed class ChangeExecutor : IChangeExecutor
         var result = await Task.Run(
             () => _coordinator.ApplyAsync(operation, plan, token, cancellationToken).AsTask(),
             cancellationToken).ConfigureAwait(true);
+
+        // After the outcome is known, and never allowed to change it: the change has already
+        // happened by this point, so a journal failure must not be reported as a failed change.
+        await _actionJournal
+            .RecordApplyAsync(plan, result.Disposition, cancellationToken)
+            .ConfigureAwait(true);
 
         return new ChangeOutcome(
             result.Disposition == CoordinatorDisposition.Completed,

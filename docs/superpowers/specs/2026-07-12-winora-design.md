@@ -64,14 +64,14 @@ The fixed MVP distribution is a signed, per-user MSIX/MSIXBundle delivered by Ap
 - Compatibility and administrator-rights reporting.
 - Documented visual-effect and interface-responsiveness preferences exposed as one operation per `SystemParametersInfo` action pair.
 - Documented per-user taskbar and Start values from the Windows 11 settings reference, degrading to guided where the live value kind contradicts the documented semantics.
-- Temporary-file reclamation for user-owned locations, performed as a reversible move into a Winora-owned quarantine.
-- Retention of Winora's own journals, backups, and quarantine as an explicit, separately confirmed decision.
+- Temporary-file reclamation, performed as an immediate irreversible delete of one location at a time, each stating before the click what is lost.
+- Retention of Winora's own journals and backups as an explicit, separately confirmed decision.
 
 ### Explicit non-goals for MVP
 
 - No undocumented `Explorer`, `DWM`, `StartupApproved`, `AppEvents`, cursor, or theme registry tweaks. Documented `Explorer\Advanced` values named in the Windows 11 settings reference are in scope; `TaskbarSi`, `StuckRects3`, `Taskband\FavoritesMigration`, `UserPreferencesMask`, `VisualFXSetting`, and `Win32PrioritySeparation` are not, because Microsoft either documents them as opaque, calls them undocumented, or has disabled them.
 - No debloat, service disabling, policy bypass, security weakening, shell replacement, or patching system binaries. Winora also never terminates `explorer.exe`: restarting the shell is not a documented mechanism, so a pending taskbar change is reported through `RestartRequirement` instead.
-- No operation deletes user bytes in the step the user just confirmed. Reclamation is always a reversible move first; freeing the bytes is a separate, separately confirmed retention decision.
+- No `ChangeCoordinator` operation deletes user bytes in the step the user just confirmed. Reclamation is the one deliberate exception and is therefore not a coordinator operation at all: see "Temporary-file reclamation: an explicit exception to the change pipeline" below.
 - No SQLite, cloud synchronization, accounts, telemetry, plugin marketplace, or remote execution.
 - No silent elevation and no always-elevated main application.
 - No claim that a Winora backup is a full Windows image or a substitute for System Restore.
@@ -302,10 +302,12 @@ Before Dashboard enables any mutating command, Winora scans durable operation jo
 
 ## 7. Persistence and file layout
 
-The default root is `%LOCALAPPDATA%\Winora`. The path is provided to Infrastructure by the App composition root.
+The default root is `%USERPROFILE%\Winora\State`. The path is provided to Infrastructure by the App composition root.
+
+It is deliberately **not** under `%LOCALAPPDATA%`. A packaged app has that folder redirected into its own container, and Windows deletes the container when the package is removed — which, measured on 2026-08-04, destroyed the journal, the plan archive and every backup while the registry changes they existed to undo stayed applied to Windows. State that can reverse changes to the system must outlive the app that made them. The user profile root is not redirected, needs no elevation, is per-user without any SID handling, and carries the same default protection as the old location. `WinoraStoreMigration` moves an older store across on first run, all-or-nothing, and never merges over a newer one.
 
 ```text
-%LOCALAPPDATA%\Winora\
+%USERPROFILE%\Winora\State\
 ├─ Data\
 │  ├─ app-settings.json
 │  ├─ change-index.json
@@ -388,8 +390,8 @@ Backups may contain the minimum exact paths and values needed for rollback. They
 | Visual-effect preferences (expanded set) | One operation instance per documented `SystemParametersInfo` get/set action pair, with the documented broadcast | Standard | Full | None | Supported per action when that action exists on the running build |
 | Taskbar and Start (per-user) | Documented `HKCU ...\Explorer\Advanced` scalar values plus the documented shell change notification | Standard | Full | Explorer or sign-out | Supported only when the live value kind matches the documented semantics; otherwise guided |
 | Taskbar size, autohide, pinned-item order | Read-only status with a stable reason code and a guided route | Standard | — | — | Unsupported: `TaskbarSi` is undocumented and disabled, `StuckRects3` is a documented opaque blob, `Taskband\FavoritesMigration` is explicitly undocumented |
-| Temporary-file reclamation (per-user) | Enumerate with documented `GetTempPath2W`/`SHGetKnownFolderPath`, then move into `%LOCALAPPDATA%\Winora\Quarantine\{operationId}` with `IFileOperation::MoveItem` | Standard | Full | None | Supported only for user-owned locations on the same volume as `%LOCALAPPDATA%`; otherwise guided |
-| Quarantine purge and Winora journal/backup retention | Not a `ChangeCoordinator` operation. An explicit retention decision over Winora-owned data, recorded in the action journal | Standard | Not applicable | None | Supported; never applied to a quarantine still linked to a recovery-required change |
+| Temporary-file reclamation | Not a `ChangeCoordinator` operation: see "Temporary-file reclamation: an explicit exception to the change pipeline" below. Enumerate with documented `GetTempPath2W`/`SHGetKnownFolderPath`, then delete outright, bypassing the Recycle Bin | Standard for user-owned locations, admin for the Windows-serviced ones | None | None | Supported for the locations the probe classifies as reclaimable at the running process's privilege level |
+| Winora journal and backup retention | Not a `ChangeCoordinator` operation. An explicit retention decision over Winora-owned data, recorded in the action journal | Standard | Not applicable | None | Supported; never applied to data still linked to a recovery-required change |
 | Windows event-log channels | Read channel metadata; export-then-clear through documented `EvtClearLog` with a non-null target file | Admin for system channels | Not applicable | None | Guided/unsupported in MVP; direct apply only after the elevated host and restore-point lifecycle exist |
 | Cursor scheme authoring | Write a documented `.theme`-format cursor scheme into `%LOCALAPPDATA%\Winora\Assets` and hand off with documented `ShellExecute` on that file | Standard | Full for the Winora-owned file | None | Guided for the persistent Windows change; the live `HKCU\Control Panel\Cursors` scheme has no Learn documentation and stays out of scope |
 
@@ -399,10 +401,39 @@ Two documentation honesty rules constrain the rows above. First, the Windows 11 
 
 Reclamation copy must not overstate what these operations do. The `SystemParametersInfo` rows change visual effects and perceived responsiveness; they are not a performance tuner and must never be labelled as one.
 
+### Temporary-file reclamation: an explicit exception to the change pipeline
+
+Earlier revisions of this section specified reclamation as a reversible move into a Winora-owned quarantine under `%LOCALAPPDATA%`, with the purge as a later retention decision. **That design was abandoned by the owner's decision and the code never shipped it.** The objection was decisive: a cleaner that moves bytes to another folder on the same disk has freed nothing, and reporting reclaimed space while the space is still occupied is exactly the kind of verification that lies which this project exists to prevent. Quarantine would have bought a rollback capability for data whose entire purpose is to be disposable.
+
+So reclamation deletes outright, bypassing the Recycle Bin, and is therefore **not a `ChangeCoordinator` operation**. It could not be one: `ChangeSafetyPolicy` correctly refuses any plan that is not `Backup == Required && Rollback == Full`, and that rule is not weakened for this. The honesty this exception owes in return:
+
+- **Nothing is deleted that Winora cannot name first.** Every location is surveyed — file count and total bytes — and shown before the button is live.
+- **The privilege boundary is a fact about the process, not a preference.** `TempReclamationPolicy` is the single rule, consulted by the probe, the screen and the cleaner alike. `WindowsTempCleaner.Clean` re-checks it at the call that deletes, so a future caller cannot reach a refused location by asking wrongly.
+- **The Windows-serviced locations are offered only to an elevated process** and each states its own cost: `SoftwareDistribution` loses the ability to roll an update back, CBS logs lose only the diagnostic trail, and the two must not share one warning.
+- **`Windows.old` is refused at every privilege level.** There is no documented programmatic removal, and deleting it permanently closes the route back to the previous Windows version.
+- **What was actually removed is reported, not what was requested.** Files held open are skipped and counted. A temporary directory is in constant use, and a cleaner claiming to have emptied one would be lying.
+
+- **Every reclamation is journalled**, as an `ActionJournalEventKind.RetentionDecision` under `ActionJournalCategory.Retention` with the location path reduced to a correlation hash and the file count as `AffectedItemCount`. A failed attempt is journalled too, before the error surfaces, with a null count rather than a guessed zero. Since reclamation contributes no `IOperation`, its identifiers are unioned into the journal allowlist explicitly by `JournalAllowlist`; a location the allowlist does not admit would be deleted with no record anywhere, so that union is asserted by name.
+
+### Network bypass: an explicit exception to the change pipeline
+
+The `bypass` screen runs `zapret-discord-youtube` by **Flowseal**, fetched from that project's GitHub releases. It is the one module that does **not** pass through `ChangeCoordinator`, by the owner's decision of 2026-08-07. It is recorded here so a later reader finds a decision rather than an omission.
+
+The reason it cannot: plan → backup → verify → rollback needs a previous value to restore, and starting a process has none. There is no state to capture and nothing for a rollback to put back. Wrapping it in the pipeline would produce ceremony that protects nothing.
+
+What the exception does **not** cover, because these are honesty rather than ceremony:
+
+- **State is read from Windows, never remembered.** The bypass deliberately outlives the app, so a cached flag would report "off" while traffic was still being filtered. The screen polls the process list.
+- **Ownership is decided by executable path.** Another launcher for the same tool runs an identically named process. Winora reports one it did not start, and refuses to stop or replace it, because two packet filters on the same traffic break the connection.
+- **Nothing is downloaded or installed silently.** The release tag, its publication date and its size are shown and the user agrees first, because this fetches an executable that will then run with administrator rights.
+- **The disclosure is on the screen**: whose tool it is, that it comes from the internet, that it needs administrator rights, and that antivirus commonly flags this class of program.
+
+Winora does not modify the upstream binaries. It reads the arguments out of the release's `.bat` strategies and starts `winws.exe` itself, so nothing else in those scripts runs on the machine.
+
 ### Restore-point policy by operation
 
 - `Required for forward apply`: direct enable/disable of an `HKLM ...\Run` value and moving a shortcut to/from the common Startup folder. These are machine-wide startup changes; forward apply is blocked unless a verified local backup and a new Winora-owned restore-point sequence are both available. Rollback does not demand a second new restore point, which Windows may coalesce within 24 hours; it uses the verified operation backup plus the bounded pre-rollback checkpoint and retains the original Winora restore point when it still exists.
-- `Local backup only`: documented `SystemParametersInfo` visual effects, documented per-user taskbar and Start values, the reversible move into the Winora quarantine, `HKCU ...\Run`, the per-user Startup folder, folder `Desktop.ini` icons, and shortcut icon changes. These have exact operation-specific backups and full rollback but do not request UAC solely to create a restore point.
+- `Local backup only`: documented `SystemParametersInfo` visual effects, documented per-user taskbar and Start values, `HKCU ...\Run`, and the per-user Startup folder. These have exact operation-specific backups and full rollback but do not request UAC solely to create a restore point. Temporary-file reclamation does not appear here: it is not a coordinator operation and creates no backup at all.
 - `Neither`: Winora theme, preview/read-only inspection, capability probes, dry-run, and guided Windows-owned settings routes because they do not directly mutate Windows through Winora.
 - `Restore-point operation`: the explicit manual restore-point command is itself a non-destructive safety artifact. It uses the complete lifecycle below but does not recursively create a local operation backup or another restore point.
 
@@ -482,10 +513,10 @@ The explicit manual restore-point command uses the same BEGIN/END pair and durab
 
 ПЕРСОНАЛИЗАЦИЯ
   Темы и эффекты
+  Оформление
   Панель задач
   Звуки
   Курсоры
-  Иконки
 
 ОБСЛУЖИВАНИЕ
   Производительность
@@ -501,18 +532,29 @@ Footer
   Настройки
 ```
 
-Route keys are stable, lowercase, and kebab-cased; they are never derived from a localized label. The registry covers every pane item plus the route-only screens in section 10: `dashboard`, `themes`, `taskbar`, `performance`, `cleanup`, `sounds`, `cursors`, `icons`, `startup`, `changes`, `backups`, `journal`, `settings`, `compatibility`, `change-review`, `rollback-review`, `applying`, `result-success`, `result-failure`, `result-partial-recovery`, and `recovery`.
+Route keys are stable, lowercase, and kebab-cased; they are never derived from a localized label. The registry covers every pane item plus the route-only screens in section 10: `dashboard`, `themes`, `appearance`, `taskbar`, `performance`, `cleanup`, `sounds`, `cursors`, `startup`, `bypass`, `changes`, `backups`, `journal`, `settings`, `change-review`, `applying`, `result-success`, `result-failure`, and `recovery`.
 
 The pane is 240 px expanded and uses the native compact state when collapsed. Every item has a Microsoft Fluent System Icons Regular icon in the shared 20 px presenter.
 
 ### Dashboard
 
-- Page title, concise safety statement, CommandBar (`Как это работает`, `Обновить`, `Создать резервную копию`).
-- Windows compatibility InfoBar with a working details route.
-- Protection card: last verified backup, active change count, and rollback coverage.
-- Windows card: edition/build, privilege mode, support level, and last probe time.
-- Four fully clickable quick-access cards: Themes & Effects, Startup, Sounds, and Cursors.
-- Fully clickable recent-action rows and a working journal route.
+**This screen has been emptied three times, and the list below is the history of what was removed rather than a specification of what to build.** Read it before proposing anything for it.
+
+The original specification called for: a protection card, a Windows edition and build card, capability counters, a compatibility InfoBar, four clickable quick-access cards, and recent-action rows. All of it was built. On 2026-08-04 the owner removed all of it at once, because each item was *something the app wanted to say* rather than something a person arrived wanting.
+
+On 2026-08-08 the owner asked for useful interaction here, and a list of the last five changes with an undo beside each was built. On 2026-08-09 it was removed on sight: it read as clutter on the screen that is meant to be the calm one, and the Changes screen already answers that question properly.
+
+What the screen carries, and why each survives:
+
+- Page title and concise safety statement.
+- The recovery InfoBar, when and only when an unfinished change is blocking every other screen. Without it a person meets that state as a click that refuses for no stated reason.
+- One glyph button to the project's community, in the corner, with no text.
+
+Nothing else. Specifically ruled out, with reasons, so the same ground is not covered a fourth time:
+
+- **Live processor, memory and network figures.** Interesting rather than wanted; they already have a screen. A number that moves is the easiest thing to mistake for usefulness.
+- **Recent changes and undo.** Tried; the Changes screen owns it.
+- **Edition, build, privilege mode, probe times.** These belong on the settings screen, which is where someone goes when they need to report a problem.
 - No decorative control without behavior.
 - The real app uses the native AppWindow caption controls; browser-prototype messages for minimize/maximize/close are not carried into WinUI.
 
@@ -600,15 +642,17 @@ There are no silent clicks, inert cards, fake chevrons, or unlabeled disabled co
 ### Native foundations
 
 - WinUI 3 controls and theme resources first; custom templates only where the approved Dashboard requires them.
-- `Window.SystemBackdrop` uses Mica. Acrylic is limited to transient flyouts or overlays where depth requires it.
+- The window is a flat, opaque canvas. Mica was removed on 2026-08-08 when the colour scheme became the user's to choose: the backdrop tints itself from the desktop wallpaper, which Winora cannot read, so a chosen background was never quite the colour it claimed and every contrast measurement had to be approximate. Acrylic stays available for transient flyouts where depth genuinely requires it.
 - NavigationView, CommandBar, InfoBar, TeachingTip, ContentDialog only for short messages, Card surfaces, ToggleSwitch, Slider, ListView, and ProgressRing.
-- System accent is respected for focus/accessibility. Winora green is reserved for the single primary action in a region and positive safety status.
+- The palette is the user's. Two colours are chosen on the `appearance` screen — a background and an accent — and everything else is derived from them by `SchemeDerivation`: four text tiers, the sheet, the card, the hovered card, the divider, the stroke, and the colour printed on the accent. Every derived value stays overridable. Four accents ship ready-made (white, violet, red, graphite), each in a dark and a light form, and the default is white on near-black.
+- The accent is spent only where it means something: the selected navigation item, a switch or slider that is on, the filled primary action, and the rule under a page title. Priority between two buttons is carried by fill and not by hue.
+- Contrast is measured at runtime, not judged. A scheme whose text falls below 4.5:1 against the hovered card cannot be applied, and is refused again on load; an accent below 3:1 warns but is allowed, because WCAG 1.4.11 puts non-text marks at that floor and a quiet accent is a legitimate taste. High Contrast overrides everything: while it is in force Winora paints none of its own colours.
 
 ### Tokens
 
 - Spacing: 4, 8, 12, 16, 24, 32, 40, and 48 px only.
 - Control radius: 4 px.
-- Card radius: 8 px.
+- Card radius: 14 px, grouped surface radius: 16 px. Larger than the platform default on purpose — big soft corners are most of what makes a surface read as designed rather than as a default control.
 - Large/flyout radius: 12 px when required.
 - Standard icon geometry: 20 × 20 px.
 - Icon containers: 32 × 32 px for cards and 36 × 36 px for feature summaries.

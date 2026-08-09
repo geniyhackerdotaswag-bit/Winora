@@ -14,24 +14,22 @@ public sealed class RouteRegistryTests
     [
         "dashboard",
         "themes",
+        "appearance",
         "taskbar",
         "performance",
         "cleanup",
         "sounds",
         "cursors",
-        "icons",
         "startup",
+        "bypass",
         "changes",
         "backups",
         "journal",
         "settings",
-        "compatibility",
         "change-review",
-        "rollback-review",
         "applying",
         "result-success",
         "result-failure",
-        "result-partial-recovery",
         "recovery",
     ];
 
@@ -132,14 +130,15 @@ public sealed class RouteRegistryTests
     {
         var expected = new[]
         {
+            // Reached from the settings screen. Winora's own colours are a preference about the
+            // app, and an item in the personalization group implied the screen changed Windows.
+            "appearance",
+
             "applying",
             "change-review",
-            "compatibility",
             "recovery",
             "result-failure",
-            "result-partial-recovery",
             "result-success",
-            "rollback-review",
         };
         var routeOnly = Registry.Routes
             .Where(static route => route.Placement == RoutePlacement.RouteOnly)

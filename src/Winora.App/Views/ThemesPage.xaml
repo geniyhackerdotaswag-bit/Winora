@@ -4,76 +4,142 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Winora.App.ViewModels"
-    xmlns:conv="using:Winora.App.Controls"
+    xmlns:ctl="using:Winora.App.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Padding="{StaticResource WinoraPagePadding}">
+        <StackPanel>
 
-            <TextBlock Style="{StaticResource WinoraPageTitle}"
-                       Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+            <!--
+              Full-bleed header band in the section hue. It runs the whole width of the sheet while
+              the body below stays inside a capped column, so the colour belongs to the page rather
+              than to a card sitting on it.
+            -->
+            <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
+                <!--
+                  A watermark of the section's own icon, large and faint, filling the empty right
+                  half of the band. Purely decorative, so it is hidden from assistive technology
+                  rather than read out as an unlabelled image.
+                -->
+                <FontIcon Glyph="&#xE790;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
 
-            <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                       Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
 
-            <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
-                     IsClosable="False"
-                     Severity="Warning"
-                     Margin="{StaticResource WinoraStackGapL}"
-                     Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!--
+                  A star column with a cap: the content fills the width up to a comfortable measure
+                  and then stops, staying at the left edge instead of drifting into the middle.
+                -->
+                <ColumnDefinition Width="*" MaxWidth="1800" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Padding="32,20,32,32">
 
-            <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:VisualEffectRowViewModel">
-                        <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapM}">
-                            <Grid ColumnSpacing="16">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind Label}"
-                                               Style="{StaticResource BodyStrongTextBlockStyle}"
-                                               TextWrapping="Wrap" />
-                                    <!-- A disabled control always states why nearby, never silently. -->
-                                    <TextBlock Text="{x:Bind BlockReason, Mode=OneWay}"
-                                               Visibility="{x:Bind conv:XamlConvert.Show(HasBlockReason), Mode=OneWay}"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,2,0,0" />
-                                </StackPanel>
+                <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                         IsClosable="False"
+                         Severity="Warning"
+                         Margin="{StaticResource WinoraStackGapL}"
+                         Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
-                                <Grid Grid.Column="1" VerticalAlignment="Center">
-                                    <!--
-                                      OnContent and OffContent are deliberately empty: the label to the
-                                      left already names the setting, and a switch that also prints
-                                      "On"/"Off" beside itself reads as clutter.
-                                    -->
-                                    <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
-                                                  OnContent=""
-                                                  OffContent=""
-                                                  MinWidth="0"
-                                                  IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
-                                                  Toggled="OnToggled"
-                                                  Tag="{x:Bind}"
-                                                  AutomationProperties.Name="{x:Bind Label}"
-                                                  AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
-                                    <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                                  Visibility="{x:Bind conv:XamlConvert.Show(IsBusy), Mode=OneWay}"
-                                                  Width="20"
-                                                  Height="20"
-                                                  HorizontalAlignment="Center" />
-                                </Grid>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <!--
+                  Tiles in as many columns as fit, not one long column. Sixteen settings in a single
+                  list meant scrolling past most of them to reach the rest; laid out this way the
+                  whole set is on screen at once on any window wide enough for two columns, and the
+                  layout collapses to one column on a narrow window without any breakpoint of ours.
+                -->
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Rows}">
+                    <ItemsRepeater.Layout>
+                        <!--
+                          MinItemHeight matters here: this layout gives every tile the height of
+                          the first one, and the first setting has a one-line name and no block
+                          reason. Everything longer was being clipped mid-sentence — a wrapped name
+                          plus a reason needs room, and uniform tiles with some empty space read as
+                          deliberate where cut-off text reads as broken.
+                        -->
+                        <UniformGridLayout MinItemWidth="340"
+                                           MinItemHeight="104"
+                                           MinColumnSpacing="10"
+                                           MinRowSpacing="10"
+                                           ItemsStretch="Fill" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VisualEffectRowViewModel">
+                            <Border Style="{StaticResource WinoraTile}">
+                                <ctl:HoverRow>
+                                    <Grid Padding="10,12,14,12" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
+                                        <!-- Lit when the setting is on, faint when off. -->
+                                        <Rectangle Grid.Column="0"
+                                                   Style="{StaticResource WinoraTileBar}"
+                                                   Opacity="{x:Bind ctl:XamlConvert.BarOpacity(SwitchValue), Mode=OneWay}" />
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                       TextWrapping="Wrap"
+                                                       Text="{x:Bind Label}" />
+                                            <!-- Shown only when the tile cannot be changed, never as decoration. -->
+                                            <TextBlock Style="{StaticResource WinoraRowWarning}"
+                                                       TextWrapping="Wrap"
+                                                       Text="{x:Bind BlockReason, Mode=OneWay}"
+                                                       Visibility="{x:Bind ctl:XamlConvert.Show(HasBlockReason), Mode=OneWay}" />
+                                        </StackPanel>
+
+                                        <!--
+                                          The switch stands down while the ring is up. They used to
+                                          share the cell and the ring sat on top of the knob.
+                                        -->
+                                        <Grid Grid.Column="2" VerticalAlignment="Center" MinWidth="44">
+                                            <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
+                                                          OnContent=""
+                                                          OffContent=""
+                                                          MinWidth="0"
+                                                          HorizontalAlignment="Right"
+                                                          Visibility="{x:Bind ctl:XamlConvert.Hide(IsBusy), Mode=OneWay}"
+                                                          IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                          Toggled="OnToggled"
+                                                          Tag="{x:Bind}"
+                                                          AutomationProperties.Name="{x:Bind Label}"
+                                                          AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
+                                            <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                          Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                          Width="18" Height="18"
+                                                          HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Grid>
+                                </ctl:HoverRow>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+
+            </StackPanel>
+        </Grid>
         </StackPanel>
     </ScrollViewer>
 </Page>

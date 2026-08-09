@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.AppearancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xE771;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource WinoraTextPrimary}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Padding="32,24,32,32">
+
+                    <!--
+                      While Windows is in High Contrast the scheme is not painted at all. Said on the
+                      page rather than left as a puzzle, because every control below still works and
+                      nothing on screen would otherwise change when Apply is pressed.
+                    -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.IsSuppressed, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Informational"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Message="{x:Bind ViewModel.SuppressedNotice, Mode=OneWay}" />
+
+                    <!-- Ready-made schemes -->
+
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.PresetsHeading, Mode=OneWay}" />
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,12"
+                               TextWrapping="Wrap"
+                               Text="{x:Bind ViewModel.PresetsNote, Mode=OneWay}" />
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Presets}"
+                                  Margin="{StaticResource WinoraStackGapXl}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctl:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AppearancePresetViewModel">
+                                <Button Click="OnPresetClick"
+                                        Tag="{x:Bind Id}"
+                                        Padding="10,7,14,7"
+                                        CornerRadius="{StaticResource WinoraControlRadius}"
+                                        Background="{ThemeResource WinoraCardFill}"
+                                        BorderBrush="{ThemeResource WinoraCardStroke}"
+                                        BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border Width="26"
+                                                Height="20"
+                                                CornerRadius="5"
+                                                BorderThickness="1"
+                                                BorderBrush="{ThemeResource WinoraStrokeBrush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Rectangle Grid.Column="0"
+                                                           Fill="{x:Bind ctl:XamlConvert.Swatch(CanvasColor), Mode=OneWay}" />
+                                                <Rectangle Grid.Column="1"
+                                                           Fill="{x:Bind ctl:XamlConvert.Swatch(AccentColor), Mode=OneWay}" />
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{x:Bind Name}" />
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource WinoraTextFaint}"
+                                                   Text="{x:Bind Variant}" />
+                                        <FontIcon Glyph="&#xE73E;"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="14"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="{ThemeResource WinoraHuePersonalization}"
+                                                  Visibility="{x:Bind ctl:XamlConvert.Show(IsSelected), Mode=OneWay}"
+                                                  AutomationProperties.AccessibilityView="Raw" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- The two chosen colours, plus the one derived from the accent -->
+
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.CustomHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraGroup}">
+                        <StackPanel>
+
+                            <ctl:HoverRow>
+                                <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                   Text="{x:Bind ViewModel.CanvasLabel, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                   Text="{x:Bind ViewModel.CanvasHint, Mode=OneWay}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Padding="8"
+                                            CornerRadius="{StaticResource WinoraControlRadius}"
+                                            AutomationProperties.Name="{x:Bind ViewModel.CanvasLabel, Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="26"
+                                                    Height="20"
+                                                    CornerRadius="5"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{ThemeResource WinoraStrokeBrush}"
+                                                    Background="{x:Bind ctl:XamlConvert.Swatch(ViewModel.CanvasColor), Mode=OneWay}" />
+                                            <TextBlock VerticalAlignment="Center"
+                                                       FontFamily="Consolas"
+                                                       Text="{x:Bind ViewModel.CanvasHex, Mode=OneWay}" />
+                                        </StackPanel>
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <ColorPicker x:Name="CanvasPicker"
+                                                             IsAlphaEnabled="False"
+                                                             IsHexInputVisible="True"
+                                                             IsColorSliderVisible="True"
+                                                             IsMoreButtonVisible="False"
+                                                             Color="{x:Bind ViewModel.CanvasColor, Mode=OneWay}"
+                                                             ColorChanged="OnCanvasColorChanged" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </Grid>
+                            </ctl:HoverRow>
+
+                            <Rectangle Style="{StaticResource WinoraRowDivider}" />
+
+                            <ctl:HoverRow>
+                                <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                   Text="{x:Bind ViewModel.AccentLabel, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                   Text="{x:Bind ViewModel.AccentHint, Mode=OneWay}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Padding="8"
+                                            CornerRadius="{StaticResource WinoraControlRadius}"
+                                            AutomationProperties.Name="{x:Bind ViewModel.AccentLabel, Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="26"
+                                                    Height="20"
+                                                    CornerRadius="5"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{ThemeResource WinoraStrokeBrush}"
+                                                    Background="{x:Bind ctl:XamlConvert.Swatch(ViewModel.AccentColor), Mode=OneWay}" />
+                                            <TextBlock VerticalAlignment="Center"
+                                                       FontFamily="Consolas"
+                                                       Text="{x:Bind ViewModel.AccentHex, Mode=OneWay}" />
+                                        </StackPanel>
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <ColorPicker x:Name="AccentPicker"
+                                                             IsAlphaEnabled="False"
+                                                             IsHexInputVisible="True"
+                                                             IsColorSliderVisible="True"
+                                                             IsMoreButtonVisible="False"
+                                                             Color="{x:Bind ViewModel.AccentColor, Mode=OneWay}"
+                                                             ColorChanged="OnAccentColorChanged" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </Grid>
+                            </ctl:HoverRow>
+
+                            <Rectangle Style="{StaticResource WinoraRowDivider}" />
+
+                            <ctl:HoverRow>
+                                <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                   Text="{x:Bind ViewModel.OnAccentLabel, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                   Text="{x:Bind ViewModel.OnAccentHint, Mode=OneWay}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Padding="8"
+                                            CornerRadius="{StaticResource WinoraControlRadius}"
+                                            AutomationProperties.Name="{x:Bind ViewModel.OnAccentLabel, Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <Border Width="26"
+                                                    Height="20"
+                                                    CornerRadius="5"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{ThemeResource WinoraStrokeBrush}"
+                                                    Background="{x:Bind ctl:XamlConvert.Swatch(ViewModel.OnAccentColor), Mode=OneWay}" />
+                                            <TextBlock VerticalAlignment="Center"
+                                                       FontFamily="Consolas"
+                                                       Text="{x:Bind ViewModel.OnAccentHex, Mode=OneWay}" />
+                                        </StackPanel>
+                                        <Button.Flyout>
+                                            <Flyout>
+                                                <ColorPicker x:Name="OnAccentPicker"
+                                                             IsAlphaEnabled="False"
+                                                             IsHexInputVisible="True"
+                                                             IsColorSliderVisible="True"
+                                                             IsMoreButtonVisible="False"
+                                                             Color="{x:Bind ViewModel.OnAccentColor, Mode=OneWay}"
+                                                             ColorChanged="OnOnAccentColorChanged" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </Grid>
+                            </ctl:HoverRow>
+                        </StackPanel>
+                    </Border>
+
+                    <!--
+                      Matching Windows itself. A guided route and never a direct write: the values
+                      behind the Windows theme and accent are not documented for programmatic
+                      change, and the specification names theme registry tweaks as a non-goal. So
+                      Winora says what to choose and opens the official page.
+                    -->
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.WindowsHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapXl}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind ViewModel.WindowsDescription, Mode=OneWay}" />
+                            <Button Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource WinoraActionButton}"
+                                    Content="{x:Bind ViewModel.WindowsOpenLabel, Mode=OneWay}"
+                                    Click="OnOpenWindowsColorsClick" />
+                        </Grid>
+                    </Border>
+
+                    <!-- What those two produced -->
+
+                    <Expander HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Margin="{StaticResource WinoraStackGapXl}"
+                              Header="{x:Bind ViewModel.DerivedHeading, Mode=OneWay}">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Derived}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ctl:WrapPanel HorizontalSpacing="20" VerticalSpacing="10" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DerivedColorViewModel">
+                                        <StackPanel Orientation="Horizontal" Spacing="10" Width="240">
+                                            <Border Width="22"
+                                                    Height="22"
+                                                    CornerRadius="5"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{ThemeResource WinoraStrokeBrush}"
+                                                    VerticalAlignment="Center"
+                                                    Background="{x:Bind ctl:XamlConvert.Swatch(Value), Mode=OneWay}" />
+                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0"
+                                                       Text="{x:Bind Label}" />
+                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0"
+                                                       FontFamily="Consolas"
+                                                       Text="{x:Bind Hex, Mode=OneWay}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,14,0,0"
+                                       Text="{x:Bind ViewModel.DerivedNote, Mode=OneWay}" />
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- The measurement, and the gate it drives -->
+
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.MeasurementHeading, Mode=OneWay}" />
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,12"
+                               TextWrapping="Wrap"
+                               Text="{x:Bind ViewModel.MeasurementNote, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraGroup}">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Checks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ContrastCheckViewModel">
+                                    <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- The pair being measured, shown as it actually sits -->
+                                        <Border Grid.Column="0"
+                                                Width="34"
+                                                Height="26"
+                                                CornerRadius="5"
+                                                BorderThickness="1"
+                                                BorderBrush="{ThemeResource WinoraStrokeBrush}"
+                                                VerticalAlignment="Center"
+                                                Background="{x:Bind ctl:XamlConvert.Swatch(SurfaceValue), Mode=OneWay}">
+                                            <TextBlock Text="{x:Bind Sample}"
+                                                       FontSize="13"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{x:Bind ctl:XamlConvert.Swatch(ForegroundValue), Mode=OneWay}" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                       Text="{x:Bind Label}" />
+                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                       Text="{x:Bind Detail}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="Consolas"
+                                                   Text="{x:Bind Measured, Mode=OneWay}" />
+
+                                        <TextBlock Grid.Column="3"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource WinoraRowDetail}"
+                                                   Margin="0"
+                                                   Text="{x:Bind Status, Mode=OneWay}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!-- Shown only when there is something to say. See ShowGate. -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.ShowGate, Mode=OneWay}"
+                             IsClosable="False"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Severity="{x:Bind ctl:XamlConvert.InfoSeverity(ViewModel.CanApply), Mode=OneWay}"
+                             Title="{x:Bind ViewModel.GateTitle, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.GateMessage, Mode=OneWay}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                IsEnabled="{x:Bind ViewModel.CanApply, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
+                                Click="OnApplyClick" />
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind ViewModel.ResetLabel, Mode=OneWay}"
+                                Click="OnResetClick" />
+                    </StackPanel>
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.ShowSaved, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Success"
+                             Margin="0,14,0,0"
+                             Message="{x:Bind ViewModel.SavedNotice, Mode=OneWay}" />
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

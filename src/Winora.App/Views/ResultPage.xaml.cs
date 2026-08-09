@@ -40,8 +40,6 @@ public sealed partial class ResultPage : Page
         "applying" => "Nav_Applying",
         "result-success" => "Nav_ResultSuccess",
         "result-failure" => "Nav_ResultFailure",
-        "result-partial-recovery" => "Nav_ResultPartialRecovery",
-        "recovery" => "Nav_Recovery",
         _ => "Nav_ResultSuccess",
     };
 }

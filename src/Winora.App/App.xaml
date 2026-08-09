@@ -9,7 +9,11 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Resources/Styles/DesignTokens.xaml" />
+                <!-- Palette before Controls: the control styles reference the hue brushes. -->
+                <ResourceDictionary Source="ms-appx:///Resources/Styles/Palette.xaml" />
                 <ResourceDictionary Source="ms-appx:///Resources/Styles/Controls.xaml" />
+                <!-- Navigation last: it restyles the stock NavigationView using the hues above. -->
+                <ResourceDictionary Source="ms-appx:///Resources/Styles/Navigation.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

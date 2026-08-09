@@ -31,8 +31,12 @@ public interface ICleanupSurveyService
 {
     IReadOnlyList<CleanupLocationView> Survey(CancellationToken cancellationToken);
 
-    /// <summary>Permanently deletes the contents of one user-owned location.</summary>
-    CleanupOutcome Clean(string locationId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Permanently deletes the contents of one reclaimable location and records the decision in the
+    /// action journal. Deleting and journalling are one call because a caller must not be able to do
+    /// the first without the second.
+    /// </summary>
+    Task<CleanupOutcome> CleanAsync(string locationId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc />
@@ -40,11 +44,16 @@ public sealed class CleanupSurveyService : ICleanupSurveyService
 {
     private readonly ITempLocationProbe _probe;
     private readonly ITempCleaner _cleaner;
+    private readonly IActionJournalWriter _journal;
 
-    public CleanupSurveyService(ITempLocationProbe probe, ITempCleaner cleaner)
+    public CleanupSurveyService(
+        ITempLocationProbe probe,
+        ITempCleaner cleaner,
+        IActionJournalWriter journal)
     {
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
         _cleaner = cleaner ?? throw new ArgumentNullException(nameof(cleaner));
+        _journal = journal ?? throw new ArgumentNullException(nameof(journal));
     }
 
     public IReadOnlyList<CleanupLocationView> Survey(CancellationToken cancellationToken)
@@ -53,10 +62,9 @@ public sealed class CleanupSurveyService : ICleanupSurveyService
 
         foreach (var location in _probe.Locations())
         {
-            if (location.Classification != TempLocationClassification.UserOwned)
+            if (!TempReclamationPolicy.CanReclaim(location, _probe.IsElevated))
             {
-                // Protected locations are still listed, so the screen can say why Winora will not
-                // touch them rather than leaving the user to wonder.
+                // Still listed, so the screen can say why rather than leaving the user to wonder.
                 results.Add(new CleanupLocationView(
                     location.Id,
                     location.Path,
@@ -73,7 +81,11 @@ public sealed class CleanupSurveyService : ICleanupSurveyService
                 location.Id,
                 location.Path,
                 IsUserOwned: true,
-                ReasonCode: null,
+                // The reason code is kept even when the location is now reclaimable. It carries the
+                // consequence of clearing — losing update rollback, for one — and that is truest at
+                // the moment the user can actually act on it. Only the "needs administrator" part
+                // belongs to the refusal, and the screen adds that separately.
+                location.ReasonCode,
                 survey.FileCount,
                 survey.TotalBytes,
                 survey.IsFullyEnumerated));
@@ -82,7 +94,7 @@ public sealed class CleanupSurveyService : ICleanupSurveyService
         return results;
     }
 
-    public CleanupOutcome Clean(string locationId, CancellationToken cancellationToken)
+    public async Task<CleanupOutcome> CleanAsync(string locationId, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(locationId);
 
@@ -92,7 +104,39 @@ public sealed class CleanupSurveyService : ICleanupSurveyService
             string.Equals(candidate.Id, locationId, StringComparison.Ordinal))
             ?? throw new KeyNotFoundException($"'{locationId}' is not a known cleanup location.");
 
-        var result = _cleaner.Clean(location, cancellationToken);
+        var requiredElevation =
+            location.Classification == TempLocationClassification.RequiresElevation;
+
+        TempCleanResult result;
+        try
+        {
+            result = await Task.Run(
+                () => _cleaner.Clean(location, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Journalled before it is rethrown. A reclamation that failed part-way is precisely the
+            // entry someone comes looking for, and the count is left null rather than guessed at
+            // zero, because files may well have gone before the failure.
+            await _journal.RecordReclamationAsync(
+                location.Id,
+                location.Path,
+                requiredElevation,
+                succeeded: false,
+                deletedCount: null,
+                cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+
+        await _journal.RecordReclamationAsync(
+            location.Id,
+            location.Path,
+            requiredElevation,
+            succeeded: true,
+            result.DeletedCount,
+            cancellationToken).ConfigureAwait(false);
+
         return new CleanupOutcome(result.DeletedCount, result.DeletedBytes, result.SkippedCount);
     }
 }

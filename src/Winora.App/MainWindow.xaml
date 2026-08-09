@@ -8,17 +8,72 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Title="Winora">
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
+    <!--
+      No system backdrop. Mica was dropped when the colour scheme became the user's to choose: the
+      backdrop tints itself from the desktop wallpaper, which meant a chosen background was never
+      quite the colour it said it was, and every contrast measurement had to guess at a tint Winora
+      cannot read. A flat opaque canvas makes the arithmetic exact and the shown colour the real one.
+    -->
+    <Grid x:Name="RootGrid" Background="{ThemeResource WinoraCanvasBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-    <NavigationView x:Name="Navigation"
-                    OpenPaneLength="{StaticResource WinoraNavigationPaneWidth}"
-                    PaneDisplayMode="Left"
-                    IsSettingsVisible="False"
-                    IsBackButtonVisible="Collapsed"
-                    IsPaneToggleButtonVisible="True"
-                    SelectionChanged="OnNavigationSelectionChanged">
-        <Frame x:Name="ContentFrame" />
-    </NavigationView>
+        <!--
+          The app's own title bar. The stock caption makes every WinUI app look like the same
+          Win32 window; carrying the mark up here is most of what separates Winora on sight.
+          The right-hand column is left empty for the system caption buttons.
+        -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="48">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="140" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center"
+                        Margin="16,0,0,0">
+                <!--
+                  The application's own icon, the same artwork the taskbar and Start show. It
+                  replaced a gradient square that stood in for a mark the project did not have yet.
+                -->
+                <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                       Width="20"
+                       Height="20"
+                       VerticalAlignment="Center"
+                       AutomationProperties.AccessibilityView="Raw" />
+                <!-- Text set from resources in the constructor, like every other string here. -->
+                <TextBlock x:Name="AppTitleText"
+                           FontFamily="Segoe UI Variable Display"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <NavigationView x:Name="Navigation"
+                        Grid.Row="1"
+                        OpenPaneLength="{StaticResource WinoraNavigationPaneWidth}"
+                        PaneDisplayMode="Left"
+                        IsSettingsVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        IsPaneToggleButtonVisible="False"
+                        IsTitleBarAutoPaddingEnabled="False"
+                        SelectionChanged="OnNavigationSelectionChanged">
+            <!--
+              The content sits on its own raised surface with a rounded leading corner, so the page
+              reads as a sheet laid over the window rather than as the window's own background.
+            -->
+            <Border Background="{ThemeResource WinoraContentSurfaceBrush}"
+                    BorderBrush="{ThemeResource WinoraContentSurfaceStroke}"
+                    BorderThickness="1,1,0,0"
+                    CornerRadius="12,0,0,0">
+                <Frame x:Name="ContentFrame" />
+            </Border>
+        </NavigationView>
+    </Grid>
 </Window>

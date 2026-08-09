@@ -24,12 +24,31 @@
     which reads source text and so cannot fail for environmental reasons.
   -->
   <ItemGroup>
+    <Compile Include="..\..\src\Winora.App\Controls\FluentIconCatalog.cs" LinkBase="Linked\Controls" />
     <Compile Include="..\..\src\Winora.App\Navigation\RouteKeys.cs" LinkBase="Linked\Navigation" />
     <Compile Include="..\..\src\Winora.App\Navigation\RouteDescriptor.cs" LinkBase="Linked\Navigation" />
     <Compile Include="..\..\src\Winora.App\Navigation\RouteRegistry.cs" LinkBase="Linked\Navigation" />
     <Compile Include="..\..\src\Winora.App\ViewModels\CoordinatorDispositionPresentation.cs" LinkBase="Linked\ViewModels" />
+    <!--
+      RecoveryState is the way out of a state where every further change is refused, so it is worth
+      covering. It touches no WinUI type, only Core and Infrastructure contracts, so it links in
+      the same way — together with the one interface from the App layer that it needs.
+    -->
+    <Compile Include="..\..\src\Winora.App\Services\ILocalizationService.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\ActionJournalWriter.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\JournalAllowlist.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\OperationRollback.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\RecoveryState.cs" LinkBase="Linked\Services" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winora.Core\Winora.Core.csproj" />
+    <!-- For IChangePlanArchive, which RecoveryState depends on. -->
+    <ProjectReference Include="..\..\src\Winora.Infrastructure\Winora.Infrastructure.csproj" />
+    <!--
+      For WindowsTempLocationProbe.AllLocationIds. The composition root joins that list to the
+      action-journal allowlist; a test that could see only one side of the join could not tell
+      whether the two still agree, which is the entire failure being guarded against.
+    -->
+    <ProjectReference Include="..\..\src\Winora.System\Winora.System.csproj" />
   </ItemGroup>
 </Project>

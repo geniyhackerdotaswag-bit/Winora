@@ -9,7 +9,13 @@ namespace Winora.System.Tests.Platform;
 /// </summary>
 public sealed class TempLocationProbeTests
 {
-    private static readonly WindowsTempLocationProbe Probe = new();
+    private static readonly WindowsTempLocationProbe Probe = new(new FakeElevation(false));
+
+    /// <summary>Elevation is a property of the process, so tests state it rather than inherit it.</summary>
+    private sealed class FakeElevation(bool isElevated) : IElevationProbe
+    {
+        public bool IsElevated { get; } = isElevated;
+    }
 
     [Fact]
     public void The_catalog_is_not_empty_and_every_entry_is_identifiable()
@@ -32,21 +38,73 @@ public sealed class TempLocationProbeTests
     }
 
     /// <summary>
-    /// These are serviced by Windows itself. Deleting from them breaks servicing and rollback of
-    /// updates, so they are catalogued precisely to be shown as off-limits rather than omitted and
-    /// silently rediscovered by a later contributor.
+    /// These are serviced by Windows itself, so they are catalogued deliberately rather than omitted
+    /// and silently rediscovered by a later contributor.
     /// </summary>
+    /// <remarks>
+    /// The previous version of this test asserted that all three are always present, and that claim
+    /// was simply wrong: measured on 2026-08-04, this machine had no <c>C:\Windows\Logs\CBS</c> at
+    /// all — servicing creates those logs and Windows removes them again. The probe drops a location
+    /// that is not on disk, so what is asserted here is how a present one is classified, never that
+    /// it is there.
+    /// </remarks>
     [Theory]
     [InlineData("windows-temp")]
     [InlineData("software-distribution")]
     [InlineData("cbs-logs")]
-    [InlineData("windows-old")]
-    public void Serviced_windows_locations_are_catalogued_as_protected(string id)
+    public void A_serviced_windows_location_is_catalogued_as_needing_elevation(string id)
     {
-        var location = Probe.Locations().Single(l => l.Id == id);
+        foreach (var location in Probe.Locations().Where(l => l.Id == id))
+        {
+            Assert.Equal(TempLocationClassification.RequiresElevation, location.Classification);
+        }
+    }
 
-        Assert.Equal(TempLocationClassification.Protected, location.Classification);
-        Assert.False(string.IsNullOrWhiteSpace(location.ReasonCode));
+    /// <summary>
+    /// The user's temp folder always exists, so it anchors the theory above: without this, a probe
+    /// that returned nothing at all would satisfy every one of those cases.
+    /// </summary>
+    [Fact]
+    public void The_user_temp_location_is_always_catalogued()
+    {
+        var location = Probe.Locations().Single(static l => l.Id == "user-temp");
+
+        Assert.Equal(TempLocationClassification.UserOwned, location.Classification);
+        Assert.False(string.IsNullOrWhiteSpace(location.Path));
+    }
+
+    /// <summary>
+    /// A reason code is optional and must never be empty. An empty one is worse than none: the
+    /// localizer resolves it to the raw key and the screen shows "[winora.cleanup.…]" to the user,
+    /// which is exactly what happened once.
+    /// </summary>
+    [Fact]
+    public void A_reason_code_is_either_absent_or_meaningful()
+    {
+        foreach (var location in Probe.Locations())
+        {
+            if (location.ReasonCode is not null)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(location.ReasonCode));
+            }
+        }
+    }
+
+    /// <summary>
+    /// A protected folder that is not on this disk is not a decision the user has to make. Windows.old
+    /// is the case that forced this: it survives only a few days after a feature update, and listing
+    /// it the rest of the time put a row on the screen about reclaiming a folder that was not there.
+    /// </summary>
+    [Fact]
+    public void A_protected_location_is_only_listed_when_it_is_actually_on_disk()
+    {
+        foreach (var location in Probe.Locations()
+                     .Where(static l => l.Classification != TempLocationClassification.UserOwned))
+        {
+            Assert.True(
+                Directory.Exists(location.Path),
+                $"'{location.Id}' is listed but '{location.Path}' does not exist.");
+        }
     }
 
     [Fact]
@@ -63,11 +121,7 @@ public sealed class TempLocationProbeTests
     {
         foreach (var location in Probe.Locations())
         {
-            if (location.Classification == TempLocationClassification.Protected)
-            {
-                Assert.False(string.IsNullOrWhiteSpace(location.ReasonCode));
-            }
-            else if (location.Classification == TempLocationClassification.UserOwned)
+            if (location.Classification == TempLocationClassification.UserOwned)
             {
                 Assert.Null(location.ReasonCode);
             }
@@ -78,7 +132,7 @@ public sealed class TempLocationProbeTests
     public void Surveying_a_protected_location_is_refused_outright()
     {
         var protectedLocation = Probe.Locations()
-            .First(static l => l.Classification == TempLocationClassification.Protected);
+            .First(static l => l.Classification != TempLocationClassification.UserOwned);
 
         Assert.Throws<InvalidOperationException>(() => Probe.Survey(protectedLocation, CancellationToken.None));
     }

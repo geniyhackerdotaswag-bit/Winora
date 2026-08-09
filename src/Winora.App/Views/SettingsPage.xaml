@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Grid Background="{ThemeResource WinoraHeaderSystem}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xE713;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRuleSystem}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Padding="32,24,32,32">
+
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.AboutHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Facts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SettingsFactViewModel">
+                                    <Grid Padding="18,13" ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Style="{StaticResource WinoraRowTitle}"
+                                                   VerticalAlignment="Center"
+                                                   Text="{x:Bind Label, Mode=OneWay}" />
+                                        <TextBlock Grid.Column="1"
+                                                   Style="{StaticResource WinoraRowDetail}"
+                                                   VerticalAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Text="{x:Bind Value, Mode=OneWay}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!--
+                      Winora's own colours live here rather than in the personalization group of the
+                      pane: that group is for screens that change Windows, and an item there implied
+                      this one did too.
+                    -->
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.AppearanceHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind ViewModel.AppearanceDescription, Mode=OneWay}" />
+                            <Button Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource WinoraActionButton}"
+                                    Content="{x:Bind ViewModel.AppearanceLabel, Mode=OneWay}"
+                                    Click="OnAppearanceClick" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.StorageHeading, Mode=OneWay}" />
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               TextWrapping="Wrap"
+                               Margin="2,0,0,10"
+                               Text="{x:Bind ViewModel.StorageNote, Mode=OneWay}" />
+
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,10"
+                               IsTextSelectionEnabled="True"
+                               Text="{x:Bind ViewModel.StorageDisplayPath, Mode=OneWay}" />
+
+                    <Button Style="{StaticResource WinoraActionButton}"
+                            HorizontalAlignment="Left"
+                            Content="{x:Bind ViewModel.OpenFolderLabel, Mode=OneWay}"
+                            Click="OnOpenFolderClick" />
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

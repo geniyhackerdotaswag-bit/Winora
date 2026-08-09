@@ -14,3 +14,7 @@ BundleArtifacts/
 *.user
 *.suo
 *.nupkg
+
+# Python bytecode, from the tooling under .claude/skills
+__pycache__/
+*.pyc

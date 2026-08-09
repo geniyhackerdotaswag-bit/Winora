@@ -287,6 +287,26 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
             : StepResult.FailedOutcomeUnknown("The write reported failure but the value changed.");
     }
 
+    /// <summary>
+    /// False when this setting needs <c>UIEFFECTS</c> and <c>UIEFFECTS</c> is off or unreadable.
+    /// </summary>
+    /// <remarks>
+    /// While the master switch is off, Windows accepts the write, reports success, and changes
+    /// nothing — so the honest capability is "not writable", not "writable and then verification
+    /// mysteriously fails". An unreadable master switch counts as blocking for the same reason: an
+    /// unknown gate is not an open one.
+    /// </remarks>
+    private bool IsMasterSwitchPermitting()
+    {
+        if (!VisualEffectDependencies.DependsOnUiEffects(_setting))
+        {
+            return true;
+        }
+
+        var master = _access.Read(VisualEffectSetting.UiEffects);
+        return master.IsActionAvailable && master.IsReadable && master.Value;
+    }
+
     private CapabilityObservation Observe()
     {
         var reading = _access.Read(_setting);
@@ -295,7 +315,7 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
         return new CapabilityObservation(
             IsApiAvailable: reading.IsActionAvailable,
             IsTargetStateKnown: reading.IsReadable,
-            IsWritable: reading.IsActionAvailable,
+            IsWritable: reading.IsActionAvailable && IsMasterSwitchPermitting(),
             IsRemoteTarget: false,
             IsProtectedTarget: false,
             IsBackupAvailable: isUsable,

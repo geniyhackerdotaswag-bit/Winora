@@ -10,6 +10,12 @@ namespace Winora.Infrastructure.Tests.Backups;
 
 public sealed class WinoraStateBackupServiceTests
 {
+    /// <summary>
+    /// Generous, because it is a stall detector rather than a performance budget: creating a
+    /// junction takes milliseconds, so anything near this means the helper is wedged.
+    /// </summary>
+    private const int JunctionTimeoutMilliseconds = 30_000;
+
     [Fact]
     public async Task Manual_state_backup_captures_only_data_and_assets_and_restores_idempotently()
     {
@@ -564,6 +570,16 @@ public sealed class WinoraStateBackupServiceTests
         char hashCharacter) =>
         new(1, fileIndex, 1, new string(hashCharacter, 64));
 
+    /// <summary>
+    /// Creates a junction with <c>mklink</c>.
+    /// </summary>
+    /// <remarks>
+    /// Both pipes are drained before waiting. The earlier version redirected standard output and
+    /// never read it, so a child that filled the pipe buffer would block on write while this thread
+    /// blocked in <c>WaitForExit</c> — a deadlock with no timeout, which would hang the whole test
+    /// run rather than fail it. <c>mklink</c>'s output is normally short enough to fit, which is
+    /// exactly what makes that shape dangerous: it works until one day it does not.
+    /// </remarks>
     private static void CreateJunction(string linkPath, string targetPath)
     {
         using var process = Process.Start(new ProcessStartInfo(
@@ -575,10 +591,27 @@ public sealed class WinoraStateBackupServiceTests
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         }) ?? throw new InvalidOperationException("Unable to start junction helper.");
+
+        // Started before waiting, so neither pipe can fill up and stall the child.
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+
+        if (!process.WaitForExit(JunctionTimeoutMilliseconds))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new InvalidOperationException(
+                $"mklink did not finish within {JunctionTimeoutMilliseconds} ms.");
+        }
+
+        // The overload above returns once the process ends; this one also waits for the redirected
+        // streams to close, so the text below is complete.
         process.WaitForExit();
+
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException(process.StandardError.ReadToEnd());
+            var message = error.GetAwaiter().GetResult();
+            throw new InvalidOperationException(
+                message.Length > 0 ? message : output.GetAwaiter().GetResult());
         }
     }
 

@@ -28,28 +28,31 @@ public sealed class RouteRegistry
         new(RouteKeys.Dashboard, "Nav_Dashboard", RoutePlacement.PaneRoot, IconGlyphKey: "home"),
 
         new(RouteKeys.Themes, "Nav_Themes", RoutePlacement.Pane, GroupPersonalization, "color"),
+
         new(RouteKeys.Taskbar, "Nav_Taskbar", RoutePlacement.Pane, GroupPersonalization, "taskbar"),
         new(RouteKeys.Sounds, "Nav_Sounds", RoutePlacement.Pane, GroupPersonalization, "sound"),
         new(RouteKeys.Cursors, "Nav_Cursors", RoutePlacement.Pane, GroupPersonalization, "cursor"),
-        new(RouteKeys.Icons, "Nav_Icons", RoutePlacement.Pane, GroupPersonalization, "icon"),
 
         new(RouteKeys.Performance, "Nav_Performance", RoutePlacement.Pane, GroupMaintenance, "speed"),
         new(RouteKeys.Cleanup, "Nav_Cleanup", RoutePlacement.Pane, GroupMaintenance, "broom"),
 
         new(RouteKeys.Startup, "Nav_Startup", RoutePlacement.Pane, GroupSystem, "startup"),
+        new(RouteKeys.Bypass, "Nav_Bypass", RoutePlacement.Pane, GroupSystem, "discord"),
         new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Pane, GroupSystem, "history"),
         new(RouteKeys.Backups, "Nav_Backups", RoutePlacement.Pane, GroupSystem, "backup"),
 
         new(RouteKeys.Journal, "Nav_Journal", RoutePlacement.Footer, IconGlyphKey: "journal"),
         new(RouteKeys.Settings, "Nav_Settings", RoutePlacement.Footer, IconGlyphKey: "settings"),
 
-        new(RouteKeys.Compatibility, "Nav_Compatibility", RoutePlacement.RouteOnly),
+        // Reached from the settings screen, not from the pane. Winora's own colours are a preference
+        // about the app; the personalization group is for screens that change Windows, and an item
+        // there implied this one did too.
+        new(RouteKeys.Appearance, "Nav_Appearance", RoutePlacement.RouteOnly, IconGlyphKey: "appearance"),
+
         new(RouteKeys.ChangeReview, "Nav_ChangeReview", RoutePlacement.RouteOnly),
-        new(RouteKeys.RollbackReview, "Nav_RollbackReview", RoutePlacement.RouteOnly),
         new(RouteKeys.Applying, "Nav_Applying", RoutePlacement.RouteOnly),
         new(RouteKeys.ResultSuccess, "Nav_ResultSuccess", RoutePlacement.RouteOnly),
         new(RouteKeys.ResultFailure, "Nav_ResultFailure", RoutePlacement.RouteOnly),
-        new(RouteKeys.ResultPartialRecovery, "Nav_ResultPartialRecovery", RoutePlacement.RouteOnly),
         new(RouteKeys.Recovery, "Nav_Recovery", RoutePlacement.RouteOnly),
     ]);
 

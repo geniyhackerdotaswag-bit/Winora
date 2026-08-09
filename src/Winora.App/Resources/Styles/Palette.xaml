@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Winora's colour.
+
+  Every value here is a starting point, not a decision. The colours the app actually paints with are
+  produced at runtime by SchemeDerivation from the two the user picked — a background and an accent —
+  and written straight onto these brush instances by ThemeBrushService. What is written below is the
+  default preset (white on near-black, and its light counterpart) derived by exactly that algorithm,
+  so a page rendered before the service runs already looks right and nothing flashes at startup.
+  PaletteContrastTests re-derives the presets and fails if these literals ever drift from them.
+
+  The surfaces are opaque. They were translucent while the window used Mica, which meant every
+  contrast measurement had to guess at the user's wallpaper tint; the canvas is flat now and the
+  arithmetic is exact.
+
+  The three hue keys all resolve to the one accent. They are kept because they mark the places where
+  colour is allowed to appear at all — the selected navigation item, a switch or slider that is on,
+  the rule under a page title — so reintroducing a second colour stays a deliberate edit in this file
+  rather than a brush someone reaches for inside a page. The header gradients are identical for the
+  same reason, on purpose and not by oversight.
+
+  Colour never carries meaning on its own; every coloured thing sits beside a label. High Contrast
+  therefore loses nothing by replacing all of it with the system's own palette, which it does below,
+  and ThemeBrushService stands down entirely while that theme is in force.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- Default = the "white-dark" preset: canvas #0C0C0F, accent #FFFCFC. -->
+        <ResourceDictionary x:Key="Default">
+
+            <!-- Surfaces -->
+            <SolidColorBrush x:Key="WinoraCanvasBrush" Color="#0C0C0F" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceBrush" Color="#111114" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceStroke" Color="#29292B" />
+            <SolidColorBrush x:Key="WinoraCardFill" Color="#1E1E21" />
+            <SolidColorBrush x:Key="WinoraCardFillHover" Color="#28272A" />
+            <SolidColorBrush x:Key="WinoraCardStroke" Color="#242427" />
+            <SolidColorBrush x:Key="WinoraDividerBrush" Color="#242427" />
+            <SolidColorBrush x:Key="WinoraStrokeBrush" Color="#464648" />
+            <SolidColorBrush x:Key="WinoraHoverBrush" Color="#222224" />
+
+            <!-- Card tints are neutral: a surface is a surface, not a category. -->
+            <SolidColorBrush x:Key="WinoraWashPersonalization" Color="#1E1E21" />
+            <SolidColorBrush x:Key="WinoraWashMaintenance" Color="#1E1E21" />
+            <SolidColorBrush x:Key="WinoraWashSystem" Color="#1E1E21" />
+
+            <!--
+              Text. Four tiers, each a measured step off the canvas. The faint tone is the one that
+              decides whether the scheme is usable: it is the quietest thing on screen and it is
+              measured against a hovered card, the lightest surface this theme can produce.
+            -->
+            <SolidColorBrush x:Key="WinoraTextPrimary" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="WinoraTextSecondary" Color="#CECCCD" />
+            <SolidColorBrush x:Key="WinoraTextMuted" Color="#B6B4B5" />
+            <SolidColorBrush x:Key="WinoraTextFaint" Color="#999798" />
+
+            <!-- The one accent. All three hue keys resolve to it. -->
+            <SolidColorBrush x:Key="WinoraHuePersonalization" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="WinoraHueMaintenance" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="WinoraHueSystem" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="WinoraOnAccentBrush" Color="#0C0C0F" />
+            <SolidColorBrush x:Key="WinoraNavSelectedBrush" Color="#373739" />
+
+            <!--
+              An outline for the primary button, used only when the accent is too close to the sheet
+              to read as a filled control on its own. Opacity, not colour, decides whether it shows;
+              ThemeBrushService sets both.
+            -->
+            <SolidColorBrush x:Key="WinoraAccentEdgeBrush" Color="#464648" Opacity="0" />
+
+            <!-- Discord's own mark colour, so the community button is recognised at a glance. -->
+            <SolidColorBrush x:Key="WinoraCommunityGlyphBrush" Color="#5865F2" />
+
+            <!-- Switches and sliders take Winora's accent rather than whatever the desktop is set to. -->
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E7E5E5" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#CFCDCE" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#E7E5E5" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#CFCDCE" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#0C0C0F" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#0C0C0F" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#0C0C0F" />
+
+            <SolidColorBrush x:Key="SliderTrackValueFill" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#E7E5E5" />
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#CFCDCE" />
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#E7E5E5" />
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#CFCDCE" />
+
+            <!--
+              One header band, deliberately identical for every page. It is strongest behind the
+              title and gone before the content, so it colours the page without tinting the reading
+              area.
+            -->
+            <LinearGradientBrush x:Key="WinoraHeaderPersonalization" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26FFFCFC" Offset="0.0" />
+                <GradientStop Color="#00FFFCFC" Offset="0.9" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="WinoraHeaderMaintenance" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26FFFCFC" Offset="0.0" />
+                <GradientStop Color="#00FFFCFC" Offset="0.9" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="WinoraHeaderSystem" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26FFFCFC" Offset="0.0" />
+                <GradientStop Color="#00FFFCFC" Offset="0.9" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+
+        <!-- Light = the "white-light" preset: canvas #F3F3F5, accent #101014. -->
+        <ResourceDictionary x:Key="Light">
+
+            <SolidColorBrush x:Key="WinoraCanvasBrush" Color="#F3F3F5" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceBrush" Color="#EEEEF0" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceStroke" Color="#D7D7D9" />
+            <SolidColorBrush x:Key="WinoraCardFill" Color="#E2E2E4" />
+            <SolidColorBrush x:Key="WinoraCardFillHover" Color="#D9D9DB" />
+            <SolidColorBrush x:Key="WinoraCardStroke" Color="#DCDCDE" />
+            <SolidColorBrush x:Key="WinoraDividerBrush" Color="#DCDCDE" />
+            <SolidColorBrush x:Key="WinoraStrokeBrush" Color="#BCBCBE" />
+            <SolidColorBrush x:Key="WinoraHoverBrush" Color="#DEDEE0" />
+
+            <SolidColorBrush x:Key="WinoraWashPersonalization" Color="#E2E2E4" />
+            <SolidColorBrush x:Key="WinoraWashMaintenance" Color="#E2E2E4" />
+            <SolidColorBrush x:Key="WinoraWashSystem" Color="#E2E2E4" />
+
+            <!--
+              Darker than the dark theme's tones, and by more than mirroring them would give. The
+              same step produces far less perceived contrast against a near-white surface than
+              against a near-black one, which is the measured reason one grey cannot serve both.
+            -->
+            <SolidColorBrush x:Key="WinoraTextPrimary" Color="#0C0C0F" />
+            <SolidColorBrush x:Key="WinoraTextSecondary" Color="#313134" />
+            <SolidColorBrush x:Key="WinoraTextMuted" Color="#434346" />
+            <SolidColorBrush x:Key="WinoraTextFaint" Color="#565659" />
+
+            <SolidColorBrush x:Key="WinoraHuePersonalization" Color="#101014" />
+            <SolidColorBrush x:Key="WinoraHueMaintenance" Color="#101014" />
+            <SolidColorBrush x:Key="WinoraHueSystem" Color="#101014" />
+            <SolidColorBrush x:Key="WinoraOnAccentBrush" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="WinoraNavSelectedBrush" Color="#CFCFD1" />
+
+            <SolidColorBrush x:Key="WinoraAccentEdgeBrush" Color="#BCBCBE" Opacity="0" />
+
+            <SolidColorBrush x:Key="WinoraCommunityGlyphBrush" Color="#5865F2" />
+
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#101014" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#26262A" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#3C3C40" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#101014" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#26262A" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#3C3C40" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFCFC" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFCFC" />
+
+            <SolidColorBrush x:Key="SliderTrackValueFill" Color="#101014" />
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#26262A" />
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#3C3C40" />
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#101014" />
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#26262A" />
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#3C3C40" />
+
+            <LinearGradientBrush x:Key="WinoraHeaderPersonalization" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26101014" Offset="0.0" />
+                <GradientStop Color="#00101014" Offset="0.9" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="WinoraHeaderMaintenance" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26101014" Offset="0.0" />
+                <GradientStop Color="#00101014" Offset="0.9" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="WinoraHeaderSystem" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#26101014" Offset="0.0" />
+                <GradientStop Color="#00101014" Offset="0.9" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="HighContrast">
+            <!--
+              High Contrast picks the colours, not Winora, and not the user's scheme either:
+              ThemeBrushService refuses to paint anything while this theme is in force. Every hue
+              collapses to the system accent so the theme stays whole; the accent rule remains
+              visible, just uncoloured.
+            -->
+            <SolidColorBrush x:Key="WinoraCanvasBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="WinoraContentSurfaceStroke" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraCardFill" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="WinoraCardFillHover" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="WinoraCardStroke" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraStrokeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+
+            <SolidColorBrush x:Key="WinoraWashPersonalization" Color="Transparent" />
+            <SolidColorBrush x:Key="WinoraWashMaintenance" Color="Transparent" />
+            <SolidColorBrush x:Key="WinoraWashSystem" Color="Transparent" />
+
+            <!-- One text colour in this theme, chosen by the user. Muting it would be a bug. -->
+            <SolidColorBrush x:Key="WinoraTextPrimary" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraTextSecondary" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraTextMuted" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="WinoraTextFaint" Color="{ThemeResource SystemColorWindowTextColor}" />
+
+            <SolidColorBrush x:Key="WinoraHuePersonalization" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="WinoraHueMaintenance" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="WinoraHueSystem" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="WinoraOnAccentBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="WinoraNavSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="WinoraAccentEdgeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+
+            <!-- No gradient bands: High Contrast forbids decorative fills behind text. -->
+            <SolidColorBrush x:Key="WinoraHeaderPersonalization" Color="Transparent" />
+            <SolidColorBrush x:Key="WinoraHeaderMaintenance" Color="Transparent" />
+            <SolidColorBrush x:Key="WinoraHeaderSystem" Color="Transparent" />
+
+            <!--
+              No ToggleSwitch or Slider entries on purpose: without them the lookup falls through to
+              the platform's own High Contrast dictionary, which is the one that belongs here.
+              Overriding those colours is exactly how an app becomes unreadable in this theme.
+            -->
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>

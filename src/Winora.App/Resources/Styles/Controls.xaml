@@ -1,36 +1,392 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Shared surfaces built only from the token grid in DesignTokens.xaml. Native WinUI theme resources
-  supply every colour so High Contrast and the system accent keep working without special cases.
+  Winora's own surfaces. Deliberately not a card-per-row list: that reads as a copy of the Windows
+  Settings app. Rows live on one continuous grouped surface separated by hairlines, the page opens
+  with a large title over an accent rule, and the interactive element sits at the right edge with a
+  hover state on the whole row. Colours still come from native theme resources so High Contrast and
+  the system accent keep working.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Winora.App.Controls">
 
-    <Style x:Key="WinoraPageTitle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
-        <Setter Property="Margin" Value="{StaticResource WinoraStackGapS}" />
+    <!-- Page header -->
+
+    <Style x:Key="WinoraPageTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="46" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="LineHeight" Value="52" />
+        <!--
+          Tight tracking, about -0.04 em. Display type set at default tracking is the single most
+          reliable sign that nobody chose the typography.
+        -->
+        <Setter Property="CharacterSpacing" Value="-40" />
         <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
 
-    <Style x:Key="WinoraPageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
-        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+    <Style x:Key="WinoraPageSubtitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="MaxWidth" Value="{StaticResource WinoraBodyMaxWidth}" />
-        <Setter Property="Margin" Value="{StaticResource WinoraStackGapXl}" />
+        <!-- Without this the capped width centres the line and it stops lining up with the title. -->
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Margin" Value="0,0,0,20" />
     </Style>
 
-    <Style x:Key="WinoraSectionHeading" TargetType="TextBlock" BasedOn="{StaticResource SubtitleTextBlockStyle}">
-        <Setter Property="Margin" Value="{StaticResource WinoraStackGapM}" />
-        <Setter Property="TextWrapping" Value="Wrap" />
+    <!--
+      The rule under a page title, in the hue of the navigation group the page belongs to. It is the
+      one place the section colour appears at full strength, so "where am I" is answerable without
+      reading anything.
+    -->
+    <Style x:Key="WinoraAccentRule" TargetType="Rectangle">
+        <Setter Property="Height" Value="3" />
+        <Setter Property="Width" Value="44" />
+        <Setter Property="RadiusX" Value="2" />
+        <Setter Property="RadiusY" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+        <Setter Property="Margin" Value="0,0,0,16" />
     </Style>
 
-    <!-- The single card surface. Card radius is 8 px by specification; controls inside use 4 px. -->
-    <Style x:Key="WinoraCard" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+    <Style x:Key="WinoraRulePersonalization" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
+        <Setter Property="Fill" Value="{ThemeResource WinoraHuePersonalization}" />
+    </Style>
+
+    <Style x:Key="WinoraRuleMaintenance" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
+        <Setter Property="Fill" Value="{ThemeResource WinoraHueMaintenance}" />
+    </Style>
+
+    <Style x:Key="WinoraRuleSystem" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
+        <Setter Property="Fill" Value="{ThemeResource WinoraHueSystem}" />
+    </Style>
+
+    <Style x:Key="WinoraSectionHeading" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="80" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+        <Setter Property="Margin" Value="2,0,0,8" />
+    </Style>
+
+    <!-- Surfaces -->
+
+    <!--
+      One surface holding many rows, rather than a card around each. The single rounded container is
+      what stops the list reading as a stack of Settings tiles.
+    -->
+    <Style x:Key="WinoraGroup" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource WinoraGroupRadius}" />
+        <Setter Property="Margin" Value="0,0,0,24" />
+    </Style>
+
+    <!--
+      Cards. The stock card fill is designed to sit on an opaque window background; on Winora's
+      translucent content sheet it vanished, which is most of why the screens read as flat. These
+      are a measured step brighter than the sheet, with a stroke you can actually see.
+    -->
+    <Style x:Key="WinoraCard" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource WinoraCardFill}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource WinoraCardStroke}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource WinoraCardRadius}" />
         <Setter Property="Padding" Value="{StaticResource WinoraCardPadding}" />
+    </Style>
+
+    <!--
+      A setting tile. The bar down the leading edge carries the section hue and its opacity follows
+      the switch, so a wall of tiles shows at a glance which settings are on — the switch alone made
+      sixteen tiles read as one grey field.
+    -->
+    <Style x:Key="WinoraTile" TargetType="Border" BasedOn="{StaticResource WinoraCard}">
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!--
+      A tile that is itself the click target. Used where the card *is* the choice — picking a
+      shortcut, picking an icon — so the whole card highlights and takes focus rather than hiding
+      the action behind a small button in one corner.
+    -->
+    <Style x:Key="WinoraSelectableTile" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource WinoraCardFill}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource WinoraCardStroke}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource WinoraCardRadius}" />
+        <Setter Property="Padding" Value="14" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="TileRoot"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Padding="{TemplateBinding Padding}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="PointerOver" GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="Normal" GeneratedDuration="0:0:0.16" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="TileRoot.Background"
+                                                Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="TileRoot.Background"
+                                                Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="TileRoot.Opacity" Value="0.4" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <ContentPresenter
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      A round, quiet button for the community link. It carries a glyph and no text, so it is sized
+      to the touch minimum rather than to its content, and it lifts on hover to read as clickable
+      without a border shouting for attention on an otherwise empty page.
+    -->
+    <Style x:Key="WinoraCommunityButton" TargetType="Button">
+        <Setter Property="Width" Value="44" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="{ThemeResource WinoraCardFill}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource WinoraCardStroke}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="22">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="PointerOver" GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="Normal" GeneratedDuration="0:0:0.16" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="WinoraTileBar" TargetType="Rectangle">
+        <Setter Property="Width" Value="3" />
+        <Setter Property="RadiusX" Value="2" />
+        <Setter Property="RadiusY" Value="2" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="0,10,0,10" />
+        <Setter Property="Fill" Value="{ThemeResource WinoraHuePersonalization}" />
+    </Style>
+
+    <!--
+      Implicit style, so every row on every grouped surface highlights the same way just by being a
+      HoverRow. The brush is a native subtle fill: High Contrast substitutes its own.
+    -->
+    <Style TargetType="controls:HoverRow">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:HoverRow">
+                    <Grid x:Name="RowRoot" Background="Transparent">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="PointerOver"
+                                                      GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="Normal"
+                                                      GeneratedDuration="0:0:0.16" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="RowRoot.Background"
+                                                Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <ContentPresenter
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The hairline between rows inside a group. -->
+    <Style x:Key="WinoraRowDivider" TargetType="Rectangle">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Fill" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+        <Setter Property="Opacity" Value="0.6" />
+        <Setter Property="Margin" Value="16,0,16,0" />
+    </Style>
+
+    <!-- Row text -->
+
+    <Style x:Key="WinoraRowTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WinoraRowDetail" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
+    <!--
+      Row notes are statements of fact, not alarms: what clearing a folder costs, why a control is
+      unavailable. Painting every one of them caution-yellow made ordinary screens look like
+      something had gone wrong, and left no colour in reserve for when it actually had. They read as
+      ordinary secondary text now; a real problem gets an InfoBar, which is loud on purpose.
+    -->
+    <Style x:Key="WinoraRowWarning" TargetType="TextBlock" BasedOn="{StaticResource WinoraRowDetail}" />
+
+    <!--
+      Buttons.
+
+      The stock WinUI button only swaps its background on press, which on a large button reads as a
+      flicker rather than as a press. This template adds PointerDownThemeAnimation — the platform's
+      own press scale — so the button physically gives under the pointer, and puts real transition
+      durations on the colour change so hover and release ease instead of snapping.
+    -->
+    <Style x:Key="WinoraActionButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Padding" Value="16,8,16,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="PressRoot"
+                          Background="{ThemeResource ControlFillColorDefaultBrush}"
+                          BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                          BorderThickness="1"
+                          CornerRadius="{StaticResource WinoraControlRadius}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="Normal" GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="PointerOver" GeneratedDuration="0:0:0.10" />
+                                </VisualStateGroup.Transitions>
+
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Background"
+                                                Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                        <Setter Target="PressRoot.BorderBrush"
+                                                Value="{ThemeResource ControlStrokeColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Background"
+                                                Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                    </VisualState.Setters>
+                                    <Storyboard>
+                                        <!-- The platform press scale, the part the stock style omits. -->
+                                        <PointerDownThemeAnimation Storyboard.TargetName="PressRoot" />
+                                    </Storyboard>
+                                </VisualState>
+
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Background"
+                                                Value="{ThemeResource ControlFillColorDisabledBrush}" />
+                                        <Setter Target="Label.Foreground"
+                                                Value="{ThemeResource TextFillColorDisabledBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <ContentPresenter x:Name="Label"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A number that should read at a glance, for the dashboard and the cleanup total. -->
+    <Style x:Key="WinoraMetric" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="WinoraMetricCaption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
 </ResourceDictionary>

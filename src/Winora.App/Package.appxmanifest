@@ -6,7 +6,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
   IgnorableNamespaces="uap rescap desktop6">
-  <Identity Name="Winora.App" Publisher="CN=Winora" Version="0.1.0.0" />
+  <Identity Name="Winora.App" Publisher="CN=Winora" Version="0.3.0.0" />
   <mp:PhoneIdentity PhoneProductId="4370573d-525e-4af2-b3e3-d035695b3753" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Winora</DisplayName>
@@ -15,18 +15,21 @@
     <!--
       MSIX otherwise redirects this app's HKCU writes into a container view and serves them back on
       read. Winora would then write a value, read its own write, report "applied and verified", and
-      leave the real user hive untouched — a verification that lies, which is the one outcome this
+      leave the real user hive untouched - a verification that lies, which is the one outcome this
       project exists to prevent.
 
-      IMPORTANT, measured on 2026-07-31: this element does NOT take effect for an unsigned package
-      registered with Add-AppxPackage -Register. Get-AppxPackage then reports SignatureKind None and
+      Measured on 2026-07-31: this element does NOT take effect for an unsigned package registered
+      with Add-AppxPackage -Register. Get-AppxPackage then reports SignatureKind None and
       IsDevelopmentMode True, and unvirtualizedResources is a restricted capability the OS does not
-      grant to such a package even though it lists it. The observed symptom is asymmetric and
-      confusing: deleting a value from an existing key propagates to the real hive, but the container
-      keeps a tombstone that masks the value if something outside restores it, and a key the app
-      creates itself exists only inside the container and is invisible from outside. The registry
-      domains therefore cannot be trusted until the package is properly signed. Verify with a
-      separate unpackaged process after any change to signing or to this element.
+      grant to such a package even though it lists it. Nothing at all reached the real hive: with 15
+      values in HKCU\...\Run the packaged app read 14 and believed it had disabled the fifteenth,
+      while the key it created for itself did not exist outside the package. Every write landed in
+      the package write-copy hive at %ProgramData%\Packages\PFN\SID\SystemAppData\Helium\Cache\*.dat,
+      which stays mounted for the logon session and survives Remove-AppxPackage plus re-register.
+
+      Resolved on 2026-08-04 by signing the package and installing it with Add-AppxPackage from an
+      elevated prompt, verified end to end from outside the app. A dev-mode registration still shows
+      the broken behaviour, so never judge a registry domain against one.
 
       Microsoft documents this element as intended for a narrow set of partner-published titles, so
       it is also incompatible with ordinary Store certification; the MVP ships sideloaded or through

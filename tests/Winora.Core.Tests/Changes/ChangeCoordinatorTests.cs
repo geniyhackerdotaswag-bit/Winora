@@ -646,6 +646,61 @@ public sealed class ChangeCoordinatorTests
             Assert.Equal(restoreFacts.Digest, transition.RestorePoint?.Digest));
     }
 
+    /// <summary>
+    /// The deadlock that reached a user's machine on 2026-08-02.
+    /// <para>
+    /// An operation left in <see cref="OperationState.PartiallyAppliedRecoveryRequired"/> blocks the
+    /// mutation lease for everything, and the one transition allowed out of that state is a
+    /// rollback. But rollback asked for an ordinary lease, which is exactly what an incomplete
+    /// operation refuses — so nothing could ever be applied again. Seven places in this class move
+    /// an operation into that state and none moved one out.
+    /// </para>
+    /// <para>
+    /// Rolling back the incomplete operation must therefore be allowed to take recovery ownership
+    /// of it. Nothing else may: the lease still grants this only for that single operation.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Rollback_of_the_incomplete_operation_takes_recovery_ownership_instead_of_deadlocking()
+    {
+        var changePlan = PlanFixture.Create(steps: [PlanFixture.Step("only")]);
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+
+        // The very operation being rolled back is the one holding everything up.
+        harness.Lease.IncompleteOperationId = changePlan.PlanId;
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.RolledBack, result.Disposition);
+    }
+
+    /// <summary>
+    /// The escape hatch stays narrow: recovery ownership is for the stuck operation only, never a
+    /// way for unrelated work to walk past the guard.
+    /// </summary>
+    [Fact]
+    public async Task Rollback_of_an_unrelated_operation_is_still_refused_while_something_is_incomplete()
+    {
+        var changePlan = PlanFixture.Create(steps: [PlanFixture.Step("only")]);
+        var rollbackPlan = RollbackFixture.Create(changePlan);
+        var harness = CoordinatorHarness.ForRollback(rollbackPlan);
+
+        harness.Lease.IncompleteOperationId = Guid.NewGuid();
+
+        var result = await harness.Coordinator.RollbackAsync(
+            harness.Operation,
+            rollbackPlan,
+            harness.Confirmation.Confirm(rollbackPlan),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(CoordinatorDisposition.OperationBusy, result.Disposition);
+    }
+
     [Fact]
     public async Task Rollback_runs_reverse_order_and_treats_an_already_restored_step_as_success()
     {
@@ -1620,6 +1675,14 @@ internal sealed class InMemoryJournal : IDurableOperationJournal
 
 internal sealed class InMemoryMutationLease : IMutationLease
 {
+    /// <summary>
+    /// Models the real lease's hardest rule: while any operation is still incomplete, an ordinary
+    /// acquisition is refused outright, and only a recovery takeover for that exact operation is
+    /// granted. Without this the fake was more permissive than the thing it stands for, which is
+    /// how a deadlock reached a user's machine unnoticed.
+    /// </summary>
+    internal Guid? IncompleteOperationId { get; set; }
+
     internal bool IsAvailable { get; set; } = true;
 
     internal bool IsHeld { get; private set; }
@@ -1636,13 +1699,31 @@ internal sealed class InMemoryMutationLease : IMutationLease
 
     public ValueTask<IMutationLeaseHandle?> TryAcquireAsync(
         Guid operationId,
-        CancellationToken cancellationToken) =>
-        TryAcquireCore(operationId, isRecoveryTakeover: false, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        if (IncompleteOperationId is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AcquisitionCount++;
+            return ValueTask.FromResult<IMutationLeaseHandle?>(null);
+        }
+
+        return TryAcquireCore(operationId, isRecoveryTakeover: false, cancellationToken);
+    }
 
     public ValueTask<IMutationLeaseHandle?> TryAcquireRecoveryAsync(
         Guid incompleteOperationId,
-        CancellationToken cancellationToken) =>
-        TryAcquireCore(incompleteOperationId, GrantRecoveryOwnership, cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        if (IncompleteOperationId is { } pending && pending != incompleteOperationId)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AcquisitionCount++;
+            return ValueTask.FromResult<IMutationLeaseHandle?>(null);
+        }
+
+        return TryAcquireCore(incompleteOperationId, GrantRecoveryOwnership, cancellationToken);
+    }
 
     private ValueTask<IMutationLeaseHandle?> TryAcquireCore(
         Guid operationId,

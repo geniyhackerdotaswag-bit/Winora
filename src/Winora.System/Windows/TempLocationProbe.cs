@@ -9,7 +9,17 @@ public enum TempLocationClassification
     /// <summary>Owned by the signed-in user and eligible for reclamation.</summary>
     UserOwned,
 
-    /// <summary>Serviced by Windows. Enumerated so it can be shown as off-limits, never touched.</summary>
+    /// <summary>
+    /// Serviced by Windows but reclaimable by an administrator. Whether Winora may touch it depends
+    /// on how this process was started, which is a fact about the process, not about the location.
+    /// </summary>
+    RequiresElevation,
+
+    /// <summary>
+    /// Never reclaimed by Winora at any privilege level. Windows.old is the case: there is no
+    /// documented programmatic removal, and deleting it closes the route back to the previous
+    /// Windows version for good.
+    /// </summary>
     Protected,
 
     /// <summary>The path could not be resolved on this machine.</summary>
@@ -37,10 +47,35 @@ public sealed record TempLocationSurvey(
     int UnreadableEntryCount,
     bool IsFullyEnumerated);
 
+/// <summary>
+/// The single rule for what Winora may reclaim from.
+/// </summary>
+/// <remarks>
+/// One place, because the probe, the cleaner and the screen each used to decide for themselves and
+/// a disagreement between them is either a refusal the user cannot explain or a deletion nobody
+/// authorised.
+/// </remarks>
+public static class TempReclamationPolicy
+{
+    public static bool CanReclaim(TempLocation location, bool isElevated)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        return location.Classification switch
+        {
+            TempLocationClassification.UserOwned => true,
+            TempLocationClassification.RequiresElevation => isElevated,
+            _ => false,
+        };
+    }
+}
+
 /// <summary>Enumerates candidate reclamation locations. Never mutates anything.</summary>
 public interface ITempLocationProbe
 {
     IReadOnlyList<TempLocation> Locations();
+
+    /// <summary>True when this process holds the rights the Windows-serviced locations need.</summary>
+    bool IsElevated { get; }
 
     TempLocationSurvey Survey(TempLocation location, CancellationToken cancellationToken);
 }
@@ -56,14 +91,54 @@ public interface ITempLocationProbe
 /// </remarks>
 public sealed class WindowsTempLocationProbe : ITempLocationProbe
 {
-    public const string ReasonWindowsServiced = "winora.cleanup.windows-serviced";
     public const string ReasonUpdateServicing = "winora.cleanup.update-servicing";
+
+    /// <summary>
+    /// Servicing logs are only a record. Clearing them costs the diagnostic trail and nothing else,
+    /// so they must not borrow the update cache's warning about losing rollback.
+    /// </summary>
+    public const string ReasonServicingLogs = "winora.cleanup.servicing-logs";
+
     public const string ReasonPreviousInstallation = "winora.cleanup.previous-installation";
+
+    private readonly IElevationProbe _elevation;
+
+    public WindowsTempLocationProbe(IElevationProbe elevation)
+    {
+        _elevation = elevation ?? throw new ArgumentNullException(nameof(elevation));
+    }
+
+    public bool IsElevated => _elevation.IsElevated;
+
+    /// <summary>
+    /// Every id this probe can produce, whether or not the location exists on this machine.
+    /// </summary>
+    /// <remarks>
+    /// The action-journal allowlist is built from this. Deriving it from the same candidate list the
+    /// probe uses is what stops the two drifting: a location added below becomes journalable in the
+    /// same edit, rather than deleting bytes that no entry ever records.
+    /// </remarks>
+    public static IReadOnlyList<string> AllLocationIds { get; } =
+        Candidates(Environment.GetFolderPath(Environment.SpecialFolder.Windows))
+            .Select(static location => location.Id)
+            .ToArray();
 
     public IReadOnlyList<TempLocation> Locations()
     {
         var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 
+        return Candidates(windows)
+            // A location that is not on this disk is not a decision the user has to make. Windows.old
+            // in particular exists only for a few days after a feature update, and listing it the
+            // rest of the time showed a row about reclaiming a folder that was not there.
+            .Where(static location =>
+                location.Classification == TempLocationClassification.UserOwned ||
+                Directory.Exists(location.Path))
+            .ToArray();
+    }
+
+    private static IEnumerable<TempLocation> Candidates(string windows)
+    {
         return
         [
             UserOwned("user-temp", UserTempPath()),
@@ -76,11 +151,16 @@ public sealed class WindowsTempLocationProbe : ITempLocationProbe
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "CrashDumps")),
 
-            // Everything below is serviced by Windows. Reclaiming from these breaks servicing or the
-            // ability to roll an update back, so they exist here only to be displayed as refused.
-            Protected("windows-temp", Path.Combine(windows, "Temp"), ReasonWindowsServiced),
-            Protected("software-distribution", Path.Combine(windows, "SoftwareDistribution"), ReasonUpdateServicing),
-            Protected("cbs-logs", Path.Combine(windows, "Logs", "CBS"), ReasonUpdateServicing),
+            // Serviced by Windows, but an administrator may clear them. Whether Winora offers to is
+            // decided by the running process's token, not fixed here.
+            // No reason code: clearing the Windows temp folder costs nothing worth stating, and an
+            // empty resource string rendered as the raw key on screen.
+            NeedsElevation("windows-temp", Path.Combine(windows, "Temp"), reasonCode: null),
+            NeedsElevation("software-distribution", Path.Combine(windows, "SoftwareDistribution"), ReasonUpdateServicing),
+            NeedsElevation("cbs-logs", Path.Combine(windows, "Logs", "CBS"), ReasonServicingLogs),
+
+            // Refused at every privilege level: no documented programmatic removal, and deleting it
+            // permanently closes the route back to the previous Windows version.
             Protected("windows-old", Path.Combine(Path.GetPathRoot(windows) ?? @"C:\", "Windows.old"), ReasonPreviousInstallation),
         ];
     }
@@ -88,10 +168,10 @@ public sealed class WindowsTempLocationProbe : ITempLocationProbe
     public TempLocationSurvey Survey(TempLocation location, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);
-        if (location.Classification != TempLocationClassification.UserOwned)
+        if (!TempReclamationPolicy.CanReclaim(location, _elevation.IsElevated))
         {
             throw new InvalidOperationException(
-                $"'{location.Id}' is not user-owned and is never surveyed for reclamation.");
+                $"'{location.Id}' cannot be reclaimed at this privilege level and is never surveyed.");
         }
 
         var files = 0;
@@ -167,6 +247,13 @@ public sealed class WindowsTempLocationProbe : ITempLocationProbe
         string.IsNullOrWhiteSpace(path)
             ? new TempLocation(id, string.Empty, TempLocationClassification.Unavailable, null)
             : new TempLocation(id, Path.TrimEndingDirectorySeparator(path), TempLocationClassification.UserOwned, null);
+
+    private static TempLocation NeedsElevation(string id, string path, string? reasonCode) =>
+        new(
+            id,
+            Path.TrimEndingDirectorySeparator(path),
+            TempLocationClassification.RequiresElevation,
+            reasonCode);
 
     private static TempLocation Protected(string id, string path, string reasonCode) =>
         new(id, Path.TrimEndingDirectorySeparator(path), TempLocationClassification.Protected, reasonCode);

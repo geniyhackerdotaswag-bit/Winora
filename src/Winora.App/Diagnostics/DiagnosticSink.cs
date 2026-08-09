@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Winora.Infrastructure.Paths;
 
 namespace Winora.App.Diagnostics;
 
@@ -12,9 +13,14 @@ public static partial class DiagnosticSink
 {
     private static readonly object Gate = new();
 
+    /// <remarks>
+    /// Beside the store rather than under <c>LocalApplicationData</c>. A packaged app has that
+    /// folder redirected into its container, so the log both disappeared on uninstall and sat where
+    /// the user could not reasonably find it — which matters most in exactly the situation it is
+    /// written for, when the app will not start and there is nothing else to go on.
+    /// </remarks>
     public static string LogPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Winora",
+        WinoraDataPaths.RootForCurrentUser(),
         "diagnostics.log");
 
     public static void Write(string stage, Exception exception)

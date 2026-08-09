@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.CursorsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <ctl:CursorPreviewConverter x:Key="CursorPreview" />
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xE8B0;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
+                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource WinoraPageTitle}"
+                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
+                    <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Padding="32,20,32,32">
+
+                    <!-- Stated before anything is applied, not after. -->
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,12"
+                               Text="{x:Bind ViewModel.SessionNote, Mode=OneWay}" />
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Informational"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                    <!-- Where to drop packs, spelled out and one click away. -->
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               Margin="2,0,0,8"
+                               IsTextSelectionEnabled="True"
+                               Text="{x:Bind ViewModel.PackFolder, Mode=OneWay}" />
+
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8"
+                                Margin="{StaticResource WinoraStackGapL}">
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind ViewModel.OpenFolderLabel, Mode=OneWay}"
+                                Click="OnOpenFolderClick" />
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind ViewModel.RestoreLabel, Mode=OneWay}"
+                                Click="OnRestoreClick" />
+                    </StackPanel>
+
+                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Packs}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout MinItemWidth="320"
+                                               MinColumnSpacing="10"
+                                               MinRowSpacing="10"
+                                               ItemsStretch="Fill" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CursorPackViewModel">
+                                <Border Style="{StaticResource WinoraTile}">
+                                    <ctl:HoverRow>
+                                        <StackPanel Padding="16" Spacing="12">
+                                            <!--
+                                              The pack's own normal-select cursor, drawn through the
+                                              cursor API. WinUI cannot decode .cur or .ani, so the
+                                              path has to be rendered rather than bound directly.
+                                            -->
+
+                                            <!--
+                                              The pack's own pointer, drawn by Windows. Pack banner
+                                              images were tried here and removed: they are wide
+                                              marketing art, and at card size they crowded out the
+                                              name and pushed the button out of the card.
+                                            -->
+                                            <Image Source="{x:Bind PreviewPath, Converter={StaticResource CursorPreview}}"
+                                                   Width="48"
+                                                   Height="48"
+                                                   HorizontalAlignment="Left"
+                                                   Stretch="Uniform"
+                                                   AutomationProperties.AccessibilityView="Raw" />
+
+                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                       Text="{x:Bind Name}" />
+
+                                            <Grid HorizontalAlignment="Left">
+                                                <Button Style="{StaticResource WinoraActionButton}"
+                                                        Content="{x:Bind ApplyLabel}"
+                                                        Tag="{x:Bind}"
+                                                        Visibility="{x:Bind ctl:XamlConvert.Hide(IsBusy), Mode=OneWay}"
+                                                        Click="OnApplyClick"
+                                                        AutomationProperties.Name="{x:Bind Name}" />
+                                                <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                              Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                              Width="18" Height="18" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </ctl:HoverRow>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

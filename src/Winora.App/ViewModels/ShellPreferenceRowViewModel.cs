@@ -19,17 +19,12 @@ public sealed partial class ShellPreferenceRowViewModel : ObservableObject
     [ObservableProperty]
     public partial string Label { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string Description { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string SupportBadge { get; set; } = string.Empty;
-
+    /// <summary>
+    /// Why the row cannot be changed. Empty when it can be — the row carries no explanatory text of
+    /// its own, because a label the user can read plus a control they can use needs no caption.
+    /// </summary>
     [ObservableProperty]
     public partial string BlockReason { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string RestartNote { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool IsChangeable { get; set; }

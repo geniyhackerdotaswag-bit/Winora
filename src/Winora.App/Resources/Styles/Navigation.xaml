@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Navigation pane.
+
+  The pane keeps the stock NavigationView underneath — retemplating it by hand would cost the
+  keyboard model, the compact mode and the Narrator behaviour that come with it, and the
+  specification requires all three. What changes is every surface it draws: the pane becomes
+  transparent so the Mica reads through it, selection becomes a tinted pill in Winora's own hue
+  instead of a grey block, and the rows get more room. That is enough to stop it reading as the
+  Windows Settings pane while keeping the accessibility it already had.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Default">
+            <!-- The pane and the content host let the backdrop through. -->
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+            <!-- Selection: Winora's violet at low alpha, not the stock neutral fill. -->
+            <StaticResource x:Key="NavigationViewItemBackgroundSelected" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewItemBackgroundSelectedPointerOver" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewItemBackgroundSelectedPressed" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewSelectionIndicatorForeground" ResourceKey="WinoraHuePersonalization" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+            <StaticResource x:Key="NavigationViewItemBackgroundSelected" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewItemBackgroundSelectedPointerOver" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewItemBackgroundSelectedPressed" ResourceKey="WinoraNavSelectedBrush" />
+            <StaticResource x:Key="NavigationViewSelectionIndicatorForeground" ResourceKey="WinoraHuePersonalization" />
+        </ResourceDictionary>
+
+        <!--
+          No High Contrast override on purpose. That theme supplies its own pane, selection and
+          indicator colours, and replacing them is how a redesign quietly breaks it.
+        -->
+        <ResourceDictionary x:Key="HighContrast" />
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- Rows: taller, rounder, and spaced so the groups read as groups. -->
+    <Thickness x:Key="NavigationViewItemInnerHeaderMargin">0,0,0,0</Thickness>
+    <x:Double x:Key="NavigationViewItemOnLeftMinHeight">40</x:Double>
+    <CornerRadius x:Key="NavigationViewItemBorderRadius">8</CornerRadius>
+
+</ResourceDictionary>

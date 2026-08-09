@@ -111,13 +111,26 @@ public sealed class WinoraDataPaths
 
     public ProjectionJsonDestination WinoraStateRestoreRecoveryDocument { get; }
 
-    public static WinoraDataPaths ForCurrentUser()
-    {
-        var localApplicationData = Environment.GetFolderPath(
-            Environment.SpecialFolder.LocalApplicationData,
-            Environment.SpecialFolderOption.DoNotVerify);
-        return new WinoraDataPaths(Path.Combine(localApplicationData, "Winora"));
-    }
+    public static WinoraDataPaths ForCurrentUser() => new(RootForCurrentUser());
+
+    /// <summary>
+    /// Where this user's store lives: <c>%USERPROFILE%\Winora\State</c>.
+    /// </summary>
+    /// <remarks>
+    /// Under the user profile rather than <c>LocalApplicationData</c>, because a packaged app has
+    /// the latter redirected into its own container and Windows deletes that container when the
+    /// package is removed — taking the journal, the plan archive and every backup with it, while the
+    /// changes they exist to undo stay applied. The profile root is not redirected, which the cursor
+    /// and sound folders already demonstrate. <c>WinoraStoreMigration</c> moves an older store here
+    /// on first run.
+    /// </remarks>
+    public static string RootForCurrentUser() =>
+        Path.Combine(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.UserProfile,
+                Environment.SpecialFolderOption.DoNotVerify),
+            "Winora",
+            "State");
 
     internal string GetBackupDirectory(string backupId) =>
         Path.Combine(BackupsDirectory, ValidatePathSegment(backupId, nameof(backupId)));
