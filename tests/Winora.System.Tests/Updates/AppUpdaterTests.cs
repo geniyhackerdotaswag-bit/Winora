@@ -173,6 +173,35 @@ public sealed class AppUpdaterTests : IDisposable
         Assert.False(File.Exists(_target + AppFileSwap.FreshSuffix));
     }
 
+    /// <summary>
+    /// HttpClient.Timeout firing surfaces as an OperationCanceledException (a TaskCanceledException)
+    /// that has nothing to do with the caller's own token. It must be reported the same as any other
+    /// dead network, not mistaken for a cancellation nobody asked for.
+    /// </summary>
+    [Fact]
+    public async Task A_timeout_is_reported_as_a_failed_download_not_a_cancellation()
+    {
+        var updater = new AppUpdater(
+            new HereLocation(_target),
+            new HttpClient(new TimeoutLikeHandler()));
+
+        Assert.Equal(UpdateOutcome.DownloadFailed, await updater.UpdateAsync(Release(2048), null));
+        Assert.Equal("the program that is running", File.ReadAllText(_target));
+    }
+
+    /// <summary>A cancellation the caller actually asked for is never swallowed.</summary>
+    [Fact]
+    public async Task A_real_cancellation_is_not_swallowed()
+    {
+        var program = Program(2048);
+        var updater = Updater(program, Convert.ToHexString(SHA256.HashData(program)));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => updater.UpdateAsync(Release(program.Length), null, cts.Token));
+    }
+
     /// <summary>Records every report on the thread that made it, so nothing has to be waited for.</summary>
     private sealed class SynchronousProgress : IProgress<double>
     {
@@ -204,5 +233,16 @@ public sealed class AppUpdaterTests : IDisposable
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken) =>
             throw new HttpRequestException("no network");
+    }
+
+    /// <summary>
+    /// Stands in for HttpClient.Timeout firing: throws the same exception type a real timeout does,
+    /// with no relation to whatever token the caller passed in.
+    /// </summary>
+    private sealed class TimeoutLikeHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new TaskCanceledException("the request timed out");
     }
 }

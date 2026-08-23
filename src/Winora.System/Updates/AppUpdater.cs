@@ -43,7 +43,10 @@ public interface IAppUpdater
     /// <summary>Clears away what a previous update left behind. Called once at startup.</summary>
     void RemoveLeftovers();
 
-    /// <summary>Starts the program that is now in place and asks this process to end.</summary>
+    /// <summary>
+    /// Starts the installed copy and reports whether that succeeded. Ending this process is the
+    /// caller's job, not this method's.
+    /// </summary>
     bool Restart();
 }
 
@@ -100,6 +103,12 @@ public sealed class AppUpdater : IAppUpdater
         var target = _location.InstalledExecutablePath;
         var fresh = target + AppFileSwap.FreshSuffix;
 
+        // Held rather than returned directly, because the finally block below needs to know how
+        // the attempt ended before it can decide whether fresh is debris or the one thing worth
+        // keeping. The initial value is also the right answer if the token turns out to be
+        // cancelled before anything below assigns it: either way fresh is an incomplete download.
+        var outcome = UpdateOutcome.DownloadFailed;
+
         try
         {
             string checksum;
@@ -111,32 +120,50 @@ public sealed class AppUpdater : IAppUpdater
                 checksum = await _http.GetStringAsync(release.ChecksumUrl, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Only when the caller's own token asked for this. HttpClient's timeout also
+                // surfaces as an OperationCanceledException (a TaskCanceledException, in fact) with
+                // nothing to do with this token, and that is an ordinary dead network, not a
+                // cancellation — it falls through to the catch below and is reported as
+                // DownloadFailed like any other broken download.
                 throw;
             }
             catch (Exception)
             {
-                return UpdateOutcome.DownloadFailed;
+                outcome = UpdateOutcome.DownloadFailed;
+                return outcome;
             }
 
             if (AppDownloadCheck.Verify(fresh, release.SizeBytes, checksum) != DownloadVerdict.Ok)
             {
-                return UpdateOutcome.Verification;
+                outcome = UpdateOutcome.Verification;
+                return outcome;
             }
 
-            return AppFileSwap.Replace(target, fresh) switch
+            // SwapResult.Displaced -> UpdateOutcome.Displaced is not reachable from here without
+            // either a race or a seam production code has no other need for; it is verified by
+            // inspection instead. The state being mapped is proven reachable, and this switch has
+            // no branching of its own to go wrong, by
+            // AppFileSwapTests.When_the_rescue_also_fails_the_program_is_reported_as_displaced.
+            outcome = AppFileSwap.Replace(target, fresh) switch
             {
                 SwapResult.Replaced => UpdateOutcome.Installed,
                 SwapResult.Displaced => UpdateOutcome.Displaced,
                 _ => UpdateOutcome.SwapFailed,
             };
+            return outcome;
         }
         finally
         {
-            // Whatever happened, a half-written download is not left lying beside the program. On
-            // the successful path the file has already been moved and there is nothing to remove.
-            TryDelete(fresh);
+            // Kept on exactly one path. When the program has been displaced, target is empty and
+            // this is a verified copy of the new one — the single thing on disk that can put the
+            // machine back in order. Everywhere else it is either already moved into place or a
+            // download nobody should keep.
+            if (outcome != UpdateOutcome.Displaced)
+            {
+                TryDelete(fresh);
+            }
         }
     }
 
