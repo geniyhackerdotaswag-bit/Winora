@@ -10,5 +10,12 @@
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!--
+      The version a local build carries. Releases override it: the workflow passes -p:Version from
+      the git tag, and that tag is the only source that matters. This default exists so that a build
+      from somebody's working copy has an honest low number instead of the SDK's 1.0.0, which would
+      read as newer than every release ever published and hide the update banner forever.
+    -->
+    <Version>0.0.0</Version>
   </PropertyGroup>
 </Project>
