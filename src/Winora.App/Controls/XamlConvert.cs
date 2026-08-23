@@ -53,4 +53,13 @@ public static class XamlConvert
     /// </summary>
     public static InfoBarSeverity CheckSeverity(bool passes) =>
         passes ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+
+    /// <summary>
+    /// The update strip's severity: error for something the person has to act on, informational for
+    /// routine status. Review finding (Minor 3): the strip used to be a static "Informational" in
+    /// XAML no matter what it said, including for a failure that had moved the program's own
+    /// executable aside.
+    /// </summary>
+    public static InfoBarSeverity UpdateSeverity(bool isFailure) =>
+        isFailure ? InfoBarSeverity.Error : InfoBarSeverity.Informational;
 }

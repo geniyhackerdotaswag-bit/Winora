@@ -34,6 +34,24 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     private AppUpdateReleaseView? _found;
 
+    /// <summary>
+    /// Whether pressing the strip's button should send the person to the release page instead of
+    /// starting a download.
+    /// </summary>
+    /// <remarks>
+    /// Review finding (Important 2): the button used to be routed purely by
+    /// <see cref="IAppUpdateService.IsInstalled"/>, a path comparison that is still true after
+    /// <see cref="AppUpdateOutcomeView.Displaced"/> -- the copy is still sitting at the installed
+    /// path, only its executable has been renamed aside. Pressing "Открыть страницу" after any
+    /// <see cref="Fail"/> would therefore fall through to a fresh download, truncating the kept
+    /// rescue copy on the Displaced path. This field is set alongside <see cref="ActionLabel"/> so
+    /// the button's action can never drift from what it says.
+    /// </remarks>
+    private bool _mustOpenPage;
+
+    /// <summary>How much of the release notes fit on the strip before they are cut off.</summary>
+    private const int NotesMaxLength = 160;
+
     public UpdateViewModel(
         IAppUpdateService update,
         IAppEnvironment environment,
@@ -65,8 +83,35 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
+    /// <summary>
+    /// Whether a download is under way right now, as opposed to a check.
+    /// </summary>
+    /// <remarks>
+    /// Review finding (Minor 4): the progress bar used to be bound to <see cref="IsBusy"/>, which is
+    /// also true for the instant background check at startup and for a requested "Проверить" -- both
+    /// opened the strip with a bar sitting at zero for the whole check, which reads as a stalled
+    /// download rather than the quick lookup it actually is. This is true only while
+    /// <see cref="Act"/> is downloading.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsDownloading { get; set; }
+
     [ObservableProperty]
     public partial double Progress { get; set; }
+
+    /// <summary>
+    /// Whether the strip is currently showing something the person has to act on, as opposed to
+    /// routine status.
+    /// </summary>
+    /// <remarks>
+    /// Review finding (Minor 3): the strip's <c>Severity</c> used to be a static "Informational" in
+    /// XAML regardless of what <see cref="Message"/> said, including for
+    /// <c>Update_Failed_Displaced</c> -- the one message that is not routine status. MainWindow reads
+    /// this to choose the InfoBar's severity, the same way it already reads every other piece of the
+    /// strip's state from here rather than deciding anything about it on its own.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsFailure { get; set; }
 
     /// <summary>Where to send somebody whose copy cannot update itself.</summary>
     public string ReleasePageUrl =>
@@ -153,6 +198,11 @@ public sealed partial class UpdateViewModel : ObservableObject
         // Message, IsBannerVisible and IsActionVisible, and whichever finishes last wins silently.
         IsBusy = true;
 
+        // A fresh check starts a fresh read of the strip. Whatever the previous attempt left behind
+        // -- a failure's red severity, a button pointed at the release page -- does not belong to
+        // this one until this one says otherwise.
+        IsFailure = false;
+
         // Only when they asked. An unprompted "checking…" is a notice about nothing, the same
         // reasoning that keeps an unprompted "up to date" silent below.
         if (announceNothing)
@@ -179,13 +229,31 @@ public sealed partial class UpdateViewModel : ObservableObject
                 return;
             }
 
-            Message = string.Format(CultureInfo.CurrentCulture, _text.Get("Update_Available"), _found.Version);
+            // Spec section 6: the strip must show the version, the release notes and "Обновить" --
+            // one press used to start an 88 MB download with no idea what changed or how large it
+            // was. The size is converted to megabytes here rather than in a resource format
+            // specifier, because a resource file has no way to spell "divide by 1024 * 1024".
+            var megabytes = _found.SizeBytes / (1024d * 1024d);
+            var summary = string.Format(
+                CultureInfo.CurrentCulture,
+                _text.Get("Update_Available"),
+                _found.Version,
+                megabytes);
+            var notes = SummarizeNotes(_found.Notes);
+
+            // Release notes are free text from GitHub and are often empty. Appending an empty
+            // sentence would leave the summary ending in ". " with nothing after it -- the dangling
+            // punctuation this is written to avoid -- so the separator is only added when there is
+            // something to separate.
+            Message = notes.Length == 0 ? summary : summary + ". " + notes;
 
             // A copy running from wherever it was downloaded cannot replace itself: that file was
-            // never offered up. It is sent to the page instead.
-            ActionLabel = _update.IsInstalled
-                ? _text.Get("Update_Action_Install")
-                : _text.Get("Update_Action_Open");
+            // never offered up. It is sent to the page instead. The flag drives Act() directly, so
+            // the button's action can never point somewhere its own label does not.
+            _mustOpenPage = !_update.IsInstalled;
+            ActionLabel = _mustOpenPage
+                ? _text.Get("Update_Action_Open")
+                : _text.Get("Update_Action_Install");
 
             IsActionVisible = true;
             IsBannerVisible = true;
@@ -204,14 +272,24 @@ public sealed partial class UpdateViewModel : ObservableObject
             return;
         }
 
-        if (!_update.IsInstalled)
+        // Review finding (Important 2): this used to ask _update.IsInstalled directly, which is a
+        // path comparison that stays true after Displaced -- the copy is still at the installed
+        // path, only its executable has been renamed aside. Asking _mustOpenPage instead means the
+        // button does exactly what its own label promised, whether that was decided by CheckAsync
+        // finding an uninstalled copy or by a later Fail().
+        if (_mustOpenPage)
         {
-            Message = _text.Get("Update_NotInstalled");
+            if (!_update.IsInstalled)
+            {
+                Message = _text.Get("Update_NotInstalled");
+            }
+
             OpenPageRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
         IsBusy = true;
+        IsDownloading = true;
         IsActionVisible = false;
         Progress = 0;
         Message = _text.Get("Update_Downloading");
@@ -252,6 +330,14 @@ public sealed partial class UpdateViewModel : ObservableObject
                     Fail("Update_Failed_Displaced");
                     break;
 
+                case AppUpdateOutcomeView.NoUpdateOffered:
+                    // Review finding (Minor 1): distinct from NotInstalled below -- nothing has been
+                    // offered yet, which says nothing about where this copy is sitting. Reachable
+                    // only if Act() is ever called without a preceding CheckAsync finding something,
+                    // which the guard at the top of this method already prevents in the UI itself.
+                    Fail("Update_Failed_NoOffer");
+                    break;
+
                 case AppUpdateOutcomeView.SwapFailed:
                 case AppUpdateOutcomeView.NotInstalled:
                 default:
@@ -262,6 +348,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            IsDownloading = false;
         }
     }
 
@@ -271,7 +358,65 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         // The button comes back saying "open the page": whatever went wrong here, the release is
         // still downloadable by hand, and a dead end would be the wrong place to leave somebody.
+        // _mustOpenPage is set alongside the label so a second press cannot fall through to a fresh
+        // download -- see the field's remarks for the destructive case this used to allow.
+        _mustOpenPage = true;
         ActionLabel = _text.Get("Update_Action_Open");
         IsActionVisible = true;
+        IsFailure = true;
+    }
+
+    /// <summary>
+    /// Reports that the first-run install offer copied the program but could not hand off to the
+    /// new process.
+    /// </summary>
+    /// <remarks>
+    /// Review finding (Important 4): MainWindow used to write UpdateBar.Message and UpdateBar.IsOpen
+    /// directly for this, bypassing the one source of truth Dismiss() established for the strip, and
+    /// it used to say "Не удалось скопировать" for this exact case even though the copy had
+    /// succeeded -- only starting the new process failed. Update_Failed_Restart already has the
+    /// right words for the same situation on the update path; this is its install-time twin. Left at
+    /// informational, the same as Update_Failed_Restart: the program is exactly where it should be,
+    /// and reopening it by hand is the only thing left to do.
+    /// </remarks>
+    public void ReportInstallRestartFailed()
+    {
+        Message = _text.Get("Install_Failed_Restart");
+        IsActionVisible = false;
+        IsFailure = false;
+        IsBannerVisible = true;
+    }
+
+    /// <summary>Reports that the first-run install offer could not copy the program at all.</summary>
+    /// <remarks>See <see cref="ReportInstallRestartFailed"/> for the case this is paired with.</remarks>
+    public void ReportInstallFailed()
+    {
+        Message = _text.Get("Install_Failed");
+        IsActionVisible = false;
+        IsFailure = true;
+        IsBannerVisible = true;
+    }
+
+    /// <summary>
+    /// Shortens release notes to a length that fits the strip, breaking on a word boundary rather
+    /// than mid-word, and marking the cut with an ellipsis.
+    /// </summary>
+    /// <remarks>
+    /// Empty notes come back empty rather than as an ellipsis on their own, so the caller can tell
+    /// "nothing to show" apart from "something was cut" without a separate check.
+    /// </remarks>
+    private static string SummarizeNotes(string notes)
+    {
+        var trimmed = notes.Trim();
+
+        if (trimmed.Length <= NotesMaxLength)
+        {
+            return trimmed;
+        }
+
+        var cut = trimmed.LastIndexOf(' ', NotesMaxLength - 1);
+        var shortened = cut > 0 ? trimmed[..cut] : trimmed[..NotesMaxLength];
+
+        return shortened.TrimEnd() + "…";
     }
 }

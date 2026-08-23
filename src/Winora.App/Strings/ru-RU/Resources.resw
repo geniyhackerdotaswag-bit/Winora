@@ -500,7 +500,7 @@
   <data name="Appearance_Variant_Light"><value>светлая</value></data>
 
   <data name="Update_Checking"><value>Проверяем обновления…</value></data>
-  <data name="Update_Available"><value>Доступна версия {0}</value></data>
+  <data name="Update_Available"><value>Доступна версия {0}, {1:F0} МБ</value></data>
   <data name="Update_UpToDate"><value>У вас последняя версия</value></data>
   <data name="Update_Action_Install"><value>Обновить</value></data>
   <data name="Update_Action_Open"><value>Открыть страницу</value></data>
@@ -511,12 +511,14 @@
   <data name="Update_Failed_Swap"><value>Не удалось обновить, всё осталось как было.</value></data>
   <data name="Update_Failed_Displaced"><value>Обновление не удалось, и программа сдвинута со своего места. Рядом лежит файл Winora.exe.old — переименуйте его обратно в Winora.exe.</value></data>
   <data name="Update_Failed_Restart"><value>Обновлено. Закройте окно и откройте Winora заново.</value></data>
+  <data name="Update_Failed_NoOffer"><value>Нечего устанавливать — сначала проверьте обновления.</value></data>
   <data name="Update_NotInstalled"><value>Скачайте новую версию — эта копия запущена не из папки программ.</value></data>
   <data name="Install_Title"><value>Установить Winora?</value></data>
   <data name="Install_Body"><value>Программа скопирует себя в {0} и добавит ярлык в меню Пуск. Права администратора не нужны.</value></data>
   <data name="Install_Yes"><value>Установить</value></data>
   <data name="Install_No"><value>Не сейчас</value></data>
   <data name="Install_Failed"><value>Не удалось скопировать. Программа продолжит работать отсюда.</value></data>
+  <data name="Install_Failed_Restart"><value>Установлено. Закройте окно и откройте Winora заново.</value></data>
   <data name="Update_Settings_Heading"><value>Обновления</value></data>
   <data name="Update_Settings_Description"><value>Winora проверяет обновления сама при запуске. Здесь можно проверить прямо сейчас.</value></data>
   <data name="Update_Settings_Check"><value>Проверить</value></data>

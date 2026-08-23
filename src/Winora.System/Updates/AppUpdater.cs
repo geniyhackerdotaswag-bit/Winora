@@ -167,7 +167,9 @@ public sealed class AppUpdater : IAppUpdater
         }
     }
 
-    public void RemoveLeftovers() => AppFileSwap.RemoveLeftovers(_location.InstalledDirectory);
+    public void RemoveLeftovers() => AppFileSwap.RemoveLeftovers(
+        _location.InstalledDirectory,
+        Path.GetFileName(_location.InstalledExecutablePath));
 
     /// <remarks>
     /// The caller ends this process afterwards. Started without a shell so the new program inherits

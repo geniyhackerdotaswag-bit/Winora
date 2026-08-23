@@ -110,17 +110,37 @@ public static class AppFileSwap
     /// Clears away what previous updates left behind.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Called at startup, when the displaced program is no longer running and can finally be
     /// deleted. Failure is silent on purpose: a file still held open is removed the next time, and a
     /// program that refused to start over a stale file would be worse than the stale file.
+    /// </para>
+    /// <para>
+    /// <c>*.old</c> and <c>*.new</c> are debris only when <paramref name="executableName" /> is
+    /// actually sitting beside them. After <see cref="SwapResult.Displaced" />, it is not: the
+    /// executable itself is gone, <c>Winora.exe.new</c> is the one verified copy that can put the
+    /// machine right, and <c>Winora.exe.old</c> is what the failure message tells the person to
+    /// rename back by hand. Sweeping this folder without checking would delete both on the very next
+    /// launch of any Winora — including a fresh copy run from Downloads, which clears this same
+    /// folder on its own startup regardless of where it is itself running from.
+    /// </para>
     /// </remarks>
-    public static void RemoveLeftovers(string directory)
+    public static void RemoveLeftovers(string directory, string executableName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(executableName);
 
         try
         {
             if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            // The program this cleanup runs on behalf of has to still be there. Its absence means a
+            // swap left the folder in the one state where .old and .new are not leftovers but the
+            // only way back — see the remarks above.
+            if (!File.Exists(Path.Combine(directory, executableName)))
             {
                 return;
             }

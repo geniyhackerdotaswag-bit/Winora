@@ -263,11 +263,14 @@ public sealed partial class MainWindow : Window
         {
             UpdateBar.IsOpen = _update.IsBannerVisible;
             UpdateBar.Message = _update.Message;
+            UpdateBar.Severity = Controls.XamlConvert.UpdateSeverity(_update.IsFailure);
             UpdateAction.Content = _update.ActionLabel;
             UpdateAction.Visibility = _update.IsActionVisible
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-            UpdateProgress.Visibility = _update.IsBusy ? Visibility.Visible : Visibility.Collapsed;
+            // Bound to IsDownloading, not IsBusy: IsBusy also covers the instant background check,
+            // and a bar sitting at zero for the length of a check reads as a stalled download.
+            UpdateProgress.Visibility = _update.IsDownloading ? Visibility.Visible : Visibility.Collapsed;
             UpdateProgress.Value = _update.Progress;
         };
 
@@ -330,20 +333,35 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            if (installer.Install() == InstallOutcome.Installed && installer.StartInstalledCopy())
+            switch (installer.Install())
             {
-                Close();
-                return;
-            }
+                case InstallOutcome.Installed when installer.StartInstalledCopy():
+                    Close();
+                    return;
 
-            UpdateBar.Message = _text.Get("Install_Failed");
-            UpdateBar.IsOpen = true;
+                case InstallOutcome.Installed:
+                    // The copy landed and the shortcut was written; only the hand-off to the new
+                    // process failed. Saying "не удалось скопировать" here would be false -- the
+                    // copy is exactly why Install_Failed_Restart exists instead of Install_Failed.
+                    _update.ReportInstallRestartFailed();
+                    return;
+
+                case InstallOutcome.CopyFailed:
+                    _update.ReportInstallFailed();
+                    return;
+
+                case InstallOutcome.AlreadyInstalled:
+                default:
+                    // NeedsInstalling was already checked above the dialog; reaching this is only
+                    // possible through a race, and there is nothing wrong to report -- the program
+                    // is exactly where it should be.
+                    return;
+            }
         }
         catch (Exception ex)
         {
             Diagnostics.DiagnosticSink.Write("OfferInstall", ex);
-            UpdateBar.Message = _text.Get("Install_Failed");
-            UpdateBar.IsOpen = true;
+            _update.ReportInstallFailed();
         }
     }
 }

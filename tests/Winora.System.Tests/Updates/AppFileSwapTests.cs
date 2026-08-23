@@ -113,7 +113,7 @@ public sealed class AppFileSwapTests : IDisposable
         File.WriteAllText(Path.Combine(_folder, "Winora.exe.old"), "gone");
         File.WriteAllText(Path.Combine(_folder, "Winora.exe.new"), "gone too");
 
-        AppFileSwap.RemoveLeftovers(_folder);
+        AppFileSwap.RemoveLeftovers(_folder, "Winora.exe");
 
         Assert.False(File.Exists(Path.Combine(_folder, "Winora.exe.old")));
         Assert.False(File.Exists(Path.Combine(_folder, "Winora.exe.new")));
@@ -132,7 +132,7 @@ public sealed class AppFileSwapTests : IDisposable
 
         using var hold = new FileStream(stuck, FileMode.Open, FileAccess.Read, FileShare.None);
 
-        AppFileSwap.RemoveLeftovers(_folder);
+        AppFileSwap.RemoveLeftovers(_folder, "Winora.exe");
 
         Assert.True(File.Exists(stuck));
     }
@@ -140,7 +140,27 @@ public sealed class AppFileSwapTests : IDisposable
     [Fact]
     public void Clearing_a_folder_that_is_not_there_is_not_an_error()
     {
-        AppFileSwap.RemoveLeftovers(Path.Combine(_folder, "absent"));
+        AppFileSwap.RemoveLeftovers(Path.Combine(_folder, "absent"), "Winora.exe");
+    }
+
+    /// <summary>
+    /// Review finding (Important 1): after AppUpdater.UpdateAsync reports Displaced, Winora.exe is
+    /// gone from the install folder on purpose -- Winora.exe.new is the verified rescue copy and
+    /// Winora.exe.old is what Update_Failed_Displaced tells the person to rename back by hand.
+    /// RemoveLeftovers must not delete either when the program it is supposed to be cleaning up
+    /// after is not there, or the very next launch destroys the only way back.
+    /// </summary>
+    [Fact]
+    public void Leftovers_are_not_cleared_when_the_program_they_belong_beside_is_gone()
+    {
+        File.Delete(_target);
+        File.WriteAllText(_target + AppFileSwap.OldSuffix, "the working program, renamed aside");
+        File.WriteAllText(_target + AppFileSwap.FreshSuffix, "the verified rescue copy");
+
+        AppFileSwap.RemoveLeftovers(_folder, "Winora.exe");
+
+        Assert.True(File.Exists(_target + AppFileSwap.OldSuffix));
+        Assert.True(File.Exists(_target + AppFileSwap.FreshSuffix));
     }
 
     /// <summary>

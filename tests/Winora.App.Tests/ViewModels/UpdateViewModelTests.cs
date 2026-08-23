@@ -17,6 +17,7 @@ public sealed class UpdateViewModelTests
     [InlineData(AppUpdateOutcomeView.Displaced, "Update_Failed_Displaced")]
     [InlineData(AppUpdateOutcomeView.SwapFailed, "Update_Failed_Swap")]
     [InlineData(AppUpdateOutcomeView.NotInstalled, "Update_Failed_Swap")]
+    [InlineData(AppUpdateOutcomeView.NoUpdateOffered, "Update_Failed_NoOffer")]
     public async Task Act_maps_each_failure_outcome_to_its_own_message(
         AppUpdateOutcomeView outcome,
         string expectedResourceKey)
@@ -35,9 +36,77 @@ public sealed class UpdateViewModelTests
         Assert.Equal(expectedResourceKey, vm.Message);
 
         // A dead end is the one thing every failure must not leave: the button comes back pointing
-        // at the release page no matter which of these five ways the update failed.
+        // at the release page no matter which of these ways the update failed.
         Assert.True(vm.IsActionVisible);
         Assert.Equal("Update_Action_Open", vm.ActionLabel);
+
+        // Review finding (Minor 3): every one of these is something the person has to act on, not
+        // routine status, and the strip must read that way regardless of which failure it is.
+        Assert.True(vm.IsFailure);
+    }
+
+    /// <summary>
+    /// Review finding (Important 2): the button's label and its action used to be decided by two
+    /// different things -- Fail() set the label to "Открыть страницу", but Act() still asked
+    /// IAppUpdateService.IsInstalled, which stays true after Displaced because the copy is still at
+    /// the installed path; only its executable was renamed aside. A second press therefore fell
+    /// through to a fresh download, which on the Displaced path truncates the one verified rescue
+    /// copy the failure message told the person to keep. This asserts the button now does what it
+    /// says: a second press opens the page and never calls UpdateAsync again.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_the_button_again_after_a_failure_opens_the_page_instead_of_retrying()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9"),
+            NextOutcome = AppUpdateOutcomeView.Displaced,
+        };
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        await vm.ActCommand.ExecuteAsync(null);
+        Assert.Equal(1, update.UpdateAsyncCallCount);
+        Assert.Equal("Update_Failed_Displaced", vm.Message);
+
+        var openedPage = false;
+        vm.OpenPageRequested += (_, _) => openedPage = true;
+
+        await vm.ActCommand.ExecuteAsync(null);
+
+        Assert.True(openedPage);
+        // Not called a second time: the copy that update would have downloaded into is exactly the
+        // rescue file Update_Failed_Displaced told the person to keep.
+        Assert.Equal(1, update.UpdateAsyncCallCount);
+        // The failure message stays on screen; IsInstalled is still true here (the copy did not
+        // move), so this must not be overwritten with Update_NotInstalled either.
+        Assert.Equal("Update_Failed_Displaced", vm.Message);
+    }
+
+    /// <summary>
+    /// The other half of Important 2: an offer that has not failed must still install normally, not
+    /// be routed to the release page by mistake.
+    /// </summary>
+    [Fact]
+    public async Task A_normal_offer_still_installs()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9"),
+            NextOutcome = AppUpdateOutcomeView.Installed,
+        };
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        var openedPage = false;
+        vm.OpenPageRequested += (_, _) => openedPage = true;
+
+        await vm.ActCommand.ExecuteAsync(null);
+
+        Assert.True(update.UpdateAsyncCalled);
+        Assert.False(openedPage);
     }
 
     /// <summary>
@@ -242,8 +311,118 @@ public sealed class UpdateViewModelTests
         Assert.True(vm.IsBannerVisible);
         Assert.Equal("Update_Checking", vm.Message);
 
+        // Review finding (Minor 4): IsDownloading used to not exist, and the progress bar was bound
+        // to IsBusy, which is also true here -- a bar sitting at zero for the length of a check reads
+        // as a stalled download rather than the quick lookup this actually is.
+        Assert.False(vm.IsDownloading);
+
         update.PendingCheck.SetResult(null);
         await check;
+
+        Assert.False(vm.IsDownloading);
+    }
+
+    /// <summary>
+    /// The other half of Minor 4: the progress bar must actually appear while a download is under
+    /// way, not just stay hidden during a check.
+    /// </summary>
+    [Fact]
+    public async Task IsDownloading_is_true_only_while_a_download_is_in_flight()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9"),
+            PendingUpdate = new TaskCompletionSource<AppUpdateOutcomeView>(),
+        };
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+        Assert.False(vm.IsDownloading);
+
+        var act = vm.ActCommand.ExecuteAsync(null);
+        Assert.True(vm.IsDownloading);
+
+        update.PendingUpdate.SetResult(AppUpdateOutcomeView.Installed);
+        await act;
+
+        Assert.False(vm.IsDownloading);
+    }
+
+    /// <summary>
+    /// Review finding (Important 3): AppRelease.Notes and SizeBytes reached AppUpdateReleaseView and
+    /// then went nowhere -- the strip started an 88 MB download with no idea what changed or how
+    /// large it was. Empty notes (a release published without a body) must not leave the message
+    /// ending in a dangling ". " with nothing after it.
+    /// </summary>
+    [Fact]
+    public async Task Empty_release_notes_leave_no_dangling_punctuation()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: "", SizeBytes: 92_274_688),
+        };
+        var vm = Build(update);
+
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        // FakeLocalizationService echoes the key for everything but Update_Settings_Version, so with
+        // no notes to append the message is exactly the (unformatted) template -- nothing tacked on.
+        Assert.Equal("Update_Available", vm.Message);
+        Assert.DoesNotContain(". ", vm.Message);
+    }
+
+    /// <summary>Long release notes are cut to a sensible length rather than shown in full.</summary>
+    [Fact]
+    public async Task Long_release_notes_are_truncated_with_an_ellipsis()
+    {
+        var longNotes = new string('a', 200);
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: longNotes, SizeBytes: 92_274_688),
+        };
+        var vm = Build(update);
+
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Update_Available. ", vm.Message);
+        Assert.EndsWith("…", vm.Message);
+        // Shorter than "the base message, a separator, and the notes in full" would have been.
+        Assert.True(vm.Message.Length < "Update_Available. ".Length + longNotes.Length);
+    }
+
+    /// <summary>
+    /// Review finding (Important 4): MainWindow used to write UpdateBar.Message and UpdateBar.IsOpen
+    /// directly for the first-run install offer, bypassing the one source of truth Dismiss()
+    /// established. These two methods are what it calls instead, and they must distinguish "the copy
+    /// landed but could not be handed off" from "the copy never happened" the same way
+    /// Update_Failed_Restart already distinguishes those two outcomes on the update path.
+    /// </summary>
+    [Fact]
+    public void ReportInstallRestartFailed_says_the_copy_succeeded_and_reads_as_routine()
+    {
+        var vm = Build(new FakeUpdateService());
+
+        vm.ReportInstallRestartFailed();
+
+        Assert.Equal("Install_Failed_Restart", vm.Message);
+        Assert.True(vm.IsBannerVisible);
+        Assert.False(vm.IsActionVisible);
+        Assert.False(vm.IsFailure);
+    }
+
+    [Fact]
+    public void ReportInstallFailed_says_the_copy_never_happened_and_reads_as_a_failure()
+    {
+        var vm = Build(new FakeUpdateService());
+
+        vm.ReportInstallFailed();
+
+        Assert.Equal("Install_Failed", vm.Message);
+        Assert.True(vm.IsBannerVisible);
+        Assert.False(vm.IsActionVisible);
+        Assert.True(vm.IsFailure);
     }
 
     /// <summary>
@@ -279,6 +458,26 @@ public sealed class UpdateViewModelTests
 
         Assert.Contains(nameof(UpdateViewModel.Message), changedProperties);
         Assert.False(vm.IsBannerVisible);
+    }
+
+    /// <summary>A fresh check does not inherit the red severity of whatever the previous attempt left behind.</summary>
+    [Fact]
+    public async Task IsFailure_is_cleared_by_the_next_check()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9"),
+            NextOutcome = AppUpdateOutcomeView.Displaced,
+        };
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+        await vm.ActCommand.ExecuteAsync(null);
+        Assert.True(vm.IsFailure); // sanity: the failure is what set it
+
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsFailure);
     }
 
     /// <summary>Dismiss() only ever hides the strip. It must never reach into an update in progress.</summary>
@@ -350,6 +549,8 @@ public sealed class UpdateViewModelTests
 
         public bool UpdateAsyncCalled { get; private set; }
 
+        public int UpdateAsyncCallCount { get; private set; }
+
         public int CheckAsyncCallCount { get; private set; }
 
         /// <summary>
@@ -357,6 +558,12 @@ public sealed class UpdateViewModelTests
         /// race test uses to hold a check open while a second one is attempted.
         /// </summary>
         public TaskCompletionSource<AppUpdateReleaseView?>? PendingCheck { get; set; }
+
+        /// <summary>
+        /// When set, UpdateAsync returns this task instead of completing immediately — used to
+        /// observe IsDownloading while a download is still in flight.
+        /// </summary>
+        public TaskCompletionSource<AppUpdateOutcomeView>? PendingUpdate { get; set; }
 
         public void RemoveLeftovers() => RemoveLeftoversCalled = true;
 
@@ -373,7 +580,8 @@ public sealed class UpdateViewModelTests
             CancellationToken cancellationToken = default)
         {
             UpdateAsyncCalled = true;
-            return Task.FromResult(NextOutcome);
+            UpdateAsyncCallCount++;
+            return PendingUpdate?.Task ?? Task.FromResult(NextOutcome);
         }
 
         public bool Restart() => RestartSucceeds;

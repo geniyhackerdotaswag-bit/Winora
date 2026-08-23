@@ -4,7 +4,13 @@ namespace Winora.App.Services;
 
 /// <param name="Version">The release version, already formatted for display.</param>
 /// <param name="Tag">The tag as written, for linking to the release page.</param>
-public sealed record AppUpdateReleaseView(string Version, string Tag);
+/// <param name="Notes">What the release says about itself. May be empty.</param>
+/// <param name="SizeBytes">How large the download is, so the strip can say before it starts.</param>
+/// <remarks>
+/// <see cref="Notes"/> and <see cref="SizeBytes"/> default so the many tests that do not care about
+/// them can keep constructing this with just a version and a tag.
+/// </remarks>
+public sealed record AppUpdateReleaseView(string Version, string Tag, string Notes = "", long SizeBytes = 0);
 
 /// <summary>How an update attempt ended, for the presentation layer.</summary>
 public enum AppUpdateOutcomeView
@@ -29,6 +35,19 @@ public enum AppUpdateOutcomeView
     /// <c>.old</c> suffix.
     /// </summary>
     Displaced,
+
+    /// <summary>
+    /// <see cref="IAppUpdateService.UpdateAsync"/> was called without a preceding
+    /// <see cref="IAppUpdateService.CheckAsync"/> that found something to install.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not folded into <see cref="NotInstalled"/>: that value means this copy is not
+    /// sitting at the installed path, which is a fact about where the program is. This one means
+    /// nothing has been offered yet, which is a fact about what has been agreed to -- the copy could
+    /// well be the installed one. Collapsing the two used to route this case through the same
+    /// "swap failed" message as a real swap failure, which is not what happened here.
+    /// </remarks>
+    NoUpdateOffered,
 }
 
 /// <summary>Winora's own release feed and self-update, for the presentation layer.</summary>
@@ -111,7 +130,11 @@ public sealed class AppUpdateService : IAppUpdateService
 
         return _offered is null
             ? null
-            : new AppUpdateReleaseView(_offered.Version.ToString(3), _offered.Tag);
+            : new AppUpdateReleaseView(
+                _offered.Version.ToString(3),
+                _offered.Tag,
+                _offered.Notes,
+                _offered.SizeBytes);
     }
 
     /// <remarks>
@@ -125,7 +148,7 @@ public sealed class AppUpdateService : IAppUpdateService
     {
         if (_offered is not { } release)
         {
-            return AppUpdateOutcomeView.NotInstalled;
+            return AppUpdateOutcomeView.NoUpdateOffered;
         }
 
         var outcome = await _updater.UpdateAsync(release, progress, cancellationToken).ConfigureAwait(false);
