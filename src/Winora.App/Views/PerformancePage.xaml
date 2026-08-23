@@ -28,9 +28,6 @@
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRuleMaintenance}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
@@ -99,10 +96,6 @@
                                 Visibility="{x:Bind ctl:XamlConvert.Show(ViewModel.HasSelection), Mode=OneWay}">
                             <StackPanel Spacing="14">
                                 <StackPanel Spacing="2">
-                                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                                               Margin="0"
-                                               FontSize="22"
-                                               Text="{x:Bind ViewModel.Selected.Title, Mode=OneWay}" />
                                     <TextBlock Style="{StaticResource WinoraRowDetail}"
                                                TextWrapping="Wrap"
                                                Visibility="{x:Bind ctl:XamlConvert.Show(ViewModel.Selected.HasSubtitle), Mode=OneWay}"

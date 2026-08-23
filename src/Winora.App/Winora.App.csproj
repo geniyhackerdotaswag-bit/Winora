@@ -16,6 +16,58 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
+  <!--
+    The portable build: one .exe to hand to somebody who has nothing installed.
+
+    Switched on with -p:WinoraPortable=true so the MSIX build above is untouched. The two cannot be
+    the same build: MSIX declares a framework dependency and lets the OS supply the Windows App SDK,
+    which is exactly what a friend with a bare machine does not have.
+
+    WindowsAppSDKSelfContained puts the SDK's own binaries in the output, which is why the
+    DeploymentManager initializer above can stay off: there is no runtime to go looking for.
+
+    IncludeAllContentForSelfExtract is the load-bearing one. WinUI keeps compiled XAML in
+    resources.pri, not in the assembly, so an .exe that bundles only managed code starts and then
+    fails to load its own windows. With this set the host unpacks everything — pri, native DLLs, the
+    lot — into a temp folder before any of it runs. The cost is a slow first launch while a few
+    hundred megabytes are written; afterwards the folder is reused.
+  -->
+  <PropertyGroup Condition="'$(WinoraPortable)' == 'true'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <!--
+      Still true, and not a leftover: the SDK's single-file targets refuse to build without it,
+      because the MSIX tooling is what generates the resources.pri they then embed.
+    -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!--
+      Points the App SDK at the folder the host extracted into. Without it the app looks for its
+      runtime beside the .exe, where nothing was unpacked, and registration-free WinRT activation
+      fails on the first XAML type.
+    -->
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+    <SelfContained>true</SelfContained>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!--
+      Trimming is off on purpose. WinUI resolves types by name out of XAML, so the trimmer cannot
+      see who uses what and removes controls that are only ever named in markup. The failure is a
+      blank window at runtime, not an error at build time.
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <!--
+      AppPackages holds the MSIX builds, one folder per version, and it is nobody's business but the
+      MSIX build's. Turning on the MSIX tooling above — which the single-file targets insist on —
+      also brings its item globs, and those sweep that folder up as content to publish. Left alone
+      the portable .exe came out at 1.5 GB, of which 1.35 GB was 150 copies of previous releases of
+      itself. Excluded here rather than deleted: the folder is already ignored by git, and clearing
+      it out is the owner's call, not the build's.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);AppPackages\**;Assets.backup-*\**</DefaultItemExcludes>
+    <SatelliteResourceLanguages>ru-RU;en</SatelliteResourceLanguages>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />

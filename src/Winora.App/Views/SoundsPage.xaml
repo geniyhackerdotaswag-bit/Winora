@@ -28,9 +28,6 @@
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
@@ -41,9 +38,20 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Padding="32,20,32,32">
 
-                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                               Margin="2,0,0,12"
-                               Text="{x:Bind ViewModel.FolderNote, Mode=OneWay}" />
+                    <!--
+                      Модуль закрыт на техработы решением владельца 2026-08-10.
+                      Применение схемы отчитывалось об успехе, а реестр не менялся —
+                      причина пока не найдена, и предлагать действие, результат
+                      которого неизвестен, хуже, чем не предлагать ничего.
+                      Кнопки скрыты, а не отключены: серая кнопка выглядит как
+                      временный сбой и провоцирует нажимать ещё раз.
+                    -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.IsUnderMaintenance, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Title="{x:Bind ViewModel.MaintenanceTitle, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.MaintenanceNotice, Mode=OneWay}" />
 
                     <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                              IsClosable="False"
@@ -51,18 +59,15 @@
                              Margin="{StaticResource WinoraStackGapL}"
                              Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
-                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                               Margin="2,0,0,8"
-                               IsTextSelectionEnabled="True"
-                               Text="{x:Bind ViewModel.PackFolder, Mode=OneWay}" />
-
                     <Button Style="{StaticResource WinoraActionButton}"
                             HorizontalAlignment="Left"
                             Margin="{StaticResource WinoraStackGapL}"
+                            Visibility="{x:Bind ctl:XamlConvert.Hide(ViewModel.IsUnderMaintenance), Mode=OneWay}"
                             Content="{x:Bind ViewModel.OpenFolderLabel, Mode=OneWay}"
                             Click="OnOpenFolderClick" />
 
-                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Choices}">
+                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Choices}"
+                                   Visibility="{x:Bind ctl:XamlConvert.Hide(ViewModel.IsUnderMaintenance), Mode=OneWay}">
                         <ItemsRepeater.Layout>
                             <!--
                               MinItemHeight because this layout gives every card the height of the

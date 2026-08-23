@@ -66,6 +66,31 @@ public sealed partial class SoundsViewModel : ObservableObject
     private readonly ISoundService _sounds;
     private readonly ILocalizationService _text;
 
+    /// <summary>
+    /// Модуль закрыт на технические работы.
+    /// </summary>
+    /// <remarks>
+    /// Решение владельца от 2026-08-10. Применение схемы отчитывалось об успехе —
+    /// набор опознан, шесть файлов найдено, девять записей сделано, ноль ошибок —
+    /// а реестр при чтении снаружи оставался нетронутым. Причина не установлена:
+    /// виртуализацию записи исключили, соседний домен панели задач в тот же вечер
+    /// прошёл полный конвейер и его значение видно из непакетного процесса.
+    ///
+    /// Пока причина не найдена, экран не предлагает ничего применить. Действие с
+    /// неизвестным результатом хуже отсутствия действия: человек считает звуки
+    /// заменёнными, а они прежние.
+    ///
+    /// Снимается сменой этого значения на false — остальной код на месте, включая
+    /// диагностику записи, ради которой всё и затевалось.
+    /// </remarks>
+    public bool IsUnderMaintenance => true;
+
+    [ObservableProperty]
+    public partial string MaintenanceTitle { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string MaintenanceNotice { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
 
@@ -105,7 +130,16 @@ public sealed partial class SoundsViewModel : ObservableObject
         FolderNote = _text.Get("Sounds_FolderNote");
         OpenFolderLabel = _text.Get("Sounds_OpenFolder");
         PackFolder = _sounds.PackFolder;
+        MaintenanceTitle = _text.Get("Sounds_Maintenance_Title");
+        MaintenanceNotice = _text.Get("Sounds_Maintenance");
         Choices.Clear();
+
+        if (IsUnderMaintenance)
+        {
+            // Список не строится вовсе. Пустой экран честнее, чем список, из
+            // которого ничего нельзя выбрать.
+            return Task.CompletedTask;
+        }
 
         foreach (var choice in _sounds.Choices())
         {
@@ -120,7 +154,18 @@ public sealed partial class SoundsViewModel : ObservableObject
                 Description = choice.DisplayName.Length > 0
                     ? _text.Get("Sounds_Pack_Folder_Detail")
                     : _text.Get($"Sounds_Pack_{choice.Id}_Detail"),
-                ApplyLabel = _text.Get("Sounds_Apply"),
+                // Возврат к стандартным звукам подписан своим словом.
+                //
+                // Раньше здесь у всех строк стояло «Применить», включая строку
+                // «Стандартные Windows» — и её кнопка вдобавок нарисована
+                // акцентной, то есть самой заметной на экране. Человек, желавший
+                // применить набор, нажимал самую яркую кнопку и получал возврат
+                // к звукам Windows. Отследили это по реестру 2026-08-10: после
+                // трёх «применений» подряд состояние оставалось ровно исходным,
+                // потому что каждый раз выполнялось восстановление.
+                ApplyLabel = choice.Kind == SoundChoiceKind.WindowsDefaults
+                    ? _text.Get("Sounds_Restore")
+                    : _text.Get("Sounds_Apply"),
                 PreviewLabel = _text.Get("Sounds_Preview"),
                 CanPreview = choice.PreviewFile.Length > 0,
 
@@ -160,10 +205,19 @@ public sealed partial class SoundsViewModel : ObservableObject
                 .FirstOrDefault(c => string.Equals(c.Id, choice.Id, StringComparison.Ordinal));
             if (source is null)
             {
+                Diagnostics.DiagnosticSink.Note(
+                    "Sounds.Apply",
+                    $"choice '{choice.Id}' is no longer among the offered choices; nothing applied");
                 return;
             }
 
             var outcome = await Task.Run(() => _sounds.Apply(source)).ConfigureAwait(true);
+
+            // Recorded on every run, success included. Whether the registry was touched at all was
+            // exactly the question three rounds of measurement could not answer from outside.
+            Diagnostics.DiagnosticSink.Note(
+                "Sounds.Apply",
+                $"id='{source.Id}' kind={source.Kind} -> applied={outcome.Applied} skipped={outcome.Skipped}");
 
             // Silent on success, as elsewhere: the next notification is the confirmation. A run that
             // changed nothing is the only case worth a sentence.

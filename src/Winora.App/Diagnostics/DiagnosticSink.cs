@@ -26,6 +26,24 @@ public static partial class DiagnosticSink
     public static void Write(string stage, Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        Append(stage, Redact(exception.ToString()));
+    }
+
+    /// <summary>
+    /// Records a plain observation, not a failure.
+    /// </summary>
+    /// <remarks>
+    /// Added because an operation that silently did nothing could not be told apart from one that
+    /// never ran. Applying a sound scheme reported success on screen, the registry was untouched,
+    /// and nothing anywhere said which of the two had happened — three rounds of guessing followed.
+    /// A note here is cheaper than another round. Redacted like any other entry, so it stays safe
+    /// to send.
+    /// </remarks>
+    public static void Note(string stage, string message) =>
+        Append(stage, Redact(message ?? string.Empty));
+
+    private static void Append(string stage, string body)
+    {
         var correlationId = Guid.NewGuid().ToString("N")[..12];
 
         var entry = new StringBuilder()
@@ -33,7 +51,7 @@ public static partial class DiagnosticSink
             .Append("  [").Append(correlationId).Append("]  ")
             .Append(stage)
             .AppendLine()
-            .AppendLine(Redact(exception.ToString()))
+            .AppendLine(body)
             .ToString();
 
         try

@@ -184,9 +184,10 @@ public sealed class BypassProcessController : IBypassProcessController
             return new BypassStartReport(BypassStartOutcome.Missing, strategy.ExecutablePath);
         }
 
-        // The lists the launch line references but the release's own script creates. Without them
-        // winws.exe exits immediately; see BypassStrategyCatalog.EnsureUserLists.
-        _catalog.EnsureUserLists();
+        // The lists the launch line references: the ones the release's own script creates, without
+        // which winws.exe exits immediately, and Winora's own host list, which replaces the
+        // release's. See BypassStrategyCatalog.PrepareLists.
+        _catalog.PrepareLists();
 
         try
         {

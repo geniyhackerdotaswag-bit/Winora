@@ -38,6 +38,16 @@ public sealed class BypassStrategyCatalogTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The strategy the parsing tests use.
+    /// </summary>
+    /// <remarks>
+    /// One of the twelve numbered variants, chosen because those are the ones Winora offers. The
+    /// plain <c>general</c> stood here until the nine were hidden, at which point every parsing test
+    /// started asserting against an empty list — which is the right way for that to go wrong.
+    /// </remarks>
+    private const string Sample = "general (ALT3)";
+
     /// <summary>The launch line as the release actually writes it, continuations and all.</summary>
     private const string RealStrategy = """
         @echo off
@@ -71,7 +81,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [InlineData("ipset-exclude-user.txt")]
     public void A_missing_user_list_is_created(string name)
     {
-        var created = new BypassStrategyCatalog(_root).EnsureUserLists();
+        var created = new BypassStrategyCatalog(_root).PrepareLists();
 
         var path = Path.Combine(_root, "lists", name);
         Assert.True(File.Exists(path), $"{name} was not created.");
@@ -89,7 +99,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
         var path = Path.Combine(_root, "lists", "list-general-user.txt");
         File.WriteAllText(path, "mine.example");
 
-        var created = new BypassStrategyCatalog(_root).EnsureUserLists();
+        var created = new BypassStrategyCatalog(_root).PrepareLists();
 
         Assert.Equal("mine.example", File.ReadAllText(path));
         Assert.DoesNotContain("list-general-user.txt", created);
@@ -100,18 +110,84 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     {
         var catalog = new BypassStrategyCatalog(_root);
 
-        Assert.NotEmpty(catalog.EnsureUserLists());
-        Assert.Empty(catalog.EnsureUserLists());
+        Assert.NotEmpty(catalog.PrepareLists());
+        Assert.Empty(catalog.PrepareLists());
+    }
+
+    /// <summary>
+    /// The host list Winora ships replaces the release's, which is 902 bytes and covers little.
+    /// </summary>
+    /// <remarks>
+    /// The opposite rule from the user lists above, and deliberately so: this one is always brought
+    /// back to what Winora ships. The release replaces this file on every upgrade, so writing it
+    /// once would quietly revert the next time the tool updated.
+    /// </remarks>
+    [Fact]
+    public void The_release_host_list_is_replaced_with_the_bundled_one()
+    {
+        var path = Path.Combine(_root, "lists", "list-general.txt");
+        File.WriteAllText(path, "theirs.example\r\n");
+
+        var written = new BypassStrategyCatalog(_root).PrepareLists();
+
+        Assert.Contains("list-general.txt", written);
+
+        // Not a fixed number: the list is data and will be updated. What must hold is that it is
+        // the big one and not the 902-byte original.
+        Assert.True(new FileInfo(path).Length > 100_000, "The bundled host list did not arrive.");
+        Assert.Contains("googlevideo.com", File.ReadAllText(path));
+    }
+
+    /// <summary>
+    /// An already-correct file is left alone, down to its write time.
+    /// </summary>
+    /// <remarks>
+    /// Two megabytes should not be written to disk every time somebody presses start. The check is
+    /// length first and SHA-256 only when the lengths match.
+    /// </remarks>
+    [Fact]
+    public void The_host_list_is_not_rewritten_when_it_already_matches()
+    {
+        var catalog = new BypassStrategyCatalog(_root);
+        catalog.PrepareLists();
+
+        var path = Path.Combine(_root, "lists", "list-general.txt");
+        var stamp = File.GetLastWriteTimeUtc(path);
+
+        Assert.DoesNotContain("list-general.txt", catalog.PrepareLists());
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(path));
+    }
+
+    /// <summary>
+    /// A hand-edited host list is overwritten — that is what "always replace" means.
+    /// </summary>
+    /// <remarks>
+    /// Stated as a test because it is the one case where this differs from every other list here,
+    /// and someone reading only the user-list tests would assume the opposite. Additions of one's
+    /// own belong in <c>list-general-user.txt</c>, which the release keeps for exactly that and
+    /// which is never touched once it exists.
+    /// </remarks>
+    [Fact]
+    public void A_hand_edited_host_list_is_replaced_but_the_user_list_beside_it_is_not()
+    {
+        var lists = Path.Combine(_root, "lists");
+        File.WriteAllText(Path.Combine(lists, "list-general.txt"), "mine.example");
+        File.WriteAllText(Path.Combine(lists, "list-general-user.txt"), "mine.example");
+
+        new BypassStrategyCatalog(_root).PrepareLists();
+
+        Assert.DoesNotContain("mine.example", File.ReadAllText(Path.Combine(lists, "list-general.txt")));
+        Assert.Equal("mine.example", File.ReadAllText(Path.Combine(lists, "list-general-user.txt")));
     }
 
     [Fact]
     public void A_strategy_is_read_from_its_batch_file()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
 
         var strategy = Assert.Single(new BypassStrategyCatalog(_root).Strategies());
 
-        Assert.Equal("general", strategy.Id);
+        Assert.Equal(Sample, strategy.Id);
         Assert.Equal(Path.Combine(_root, "bin", "winws.exe"), strategy.ExecutablePath);
         Assert.Equal(Path.Combine(_root, "bin"), strategy.WorkingDirectory);
     }
@@ -124,7 +200,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void Arguments_continued_across_lines_are_all_collected()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
 
         var arguments = new BypassStrategyCatalog(_root).Strategies().Single().Arguments;
 
@@ -141,7 +217,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void No_argument_is_left_holding_an_unexpanded_variable()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
 
         foreach (var argument in new BypassStrategyCatalog(_root).Strategies().Single().Arguments)
         {
@@ -152,7 +228,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void List_paths_are_expanded_to_the_release_folder()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
 
         var arguments = new BypassStrategyCatalog(_root).Strategies().Single().Arguments;
 
@@ -169,7 +245,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void The_game_filter_is_off_when_the_release_says_so()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
 
         var arguments = new BypassStrategyCatalog(_root).Strategies().Single().Arguments;
 
@@ -180,7 +256,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void The_game_filter_widens_the_ports_when_the_release_enables_it()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
         File.WriteAllText(Path.Combine(_root, "utils", "game_filter.enabled"), "enabled (TCP and UDP)");
 
         var arguments = new BypassStrategyCatalog(_root).Strategies().Single().Arguments;
@@ -193,10 +269,10 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void The_helper_script_is_not_a_strategy()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
         Write("service.bat", "@echo off\r\necho this is the helper, it also mentions winws.exe");
 
-        Assert.Equal(["general"], new BypassStrategyCatalog(_root).Strategies().Select(s => s.Id));
+        Assert.Equal([Sample], new BypassStrategyCatalog(_root).Strategies().Select(s => s.Id));
     }
 
     /// <summary>
@@ -207,21 +283,69 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     public void Names_are_the_release_names_unchanged()
     {
         Write("general (ALT3).bat", RealStrategy);
-        Write("general (FAKE TLS AUTO).bat", RealStrategy);
+        Write("general (ALT12).bat", RealStrategy);
 
         var names = new BypassStrategyCatalog(_root).Strategies().Select(static s => s.Name).ToArray();
 
         Assert.Contains("general (ALT3)", names);
-        Assert.Contains("general (FAKE TLS AUTO)", names);
+        Assert.Contains("general (ALT12)", names);
+    }
+
+    /// <summary>
+    /// The nine the owner asked for on 2026-08-14 are not offered, and the twelve numbered ones are.
+    /// </summary>
+    /// <remarks>
+    /// Named one by one rather than by pattern. A rule like "hide anything without a number" would
+    /// quietly swallow whatever upstream adds next, and the point of hiding these was that somebody
+    /// chose them, not that they share a shape.
+    /// </remarks>
+    [Theory]
+    [InlineData("general")]
+    [InlineData("general (EXP)")]
+    [InlineData("general (FAKE TLS AUTO)")]
+    [InlineData("general (FAKE TLS AUTO ALT)")]
+    [InlineData("general (FAKE TLS AUTO ALT2)")]
+    [InlineData("general (FAKE TLS AUTO ALT3)")]
+    [InlineData("general (SIMPLE FAKE)")]
+    [InlineData("general (SIMPLE FAKE ALT)")]
+    [InlineData("general (SIMPLE FAKE ALT2)")]
+    public void A_hidden_strategy_is_not_offered(string name)
+    {
+        Write(name + ".bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
+
+        Assert.Equal([Sample], new BypassStrategyCatalog(_root).Strategies().Select(static s => s.Id));
+    }
+
+    /// <summary>
+    /// All twelve numbered variants survive. <c>general (ALT)</c> is the one worth spelling out:
+    /// it has no number and it starts with the same words as the hidden families, so a rule matching
+    /// on prefixes rather than on whole names would take it with them.
+    /// </summary>
+    [Fact]
+    public void The_numbered_variants_are_all_offered()
+    {
+        var kept = new[] { "general (ALT)" }
+            .Concat(Enumerable.Range(2, 11).Select(static n => $"general (ALT{n})"))
+            .ToArray();
+
+        foreach (var name in kept)
+        {
+            Write(name + ".bat", RealStrategy);
+        }
+
+        var offered = new BypassStrategyCatalog(_root).Strategies().Select(static s => s.Id);
+
+        Assert.Equal(kept.OrderBy(static n => n, StringComparer.CurrentCultureIgnoreCase), offered);
     }
 
     [Fact]
     public void A_batch_file_with_no_launch_line_is_skipped()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
         Write("readme.bat", "@echo off\r\necho nothing to launch here");
 
-        Assert.Equal(["general"], new BypassStrategyCatalog(_root).Strategies().Select(s => s.Id));
+        Assert.Equal([Sample], new BypassStrategyCatalog(_root).Strategies().Select(s => s.Id));
     }
 
     /// <summary>
@@ -231,7 +355,7 @@ public sealed class BypassStrategyCatalogTests : IDisposable
     [Fact]
     public void Nothing_is_offered_when_the_release_is_not_installed()
     {
-        Write("general.bat", RealStrategy);
+        Write(Sample + ".bat", RealStrategy);
         File.Delete(Path.Combine(_root, "bin", "winws.exe"));
 
         var catalog = new BypassStrategyCatalog(_root);

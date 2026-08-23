@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Winora.System.Windows;
@@ -28,10 +30,10 @@ public interface IBypassStrategyCatalog
     IReadOnlyList<BypassStrategy> Strategies();
 
     /// <summary>
-    /// Creates the user-editable lists a strategy references, when they are missing.
+    /// Puts the lists a strategy references into the state it expects, before one is started.
     /// </summary>
-    /// <returns>The files that had to be created, for the record.</returns>
-    IReadOnlyList<string> EnsureUserLists();
+    /// <returns>The files that had to be written, for the record.</returns>
+    IReadOnlyList<string> PrepareLists();
 }
 
 /// <summary>
@@ -59,6 +61,41 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
     private const string HelperScript = "service.bat";
 
     private const string Executable = "winws.exe";
+
+    /// <summary>
+    /// Strategies the release ships that Winora does not offer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The owner picked these out by name on 2026-08-14: the plain <c>general</c>, the experimental
+    /// one, and the two families named after the trick they use — <c>FAKE TLS AUTO</c> and
+    /// <c>SIMPLE FAKE</c>, each with its alternates. What is left is <c>ALT</c> through
+    /// <c>ALT12</c>, twelve numbered variants that differ only in tuning.
+    /// </para>
+    /// <para>
+    /// Hidden rather than deleted. The files stay where the release put them, so an upgrade does not
+    /// have to put them back and nothing has to be reconciled with upstream; this list is the only
+    /// place that knows they exist. Names are matched exactly, ignoring case, against the file name
+    /// without its extension — the same string the strategy would have been called.
+    /// </para>
+    /// <para>
+    /// A name here that upstream renames or drops simply stops matching, and that strategy would
+    /// reappear in the list. That is the safe direction to fail: an unexpected extra entry is
+    /// visible, a silently missing one is not.
+    /// </para>
+    /// </remarks>
+    private static readonly FrozenSet<string> Hidden = new[]
+    {
+        "general",
+        "general (EXP)",
+        "general (FAKE TLS AUTO)",
+        "general (FAKE TLS AUTO ALT)",
+        "general (FAKE TLS AUTO ALT2)",
+        "general (FAKE TLS AUTO ALT3)",
+        "general (SIMPLE FAKE)",
+        "general (SIMPLE FAKE ALT)",
+        "general (SIMPLE FAKE ALT2)",
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     public BypassStrategyCatalog()
         : this(DefaultRoot())
@@ -108,6 +145,7 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
         return files
             .Where(static file => !string.Equals(
                 Path.GetFileName(file), HelperScript, StringComparison.OrdinalIgnoreCase))
+            .Where(static file => !Hidden.Contains(Path.GetFileNameWithoutExtension(file)))
             .Select(file => Read(file, variables))
             .Where(static strategy => strategy is not null)
             .Select(static strategy => strategy!)
@@ -136,37 +174,85 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
         ("list-exclude-user.txt", ["domain.example.abc"]),
     ];
 
+    /// <summary>The release's own host list, which Winora replaces with its own.</summary>
+    private const string GeneralList = "list-general.txt";
+
+    /// <summary>The name given to the embedded copy in <c>Winora.System.csproj</c>.</summary>
+    private const string GeneralListResource = "Winora.System.list-general.txt";
+
     /// <summary>
-    /// Creates the user lists the launch line references, exactly as the release's own script would.
+    /// The host list Winora ships, read once out of the assembly.
+    /// </summary>
+    /// <remarks>
+    /// Empty if it cannot be read, and an empty bundle writes nothing. That is the safe direction to
+    /// fail: the release's own list stays where it is and the strategies keep working, rather than
+    /// <c>winws.exe</c> being handed a truncated host list — which it treats as an error, exiting
+    /// within a second with nothing on screen to explain it.
+    /// </remarks>
+    private static readonly Lazy<byte[]> BundledGeneralList = new(
+        static () =>
+        {
+            try
+            {
+                using var stream = typeof(BypassStrategyCatalog).Assembly
+                    .GetManifestResourceStream(GeneralListResource);
+
+                if (stream is null)
+                {
+                    return [];
+                }
+
+                using var memory = new MemoryStream();
+                stream.CopyTo(memory);
+                return memory.ToArray();
+            }
+            catch (Exception)
+            {
+                return [];
+            }
+        },
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>
+    /// Puts the lists the launch line references into the state the strategies expect.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is the one side effect of the batch preamble that a strategy genuinely depends on, and
-    /// leaving it out is why starting a strategy failed. Winora deliberately does not run those
-    /// scripts — they also check for updates and print to a console — but three of the four calls in
-    /// the preamble are cosmetic and the fourth, <c>load_user_lists</c>, creates files that every
-    /// strategy then passes to <c>--hostlist</c> and <c>--ipset-exclude</c>. A missing host list is
-    /// fatal to <c>winws.exe</c>, so the process started and exited within a second, and the screen
-    /// simply went back to "not running" with nothing to explain it.
+    /// Two different jobs, and they differ in whether they overwrite.
     /// </para>
     /// <para>
-    /// Measured on 2026-08-08 against release 1.10.0: all three files were absent from a folder the
-    /// installer had unpacked, and every strategy failed the same way.
+    /// The three <c>*-user.txt</c> files are created only when missing, exactly as the release's own
+    /// <c>service.bat :load_user_lists</c> would. This is the one side effect of the batch preamble
+    /// that a strategy genuinely depends on, and leaving it out is why starting a strategy failed:
+    /// Winora deliberately does not run those scripts — they also check for updates and print to a
+    /// console — but every strategy passes these files to <c>--hostlist</c> and
+    /// <c>--ipset-exclude</c>, and a missing host list is fatal to <c>winws.exe</c>. Measured on
+    /// 2026-08-08 against release 1.10.0: all three were absent from a folder the installer had
+    /// unpacked, and every strategy failed the same way. They are never rewritten — a user's own
+    /// edits are theirs.
     /// </para>
     /// <para>
-    /// Only these three fixed names are ever written, always inside the release's own
-    /// <c>lists</c> folder, and never over a file that already exists — a user's own edits are
-    /// theirs.
+    /// <c>list-general.txt</c> is the opposite: it is always brought back to the copy Winora ships.
+    /// The release's own is 902 bytes and covers little; the bundled one is around 150 000 hosts.
+    /// Because the installer replaces this file on every upgrade, "write it once" would quietly
+    /// revert the next time the release updated, so the check runs before every start.
+    /// </para>
+    /// <para>
+    /// It is compared, not blindly written: length first, then SHA-256 only when the lengths match.
+    /// Two megabytes is not worth writing to disk each time somebody presses start, and an unchanged
+    /// file should stay untouched. Note this does overwrite an edit made to that one file by hand —
+    /// which is what "always replace" means, and why the release keeps a separate
+    /// <c>list-general-user.txt</c> for additions of one's own.
     /// </para>
     /// </remarks>
-    public IReadOnlyList<string> EnsureUserLists()
+    public IReadOnlyList<string> PrepareLists()
     {
-        var created = new List<string>();
+        var written = new List<string>();
         var lists = Path.Combine(RootDirectory, "lists");
 
         if (!Directory.Exists(lists))
         {
-            return created;
+            return written;
         }
 
         foreach (var (name, lines) in UserLists)
@@ -180,7 +266,7 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
                 }
 
                 File.WriteAllLines(path, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                created.Add(name);
+                written.Add(name);
             }
             catch (Exception)
             {
@@ -189,7 +275,56 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
             }
         }
 
-        return created;
+        if (ReplaceGeneralList(Path.Combine(lists, GeneralList)))
+        {
+            written.Add(GeneralList);
+        }
+
+        return written;
+    }
+
+    /// <summary>Writes the bundled host list over the release's, when they differ.</summary>
+    /// <returns>True when the file was actually written.</returns>
+    private static bool ReplaceGeneralList(string path)
+    {
+        var bundled = BundledGeneralList.Value;
+
+        if (bundled.Length == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (Matches(path, bundled))
+            {
+                return false;
+            }
+
+            File.WriteAllBytes(path, bundled);
+            return true;
+        }
+        catch (Exception)
+        {
+            // Same reasoning as above: a list that cannot be written shows up as a start that fails
+            // and says so, which beats throwing out of a status refresh.
+            return false;
+        }
+    }
+
+    /// <summary>True when the file on disk already holds exactly these bytes.</summary>
+    private static bool Matches(string path, byte[] bundled)
+    {
+        var file = new FileInfo(path);
+
+        // Length settles it in every case but one, and costs nothing.
+        if (!file.Exists || file.Length != bundled.Length)
+        {
+            return false;
+        }
+
+        using var stream = File.OpenRead(path);
+        return SHA256.HashData(stream).AsSpan().SequenceEqual(SHA256.HashData(bundled));
     }
 
     private string ExecutablePath() => Path.Combine(RootDirectory, "bin", Executable);

@@ -102,18 +102,53 @@ public sealed class SoundService : ISoundService
     {
         ArgumentNullException.ThrowIfNull(choice);
 
-        var result = choice.Kind switch
+        if (choice.Kind == SoundChoiceKind.WindowsDefaults)
         {
-            SoundChoiceKind.WindowsDefaults => _applier.RestoreDefaults(),
+            var restored = _applier.RestoreDefaults();
+            Diagnostics.DiagnosticSink.Note(
+                "Sounds.Restore",
+                $"restored={restored.Applied} skipped={restored.Skipped}");
+            return new SoundApplyOutcome(restored.Applied, restored.Skipped);
+        }
 
-            // Files are re-read from their source rather than carried on the view, so no caller can
-            // point the applier at an arbitrary path.
-            _ => _applier.Apply(
-                _folder.Packs(_builder.RootDirectory)
-                    .FirstOrDefault(pack => string.Equals(
-                        Path.GetFileName(pack.Directory), choice.Id, StringComparison.Ordinal))
-                    ?.Files ?? new Dictionary<SoundEvent, string>()),
-        };
+        // Files are re-read from their source rather than carried on the view, so no caller can
+        // point the applier at an arbitrary path.
+        var pack = _folder.Packs(_builder.RootDirectory)
+            .FirstOrDefault(candidate => string.Equals(
+                Path.GetFileName(candidate.Directory), choice.Id, StringComparison.Ordinal));
+
+        var files = pack?.Files ?? new Dictionary<SoundEvent, string>();
+
+        // The pack lookup is the step that can quietly produce nothing: a folder renamed under the
+        // app, a scan that matched no file name. An empty set is not refused — it silences the
+        // desktop, which is a legitimate thing to ask for — so the count is recorded instead.
+        Diagnostics.DiagnosticSink.Note(
+            "Sounds.Apply",
+            $"pack '{choice.Id}' matched={pack is not null} files={files.Count} " +
+            $"events=[{string.Join(",", files.Keys)}]");
+
+        // Пишем в журнал первые несколько записей вместе с тем, что читается
+        // обратно. Снаружи «запись ушла не туда» и «записи не было» неотличимы.
+        SoundSchemeApplier.BeginObservedRun();
+        SoundSchemeApplier.WriteObserver = (path, written, readBack) =>
+            Diagnostics.DiagnosticSink.Note(
+                "Sounds.Write",
+                $"{path}\n  записано:  {(written.Length == 0 ? "(тишина)" : written)}" +
+                $"\n  прочитано: {(readBack is null ? "(null)" : readBack.Length == 0 ? "(тишина)" : readBack)}");
+
+        SoundApplyResult result;
+        try
+        {
+            result = _applier.Apply(files);
+        }
+        finally
+        {
+            SoundSchemeApplier.WriteObserver = null;
+        }
+
+        Diagnostics.DiagnosticSink.Note(
+            "Sounds.Apply",
+            $"applied={result.Applied} silenced={result.Silenced} skipped={result.Skipped}");
 
         return new SoundApplyOutcome(result.Applied, result.Skipped);
     }

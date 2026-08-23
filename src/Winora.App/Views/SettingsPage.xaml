@@ -28,9 +28,6 @@
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRuleSystem}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
@@ -103,11 +100,6 @@
                                TextWrapping="Wrap"
                                Margin="2,0,0,10"
                                Text="{x:Bind ViewModel.StorageNote, Mode=OneWay}" />
-
-                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                               Margin="2,0,0,10"
-                               IsTextSelectionEnabled="True"
-                               Text="{x:Bind ViewModel.StorageDisplayPath, Mode=OneWay}" />
 
                     <Button Style="{StaticResource WinoraActionButton}"
                             HorizontalAlignment="Left"

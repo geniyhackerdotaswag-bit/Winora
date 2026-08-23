@@ -6,7 +6,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
   IgnorableNamespaces="uap rescap desktop6">
-  <Identity Name="Winora.App" Publisher="CN=Winora" Version="0.3.0.0" />
+  <Identity Name="Winora.App" Publisher="CN=Winora" Version="0.3.7.0" />
   <mp:PhoneIdentity PhoneProductId="4370573d-525e-4af2-b3e3-d035695b3753" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Winora</DisplayName>

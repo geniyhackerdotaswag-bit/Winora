@@ -1,0 +1,5 @@
+# The bundled host list is shipped byte-for-byte: it is embedded in the assembly and written over
+# the release's own copy, and the app compares hashes to decide whether it needs writing. Letting
+# git normalise its line endings would change those bytes on checkout and make every machine
+# disagree about whether the file is already in place.
+src/Winora.System/Windows/Lists/list-general.txt -text

@@ -196,6 +196,9 @@
   <data name="Sounds_FolderNote"><value>Звуки лежат в папке ниже обычными файлами .wav — их можно послушать или заменить своими. Заменённый файл Winora не перезапишет.</value></data>
   <data name="Sounds_OpenFolder"><value>Открыть папку</value></data>
   <data name="Sounds_Apply"><value>Применить</value></data>
+  <data name="Sounds_Restore"><value>Вернуть стандартные</value></data>
+  <data name="Sounds_Maintenance_Title"><value>Раздел закрыт на технические работы</value></data>
+  <data name="Sounds_Maintenance"><value>Замена системных звуков временно недоступна: применение сообщало об успехе, но звуки Windows не менялись, и причина пока не найдена. Предлагать действие с неизвестным результатом хуже, чем не предлагать ничего. Если раньше вы применяли набор и хотите вернуть стандартные звуки, это делается средствами Windows: Параметры → Система → Звук → Дополнительные параметры звука → вкладка «Звуки» → Звуковая схема: «По умолчанию».</value></data>
   <data name="Sounds_Preview"><value>Послушать</value></data>
   <data name="Sounds_NothingApplied"><value>Ни один звук не изменился.</value></data>
   <data name="Sounds_Pack_soft"><value>Мягкий</value></data>

@@ -7,6 +7,14 @@
     <PackageReference Include="System.Management" />
   </ItemGroup>
   <ItemGroup>
+    <!--
+      The host list Winora writes over the one the release ships. Embedded rather than copied beside
+      the executable so that it travels inside the single portable .exe, with an explicit name so
+      the code does not depend on how the SDK derives one from the folder layout.
+    -->
+    <EmbeddedResource Include="Windows\Lists\list-general.txt" LogicalName="Winora.System.list-general.txt" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Winora.Core\Winora.Core.csproj" />
   </ItemGroup>
 </Project>

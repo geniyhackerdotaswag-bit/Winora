@@ -32,9 +32,6 @@
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
@@ -57,11 +54,6 @@
                              Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
                     <!-- Where to drop packs, spelled out and one click away. -->
-                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                               Margin="2,0,0,8"
-                               IsTextSelectionEnabled="True"
-                               Text="{x:Bind ViewModel.PackFolder, Mode=OneWay}" />
-
                     <StackPanel Orientation="Horizontal"
                                 Spacing="8"
                                 Margin="{StaticResource WinoraStackGapL}">

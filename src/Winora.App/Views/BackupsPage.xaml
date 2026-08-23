@@ -28,9 +28,6 @@
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRuleSystem}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
@@ -46,13 +43,6 @@
                       Winora's own records, not Windows settings, and a user who restores one hoping
                       their desktop will change would conclude the feature is broken.
                     -->
-                    <InfoBar IsOpen="True"
-                             IsClosable="False"
-                             Severity="Informational"
-                             Margin="{StaticResource WinoraStackGapL}"
-                             Title="{x:Bind ViewModel.PurposeTitle, Mode=OneWay}"
-                             Message="{x:Bind ViewModel.Purpose, Mode=OneWay}" />
-
                     <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                              IsClosable="False"
                              Severity="Informational"

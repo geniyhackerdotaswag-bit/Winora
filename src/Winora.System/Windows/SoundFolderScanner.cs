@@ -49,11 +49,50 @@ public sealed class SoundFolderScanner : ISoundFolderScanner
         ("insert", SoundEvent.DeviceConnect),
         ("remove", SoundEvent.DeviceDisconnect),
 
-        ("error", SoundEvent.DeviceFail),
-        ("fail", SoundEvent.DeviceFail),
-        ("critical stop", SoundEvent.DeviceFail),
+        // Диалог критической ошибки. Токены нарочно точные: общее "error" ниже
+        // означает отказ устройства и должно остаться за ним.
+        ("critical stop", SoundEvent.Error),
+        ("hand", SoundEvent.Error),
+        ("oshib", SoundEvent.Error),
+        ("device fail", SoundEvent.DeviceFail),
 
         ("mail", SoundEvent.Mail),
+
+        // Диалоги и системные сообщения.
+        ("exclamation", SoundEvent.Warning),
+        ("warning", SoundEvent.Warning),
+        ("preduprezh", SoundEvent.Warning),
+
+        ("asterisk", SoundEvent.Information),
+        ("information", SoundEvent.Information),
+        ("info", SoundEvent.Information),
+
+        ("uac", SoundEvent.Elevation),
+        ("elevation", SoundEvent.Elevation),
+        ("admin", SoundEvent.Elevation),
+
+        ("reminder", SoundEvent.Reminder),
+        ("calendar", SoundEvent.Reminder),
+        ("napomin", SoundEvent.Reminder),
+
+        ("message", SoundEvent.Message),
+        ("nudge", SoundEvent.Message),
+        ("chat", SoundEvent.Message),
+        ("sms", SoundEvent.Message),
+
+        ("logon", SoundEvent.Logon),
+        ("logoff", SoundEvent.Logon),
+        ("unlock", SoundEvent.Logon),
+        ("startup", SoundEvent.Logon),
+        ("vhod", SoundEvent.Logon),
+
+        // Общее "error" по-прежнему означает отказ устройства, хотя теперь есть
+        // и отдельное событие Error. Менять это нельзя: в существующих наборах
+        // файл с таким именем уже звучит на отказе устройства, и переназначение
+        // молча переставило бы звук у тех, кто ничего не менял. Для новой
+        // ошибки-диалога есть более точные токены выше.
+        ("error", SoundEvent.DeviceFail),
+        ("fail", SoundEvent.DeviceFail),
 
         // The general notification, written every way there is including transliterated Russian.
         ("notification", SoundEvent.Notification),

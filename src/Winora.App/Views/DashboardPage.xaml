@@ -35,10 +35,6 @@
                         <TextBlock Style="{StaticResource WinoraPageTitle}"
                                    Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                         <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
-                        <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                                   Margin="0"
-                                   TextWrapping="Wrap"
-                                   Text="{x:Bind ViewModel.SafetyStatement, Mode=OneWay}" />
                     </StackPanel>
                 </Grid>
 
