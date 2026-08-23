@@ -170,4 +170,36 @@ public sealed class AppFileSwapTests : IDisposable
         // The stuck leftover is still there.
         Assert.True(File.Exists(displaced));
     }
+
+    /// <summary>
+    /// Both moves fail after the program has already been set aside: it is gone from its own path,
+    /// and the caller has to be told that rather than "nothing happened".
+    /// </summary>
+    /// <remarks>
+    /// Reached through the internal seam because it cannot be reached any other way — by the time
+    /// the rescue runs, the file it needs was created by a rename that succeeded a moment earlier,
+    /// so no lock taken before the call can still be on it. The first move is allowed to really
+    /// happen: what is being pinned is the state it leaves behind.
+    /// </remarks>
+    [Fact]
+    public void When_the_rescue_also_fails_the_program_is_reported_as_displaced()
+    {
+        var moves = 0;
+
+        var result = AppFileSwap.Replace(_target, _fresh, (from, to) =>
+        {
+            moves++;
+            if (moves == 1)
+            {
+                File.Move(from, to);
+                return;
+            }
+
+            throw new IOException("held open");
+        });
+
+        Assert.Equal(SwapResult.Displaced, result);
+        Assert.False(File.Exists(_target));
+        Assert.Equal("old program", File.ReadAllText(_target + AppFileSwap.OldSuffix));
+    }
 }

@@ -6,7 +6,7 @@ public enum SwapResult
     /// <summary>The new program is in place.</summary>
     Replaced,
 
-    /// <summary>Nothing was moved. The program is where it was and still runs.</summary>
+    /// <summary>The program is where it was and still runs. Either nothing moved, or what moved was put back.</summary>
     Unchanged,
 
     /// <summary>
@@ -47,7 +47,18 @@ public static class AppFileSwap
     public const string FreshSuffix = ".new";
 
     /// <summary>Replaces <paramref name="target" /> with <paramref name="fresh" />.</summary>
-    public static SwapResult Replace(string target, string fresh)
+    public static SwapResult Replace(string target, string fresh) =>
+        Replace(target, fresh, File.Move);
+
+    /// <summary>The same, with the move operation supplied.</summary>
+    /// <remarks>
+    /// Exists for one test. The path where the rescue move fails leaves the program sitting beside
+    /// its own name, and it is the only outcome a caller must act on — but it cannot be provoked
+    /// through the file system, because the file the rescue needs is one the previous rename just
+    /// created. Rather than leave that branch to inspection, the two moves are taken as a
+    /// parameter, and the production entry point above passes the real one.
+    /// </remarks>
+    internal static SwapResult Replace(string target, string fresh, Action<string, string> move)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         ArgumentException.ThrowIfNullOrWhiteSpace(fresh);
@@ -65,7 +76,7 @@ public static class AppFileSwap
             // whatever it holds has already been superseded once.
             TryDelete(displaced);
 
-            File.Move(target, displaced);
+            move(target, displaced);
         }
         catch (Exception)
         {
@@ -75,7 +86,7 @@ public static class AppFileSwap
 
         try
         {
-            File.Move(fresh, target);
+            move(fresh, target);
             return SwapResult.Replaced;
         }
         catch (Exception)
@@ -83,7 +94,7 @@ public static class AppFileSwap
             // Put the working program back. If even this fails there is nothing further to try.
             try
             {
-                File.Move(displaced, target);
+                move(displaced, target);
                 return SwapResult.Unchanged;
             }
             catch (Exception)

@@ -17,4 +17,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Winora.Core\Winora.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!--
+      The swap's double-failure path cannot be reached from outside: by the time the rescue move
+      runs, the file it needs is one the previous rename just created, and nothing a test set up
+      beforehand can be holding it. The seam below is the only way that branch gets covered, and
+      the branch is the one that decides whether somebody is told their program is missing.
+    -->
+    <InternalsVisibleTo Include="Winora.System.Tests" />
+  </ItemGroup>
 </Project>
