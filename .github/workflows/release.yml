@@ -1,0 +1,64 @@
+# Builds the portable Winora and publishes it, on a tag and only on a tag.
+#
+# The tag is the only source of the version: it reaches the build as -p:Version and ends up inside
+# the executable, where the update check reads it back. Nothing here uses a token belonging to a
+# person — GITHUB_TOKEN is issued for the length of this run and expires with it.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # The tag is written v0.4.0; the version inside the build is not.
+      - name: Read the version out of the tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Tag '${{ github.ref_name }}' is not vMAJOR.MINOR.PATCH"
+          }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Test
+        run: dotnet test --nologo
+
+      - name: Publish
+        run: >
+          dotnet publish src/Winora.App/Winora.App.csproj
+          -c Release
+          -p:WinoraPortable=true
+          -p:Platform=x64
+          -p:Version=${{ steps.version.outputs.value }}
+          -o publish
+
+      # Published as Winora.exe: that is the name an installed copy has, and AppInstallLocation
+      # checks the name as well as the folder.
+      - name: Name it as the release
+        shell: pwsh
+        run: |
+          Move-Item publish/Winora.App.exe publish/Winora.exe
+          $hash = (Get-FileHash publish/Winora.exe -Algorithm SHA256).Hash
+          "$hash  Winora.exe" | Out-File publish/Winora.exe.sha256 -Encoding ascii -NoNewline
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/Winora.exe
+            publish/Winora.exe.sha256
+          generate_release_notes: true
