@@ -18,3 +18,7 @@ BundleArtifacts/
 # Python bytecode, from the tooling under .claude/skills
 __pycache__/
 *.pyc
+
+# Build output of the portable single-file publish. Around 90 MB per build, and a binary
+# nobody needs in history: the release workflow builds it on GitHub from the tag.
+publish/
