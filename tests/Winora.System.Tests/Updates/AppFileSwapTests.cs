@@ -45,7 +45,7 @@ public sealed class AppFileSwapTests : IDisposable
     [Fact]
     public void The_new_file_takes_the_place_of_the_old_one()
     {
-        Assert.True(AppFileSwap.Replace(_target, _fresh));
+        Assert.Equal(SwapResult.Replaced, AppFileSwap.Replace(_target, _fresh));
 
         Assert.Equal("new program", File.ReadAllText(_target));
         Assert.False(File.Exists(_fresh));
@@ -66,7 +66,7 @@ public sealed class AppFileSwapTests : IDisposable
     {
         File.WriteAllText(_target + AppFileSwap.OldSuffix, "from last time");
 
-        Assert.True(AppFileSwap.Replace(_target, _fresh));
+        Assert.Equal(SwapResult.Replaced, AppFileSwap.Replace(_target, _fresh));
         Assert.Equal("new program", File.ReadAllText(_target));
     }
 
@@ -79,7 +79,7 @@ public sealed class AppFileSwapTests : IDisposable
     {
         File.Delete(_fresh);
 
-        Assert.False(AppFileSwap.Replace(_target, _fresh));
+        Assert.Equal(SwapResult.Unchanged, AppFileSwap.Replace(_target, _fresh));
         Assert.Equal("old program", File.ReadAllText(_target));
         Assert.False(File.Exists(_target + AppFileSwap.OldSuffix));
     }
@@ -99,7 +99,7 @@ public sealed class AppFileSwapTests : IDisposable
     {
         using (var held = new FileStream(_fresh, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            Assert.False(AppFileSwap.Replace(_target, _fresh));
+            Assert.Equal(SwapResult.Unchanged, AppFileSwap.Replace(_target, _fresh));
         }
 
         Assert.True(File.Exists(_target));
@@ -141,5 +141,33 @@ public sealed class AppFileSwapTests : IDisposable
     public void Clearing_a_folder_that_is_not_there_is_not_an_error()
     {
         AppFileSwap.RemoveLeftovers(Path.Combine(_folder, "absent"));
+    }
+
+    /// <summary>
+    /// A leftover .old file that cannot be deleted blocks the next swap, leaving the target
+    /// untouched. The result must be Unchanged, not Replaced, because nothing was moved.
+    /// </summary>
+    /// <remarks>
+    /// If TryDelete(displaced) fails because the file is locked, then File.Move(target, displaced)
+    /// fails because the destination exists. This prevents any change, so Unchanged is correct.
+    /// </remarks>
+    [Fact]
+    public void A_stuck_leftover_prevents_the_swap()
+    {
+        var displaced = _target + AppFileSwap.OldSuffix;
+        File.WriteAllText(displaced, "held open");
+
+        using var hold = new FileStream(displaced, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var result = AppFileSwap.Replace(_target, _fresh);
+
+        // Nothing was moved because we could not delete the leftover.
+        Assert.Equal(SwapResult.Unchanged, result);
+        // The target is still the old program.
+        Assert.Equal("old program", File.ReadAllText(_target));
+        // The fresh file was never touched.
+        Assert.Equal("new program", File.ReadAllText(_fresh));
+        // The stuck leftover is still there.
+        Assert.True(File.Exists(displaced));
     }
 }

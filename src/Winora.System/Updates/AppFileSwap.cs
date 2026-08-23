@@ -1,5 +1,26 @@
 namespace Winora.System.Updates;
 
+/// <summary>What became of the program when a swap was attempted.</summary>
+public enum SwapResult
+{
+    /// <summary>The new program is in place.</summary>
+    Replaced,
+
+    /// <summary>Nothing was moved. The program is where it was and still runs.</summary>
+    Unchanged,
+
+    /// <summary>
+    /// The program was moved aside and could not be put back or replaced.
+    /// </summary>
+    /// <remarks>
+    /// The rarest outcome and the only one the caller cannot shrug off: the executable is no longer
+    /// at its own path, and it is sitting beside it under <see cref="OldSuffix" />. Reported
+    /// separately because telling somebody "nothing changed" while their program is missing is the
+    /// one answer worse than saying nothing at all.
+    /// </remarks>
+    Displaced,
+}
+
 /// <summary>
 /// Puts a downloaded program in the place of the running one.
 /// </summary>
@@ -26,15 +47,14 @@ public static class AppFileSwap
     public const string FreshSuffix = ".new";
 
     /// <summary>Replaces <paramref name="target" /> with <paramref name="fresh" />.</summary>
-    /// <returns>True when the new file is now in place.</returns>
-    public static bool Replace(string target, string fresh)
+    public static SwapResult Replace(string target, string fresh)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         ArgumentException.ThrowIfNullOrWhiteSpace(fresh);
 
         if (!File.Exists(fresh) || !File.Exists(target))
         {
-            return false;
+            return SwapResult.Unchanged;
         }
 
         var displaced = target + OldSuffix;
@@ -50,28 +70,28 @@ public static class AppFileSwap
         catch (Exception)
         {
             // Nothing has moved. The program is where it was and still runs.
-            return false;
+            return SwapResult.Unchanged;
         }
 
         try
         {
             File.Move(fresh, target);
-            return true;
+            return SwapResult.Replaced;
         }
         catch (Exception)
         {
-            // Put the working program back. If even this fails there is nothing further to try, and
-            // the caller is told the update did not happen either way.
+            // Put the working program back. If even this fails there is nothing further to try.
             try
             {
                 File.Move(displaced, target);
+                return SwapResult.Unchanged;
             }
             catch (Exception)
             {
-                // Reported as a failed update; the displaced file is still beside it by name.
+                // The program was moved aside and could not be restored. This is the only outcome
+                // where the program is not where it belongs, so it must be reported distinctly.
+                return SwapResult.Displaced;
             }
-
-            return false;
         }
     }
 
