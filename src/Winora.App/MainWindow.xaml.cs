@@ -1,3 +1,4 @@
+using global::System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -258,7 +259,7 @@ public sealed partial class MainWindow : Window
     {
         UpdateAction.Command = _update.ActCommand;
 
-        _update.PropertyChanged += (_, _) =>
+        PropertyChangedEventHandler onUpdateChanged = (_, _) =>
         {
             UpdateBar.IsOpen = _update.IsBannerVisible;
             UpdateBar.Message = _update.Message;
@@ -270,9 +271,17 @@ public sealed partial class MainWindow : Window
             UpdateProgress.Value = _update.Progress;
         };
 
+        _update.PropertyChanged += onUpdateChanged;
+        Closed += (_, _) => _update.PropertyChanged -= onUpdateChanged;
+
         _update.RestartRequested += (_, _) => Close();
         _update.OpenPageRequested += (_, _) =>
             _ = Windows.System.Launcher.LaunchUriAsync(new Uri(_update.ReleasePageUrl));
+
+        // The strip is closable, and a person who closes it means it. Without this the view model
+        // still believes it is open and the next property change puts it back on screen — which
+        // reads as the app arguing with them.
+        UpdateBar.CloseButtonClick += (_, _) => _update.Dismiss();
 
         // Deliberately not awaited: the window must finish opening whatever the network is doing.
         _ = _update.StartupAsync();
@@ -289,39 +298,52 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private async void OfferInstall()
     {
-        var installer = App.Services.GetRequiredService<IAppInstaller>();
-
-        if (App.Services.GetRequiredService<IDeploymentState>().IsPackaged ||
-            !installer.NeedsInstalling)
+        // async void has no caller to propagate a fault to: an exception here would be raised
+        // straight on the synchronization context and take the whole process down, in the first
+        // seconds of a new user's first launch. Every callee happens to swallow its own exceptions
+        // today, but that is incidental safety, not a guarantee this method may rely on.
+        try
         {
-            return;
+            var installer = App.Services.GetRequiredService<IAppInstaller>();
+
+            if (App.Services.GetRequiredService<IDeploymentState>().IsPackaged ||
+                !installer.NeedsInstalling)
+            {
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = Content.XamlRoot,
+                Title = _text.Get("Install_Title"),
+                Content = string.Format(
+                    global::System.Globalization.CultureInfo.CurrentCulture,
+                    _text.Get("Install_Body"),
+                    installer.DestinationPath),
+                PrimaryButtonText = _text.Get("Install_Yes"),
+                CloseButtonText = _text.Get("Install_No"),
+                DefaultButton = ContentDialogButton.Primary,
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            if (installer.Install() == InstallOutcome.Installed && installer.StartInstalledCopy())
+            {
+                Close();
+                return;
+            }
+
+            UpdateBar.Message = _text.Get("Install_Failed");
+            UpdateBar.IsOpen = true;
         }
-
-        var dialog = new ContentDialog
+        catch (Exception ex)
         {
-            XamlRoot = Content.XamlRoot,
-            Title = _text.Get("Install_Title"),
-            Content = string.Format(
-                global::System.Globalization.CultureInfo.CurrentCulture,
-                _text.Get("Install_Body"),
-                installer.DestinationPath),
-            PrimaryButtonText = _text.Get("Install_Yes"),
-            CloseButtonText = _text.Get("Install_No"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-        {
-            return;
+            Diagnostics.DiagnosticSink.Write("OfferInstall", ex);
+            UpdateBar.Message = _text.Get("Install_Failed");
+            UpdateBar.IsOpen = true;
         }
-
-        if (installer.Install() == InstallOutcome.Installed && installer.StartInstalledCopy())
-        {
-            Close();
-            return;
-        }
-
-        UpdateBar.Message = _text.Get("Install_Failed");
-        UpdateBar.IsOpen = true;
     }
 }

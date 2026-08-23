@@ -81,6 +81,16 @@ public sealed partial class UpdateViewModel : ObservableObject
     public event EventHandler? OpenPageRequested;
 
     /// <summary>
+    /// Closes the strip because the person closed it, not because there is nothing to say.
+    /// </summary>
+    /// <remarks>
+    /// Does not touch <see cref="IsBusy" /> or cancel anything: closing a notice is not cancelling
+    /// an update that is already under way, and the next check is free to reopen the strip on its
+    /// own account.
+    /// </remarks>
+    public void Dismiss() => IsBannerVisible = false;
+
+    /// <summary>
     /// The one check made without being asked, at startup.
     /// </summary>
     /// <remarks>
@@ -108,31 +118,52 @@ public sealed partial class UpdateViewModel : ObservableObject
             return;
         }
 
-        // Whether the check failed, found nothing, or found nothing newer are indistinguishable
-        // from here: IAppUpdateService.CheckAsync already folds all three into null, because a
-        // check that failed is not something the person can act on.
-        _found = await _update.CheckAsync(_environment.Version).ConfigureAwait(true);
+        // Set for the whole check, the same way BypassViewModel.CheckAsync guards itself: without
+        // this, the startup check and a person pressing "check now" race to overwrite _found,
+        // Message, IsBannerVisible and IsActionVisible, and whichever finishes last wins silently.
+        IsBusy = true;
 
-        if (_found is null)
+        // Only when they asked. An unprompted "checking…" is a notice about nothing, the same
+        // reasoning that keeps an unprompted "up to date" silent below.
+        if (announceNothing)
         {
+            Message = _text.Get("Update_Checking");
             IsActionVisible = false;
-
-            // Only when they asked. An unprompted "you are up to date" is a notice about nothing.
-            Message = announceNothing ? _text.Get("Update_UpToDate") : string.Empty;
-            IsBannerVisible = announceNothing;
-            return;
+            IsBannerVisible = true;
         }
 
-        Message = string.Format(CultureInfo.CurrentCulture, _text.Get("Update_Available"), _found.Version);
+        try
+        {
+            // Whether the check failed, found nothing, or found nothing newer are indistinguishable
+            // from here: IAppUpdateService.CheckAsync already folds all three into null, because a
+            // check that failed is not something the person can act on.
+            _found = await _update.CheckAsync(_environment.Version).ConfigureAwait(true);
 
-        // A copy running from wherever it was downloaded cannot replace itself: that file was never
-        // offered up. It is sent to the page instead.
-        ActionLabel = _update.IsInstalled
-            ? _text.Get("Update_Action_Install")
-            : _text.Get("Update_Action_Open");
+            if (_found is null)
+            {
+                IsActionVisible = false;
 
-        IsActionVisible = true;
-        IsBannerVisible = true;
+                // Only when they asked. An unprompted "you are up to date" is a notice about nothing.
+                Message = announceNothing ? _text.Get("Update_UpToDate") : string.Empty;
+                IsBannerVisible = announceNothing;
+                return;
+            }
+
+            Message = string.Format(CultureInfo.CurrentCulture, _text.Get("Update_Available"), _found.Version);
+
+            // A copy running from wherever it was downloaded cannot replace itself: that file was
+            // never offered up. It is sent to the page instead.
+            ActionLabel = _update.IsInstalled
+                ? _text.Get("Update_Action_Install")
+                : _text.Get("Update_Action_Open");
+
+            IsActionVisible = true;
+            IsBannerVisible = true;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

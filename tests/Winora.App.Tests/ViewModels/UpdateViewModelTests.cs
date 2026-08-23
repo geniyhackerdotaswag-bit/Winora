@@ -187,6 +187,113 @@ public sealed class UpdateViewModelTests
         Assert.False(vm.IsBannerVisible);
     }
 
+    /// <summary>
+    /// Review finding (Important 1): CheckAsync used to read IsBusy without ever setting it, so the
+    /// startup check and a person pressing "check now" could race to overwrite _found, Message,
+    /// IsBannerVisible and IsActionVisible — whichever finished last would win silently, and a found
+    /// update could flip back to "up to date" or the reverse. IAppUpdateService.CheckAsync is made to
+    /// hang here so the second call is guaranteed to land while the first is still in flight.
+    /// </summary>
+    [Fact]
+    public async Task A_check_in_flight_blocks_a_second_check_from_starting()
+    {
+        var update = new FakeUpdateService
+        {
+            PendingCheck = new TaskCompletionSource<AppUpdateReleaseView?>(),
+        };
+        var vm = Build(update);
+
+        // The command executes synchronously up to its first incomplete await, so by the time this
+        // line returns, IsBusy is already true and the underlying task is not yet finished.
+        var first = vm.CheckCommand.ExecuteAsync(null);
+
+        // Must return immediately: IsBusy already guards it before this ever reaches
+        // IAppUpdateService.CheckAsync a second time. If it did not, awaiting it here — before the
+        // first check is ever unblocked — would deadlock the test.
+        var second = vm.CheckCommand.ExecuteAsync(null);
+        await second;
+
+        Assert.Equal(1, update.CheckAsyncCallCount);
+
+        update.PendingCheck.SetResult(new AppUpdateReleaseView("9.9.9", "v9.9.9"));
+        await first;
+
+        Assert.Equal(1, update.CheckAsyncCallCount);
+        Assert.False(vm.IsBusy);
+    }
+
+    /// <summary>
+    /// Review finding (Important 1, second half): the resource key was defined but never referenced
+    /// anywhere. A check the person asked for now shows it while in flight — the startup check stays
+    /// silent, per the class remarks: an unprompted "checking…" is a notice about nothing too.
+    /// </summary>
+    [Fact]
+    public async Task A_requested_check_shows_the_checking_message_while_in_flight()
+    {
+        var update = new FakeUpdateService
+        {
+            PendingCheck = new TaskCompletionSource<AppUpdateReleaseView?>(),
+        };
+        var vm = Build(update);
+
+        var check = vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsBusy);
+        Assert.True(vm.IsBannerVisible);
+        Assert.Equal("Update_Checking", vm.Message);
+
+        update.PendingCheck.SetResult(null);
+        await check;
+    }
+
+    /// <summary>
+    /// Review finding (Important 2): the InfoBar's own close button only closes the control; nothing
+    /// told the view model, so MainWindow's handler — which re-asserts UpdateBar.IsOpen from
+    /// IsBannerVisible on every PropertyChanged — put the banner right back on the next notification.
+    /// Dismiss() is what MainWindow now calls from the close button, and it has to make the view
+    /// model the source of truth: hidden, and still hidden after something unrelated changes.
+    /// </summary>
+    [Fact]
+    public async Task Dismiss_leaves_the_banner_hidden_through_a_later_unrelated_property_change()
+    {
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9"),
+        };
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+        Assert.True(vm.IsBannerVisible); // sanity: the check is what opened it
+
+        vm.Dismiss();
+        Assert.False(vm.IsBannerVisible);
+
+        var changedProperties = new List<string?>();
+        vm.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        // Stands in for "a check now button exists" per the review: Act() changes IsBusy,
+        // IsActionVisible, Progress and Message, but never IsBannerVisible — the same shape of
+        // traffic that would have silently reopened the strip before this fix.
+        update.NextOutcome = AppUpdateOutcomeView.DownloadFailed;
+        await vm.ActCommand.ExecuteAsync(null);
+
+        Assert.Contains(nameof(UpdateViewModel.Message), changedProperties);
+        Assert.False(vm.IsBannerVisible);
+    }
+
+    /// <summary>Dismiss() only ever hides the strip. It must never reach into an update in progress.</summary>
+    [Fact]
+    public void Dismiss_does_not_cancel_or_touch_anything_else()
+    {
+        var update = new FakeUpdateService();
+        var vm = Build(update);
+
+        vm.Dismiss();
+
+        Assert.False(vm.IsBannerVisible);
+        Assert.False(update.UpdateAsyncCalled);
+    }
+
     private static UpdateViewModel Build(FakeUpdateService update, bool isPackaged = false) =>
         new(update, new FakeAppEnvironment(), new FakeDeploymentState(isPackaged), new FakeLocalizationService());
 
@@ -204,12 +311,23 @@ public sealed class UpdateViewModelTests
 
         public bool UpdateAsyncCalled { get; private set; }
 
+        public int CheckAsyncCallCount { get; private set; }
+
+        /// <summary>
+        /// When set, CheckAsync returns this task instead of completing immediately — the hook the
+        /// race test uses to hold a check open while a second one is attempted.
+        /// </summary>
+        public TaskCompletionSource<AppUpdateReleaseView?>? PendingCheck { get; set; }
+
         public void RemoveLeftovers() => RemoveLeftoversCalled = true;
 
         public Task<AppUpdateReleaseView?> CheckAsync(
             string currentVersion,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(NextCheck);
+            CancellationToken cancellationToken = default)
+        {
+            CheckAsyncCallCount++;
+            return PendingCheck?.Task ?? Task.FromResult(NextCheck);
+        }
 
         public Task<AppUpdateOutcomeView> UpdateAsync(
             IProgress<double>? progress,
