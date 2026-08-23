@@ -8,6 +8,7 @@ using Winora.App.Navigation;
 using Winora.App.Services;
 using Winora.App.ViewModels;
 using Winora.Core.Appearance;
+using Winora.System.Updates;
 
 namespace Winora.App;
 
@@ -17,6 +18,7 @@ public sealed partial class MainWindow : Window
     private readonly NavigationService _navigation;
     private readonly ILocalizationService _text;
     private readonly IThemeBrushService _theme;
+    private readonly UpdateViewModel _update;
 
     public MainWindow()
     {
@@ -24,6 +26,7 @@ public sealed partial class MainWindow : Window
         _navigation = App.Services.GetRequiredService<NavigationService>();
         _text = App.Services.GetRequiredService<ILocalizationService>();
         _theme = App.Services.GetRequiredService<IThemeBrushService>();
+        _update = App.Services.GetRequiredService<UpdateViewModel>();
 
         InitializeComponent();
 
@@ -47,6 +50,11 @@ public sealed partial class MainWindow : Window
         _navigation.Attach(ContentFrame);
         _navigation.NavigateTo(_shell.SelectedRouteKey);
         SelectPaneItem(_shell.SelectedRouteKey);
+
+        BindUpdateBar();
+
+        // After the window exists: a dialog needs a XamlRoot, and there is not one before this.
+        DispatcherQueue.TryEnqueue(OfferInstall);
     }
 
     private void OnSchemeApplied(object? sender, EventArgs e) => ApplyScheme();
@@ -235,5 +243,85 @@ public sealed partial class MainWindow : Window
             Diagnostics.DiagnosticSink.Write($"Navigate:{routeKey}", ex);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Wires the update strip by hand rather than by binding.
+    /// </summary>
+    /// <remarks>
+    /// Four properties and two events, against a control that is created once and never recycled.
+    /// A set of bindings and a converter for each visibility would be more machinery than the thing
+    /// it drives, and the strip is the one piece of UI whose behaviour must be obvious when
+    /// something goes wrong with it.
+    /// </remarks>
+    private void BindUpdateBar()
+    {
+        UpdateAction.Command = _update.ActCommand;
+
+        _update.PropertyChanged += (_, _) =>
+        {
+            UpdateBar.IsOpen = _update.IsBannerVisible;
+            UpdateBar.Message = _update.Message;
+            UpdateAction.Content = _update.ActionLabel;
+            UpdateAction.Visibility = _update.IsActionVisible
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            UpdateProgress.Visibility = _update.IsBusy ? Visibility.Visible : Visibility.Collapsed;
+            UpdateProgress.Value = _update.Progress;
+        };
+
+        _update.RestartRequested += (_, _) => Close();
+        _update.OpenPageRequested += (_, _) =>
+            _ = Windows.System.Launcher.LaunchUriAsync(new Uri(_update.ReleasePageUrl));
+
+        // Deliberately not awaited: the window must finish opening whatever the network is doing.
+        _ = _update.StartupAsync();
+    }
+
+    /// <summary>
+    /// Offers to move a downloaded copy into the programs folder.
+    /// </summary>
+    /// <remarks>
+    /// Asked every launch until it is answered yes, and never remembered as a no. Somebody who
+    /// downloaded the program to look at it opens it the second time on purpose, and that is the
+    /// better moment to ask than the first. If this turns out to be a nuisance the answer is a
+    /// "don't ask again", but not before it has actually been a nuisance.
+    /// </remarks>
+    private async void OfferInstall()
+    {
+        var installer = App.Services.GetRequiredService<IAppInstaller>();
+
+        if (App.Services.GetRequiredService<IDeploymentState>().IsPackaged ||
+            !installer.NeedsInstalling)
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = _text.Get("Install_Title"),
+            Content = string.Format(
+                global::System.Globalization.CultureInfo.CurrentCulture,
+                _text.Get("Install_Body"),
+                installer.DestinationPath),
+            PrimaryButtonText = _text.Get("Install_Yes"),
+            CloseButtonText = _text.Get("Install_No"),
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        if (installer.Install() == InstallOutcome.Installed && installer.StartInstalledCopy())
+        {
+            Close();
+            return;
+        }
+
+        UpdateBar.Message = _text.Get("Install_Failed");
+        UpdateBar.IsOpen = true;
     }
 }

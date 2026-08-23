@@ -16,6 +16,7 @@ using Winora.Infrastructure.Recovery;
 using Winora.Infrastructure.Time;
 using Winora.System.Backups;
 using Winora.System.Operations;
+using Winora.System.Updates;
 using Winora.System.Windows;
 
 namespace Winora.App.Services;
@@ -129,6 +130,25 @@ public static class ServiceRegistration
         services.AddSingleton<IBypassReleaseInstaller, BypassReleaseInstaller>();
         services.AddSingleton<IBypassService, BypassService>();
         services.AddTransient<BypassViewModel>();
+
+        // Winora's own release feed and updater. Singletons for the same reason as the bypass
+        // installer above: the release the person was shown must be the release that gets
+        // installed, so the object holding it has to outlive the screen that showed it.
+        services.AddSingleton<IAppInstallLocation, AppInstallLocation>();
+        services.AddSingleton<IShortcutWriter, StartMenuShortcut>();
+        services.AddSingleton<IAppReleaseFeed, AppReleaseFeed>();
+        services.AddSingleton<IAppUpdater>(provider =>
+            new AppUpdater(provider.GetRequiredService<IAppInstallLocation>()));
+        services.AddSingleton<IAppInstaller>(provider =>
+            new AppInstaller(
+                provider.GetRequiredService<IAppInstallLocation>(),
+                provider.GetRequiredService<IShortcutWriter>()));
+
+        // The presentation-layer wrapper: UpdateViewModel may not reference Winora.System directly
+        // (SolutionStructureTests.ViewModels_never_reference_infrastructure_or_system_directly), so
+        // this is what stands between it and the feed/updater above.
+        services.AddSingleton<IAppUpdateService, AppUpdateService>();
+        services.AddSingleton<UpdateViewModel>();
 
         services.AddSingleton<IPowerSchemeAccess, WindowsPowerSchemeAccess>();
         services.AddSingleton<ISystemLoadProbe, WindowsSystemLoadProbe>();

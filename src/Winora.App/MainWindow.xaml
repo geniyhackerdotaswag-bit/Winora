@@ -17,6 +17,7 @@
     <Grid x:Name="RootGrid" Background="{ThemeResource WinoraCanvasBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -55,8 +56,29 @@
             </StackPanel>
         </Grid>
 
+        <!--
+          The one place the app tells you about itself. Collapsed unless there is something to say:
+          a strip that is always present, saying everything is fine, is a strip people stop reading.
+        -->
+        <InfoBar x:Name="UpdateBar"
+                 Grid.Row="1"
+                 Margin="16,0,16,12"
+                 IsClosable="True"
+                 IsOpen="False"
+                 Severity="Informational">
+            <InfoBar.ActionButton>
+                <Button x:Name="UpdateAction" />
+            </InfoBar.ActionButton>
+            <InfoBar.Content>
+                <ProgressBar x:Name="UpdateProgress"
+                             Margin="0,8,0,8"
+                             Maximum="1"
+                             Visibility="Collapsed" />
+            </InfoBar.Content>
+        </InfoBar>
+
         <NavigationView x:Name="Navigation"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         OpenPaneLength="{StaticResource WinoraNavigationPaneWidth}"
                         PaneDisplayMode="Left"
                         IsSettingsVisible="False"

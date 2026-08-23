@@ -14,6 +14,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- For UpdateViewModel below: [ObservableProperty] and [RelayCommand] need the source generator. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
   <!--
     Winora.App is a WinUI 3 project, so its assembly carries a CsWinRT <Module> initializer that
@@ -29,6 +31,15 @@
     <Compile Include="..\..\src\Winora.App\Navigation\RouteDescriptor.cs" LinkBase="Linked\Navigation" />
     <Compile Include="..\..\src\Winora.App\Navigation\RouteRegistry.cs" LinkBase="Linked\Navigation" />
     <Compile Include="..\..\src\Winora.App\ViewModels\CoordinatorDispositionPresentation.cs" LinkBase="Linked\ViewModels" />
+    <!--
+      UpdateViewModel touches no WinUI type either: it talks only to IAppUpdateService, IAppEnvironment,
+      IDeploymentState, and ILocalizationService, none of which is a WinUI type. It links in the same
+      way, together with the App-layer services it depends on.
+    -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\UpdateViewModel.cs" LinkBase="Linked\ViewModels" />
+    <Compile Include="..\..\src\Winora.App\Services\AppUpdateService.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\AppEnvironment.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\DeploymentState.cs" LinkBase="Linked\Services" />
     <!--
       RecoveryState is the way out of a state where every further change is refused, so it is worth
       covering. It touches no WinUI type, only Core and Infrastructure contracts, so it links in
