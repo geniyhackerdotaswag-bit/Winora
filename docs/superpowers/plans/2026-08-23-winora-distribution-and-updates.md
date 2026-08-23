@@ -682,11 +682,25 @@ public sealed class AppInstallLocationTests
         Assert.False(At(Path.Combine(Programs, "Winora", "Winora.App.exe")).IsInstalled);
     }
 
-    /// <summary>On the real machine this must point at this very process, not at anything else.</summary>
+    /// <summary>
+    /// The parameterless constructor resolves real folders rather than throwing or returning empty.
+    /// </summary>
+    /// <remarks>
+    /// Comparing CurrentExecutablePath against Environment.ProcessPath would restate the line that
+    /// produces it and could never fail. What is worth asserting is what the rest of the code
+    /// assumes: that the paths come out rooted, under the real local app data folder, and named the
+    /// way an installed copy is named.
+    /// </remarks>
     [Fact]
-    public void The_real_one_points_at_the_running_process()
+    public void The_real_one_resolves_to_real_folders()
     {
-        Assert.Equal(Environment.ProcessPath, new AppInstallLocation().CurrentExecutablePath);
+        var location = new AppInstallLocation();
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        Assert.True(Path.IsPathRooted(location.InstalledExecutablePath));
+        Assert.StartsWith(localAppData, location.InstalledDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Winora.exe", Path.GetFileName(location.InstalledExecutablePath));
+        Assert.Equal(location.InstalledDirectory, Path.GetDirectoryName(location.InstalledExecutablePath));
     }
 }
 ```
@@ -1535,20 +1549,26 @@ public sealed class AppUpdaterTests : IDisposable
         Assert.Equal(program, File.ReadAllBytes(_target));
     }
 
+    /// <summary>
+    /// Progress is reported while the download runs, and the last report is the end of it.
+    /// </summary>
+    /// <remarks>
+    /// Recorded through a synchronous IProgress rather than Progress&lt;T&gt;, which hands its
+    /// callbacks to the synchronization context and would leave the assertions racing the reports.
+    /// A test that needed a sleep to pass would be a test that fails on a loaded machine.
+    /// </remarks>
     [Fact]
     public async Task Progress_is_reported_and_ends_at_the_end()
     {
         var program = Program(200_000);
         var updater = Updater(program, Convert.ToHexString(SHA256.HashData(program)));
-        var seen = new List<double>();
+        var seen = new SynchronousProgress();
 
-        await updater.UpdateAsync(Release(program.Length), new Progress<double>(seen.Add));
+        await updater.UpdateAsync(Release(program.Length), seen);
 
-        // Progress<T> posts to the captured context; give the posted callbacks a moment to run.
-        await Task.Delay(200);
-
-        Assert.NotEmpty(seen);
-        Assert.All(seen, value => Assert.InRange(value, 0d, 1d));
+        Assert.NotEmpty(seen.Values);
+        Assert.All(seen.Values, value => Assert.InRange(value, 0d, 1d));
+        Assert.Equal(1d, seen.Values[^1], 3);
     }
 
     /// <summary>The three refusals of AppDownloadCheck, each leaving the program untouched.</summary>
@@ -1613,6 +1633,16 @@ public sealed class AppUpdaterTests : IDisposable
         await updater.UpdateAsync(Release(program.Length), null);
 
         Assert.False(File.Exists(_target + AppFileSwap.FreshSuffix));
+    }
+
+    /// <summary>Records every report on the thread that made it, so nothing has to be waited for.</summary>
+    private sealed class SynchronousProgress : IProgress<double>
+    {
+        private readonly List<double> _values = [];
+
+        public IReadOnlyList<double> Values => _values;
+
+        public void Report(double value) => _values.Add(value);
     }
 
     /// <summary>Serves the program on one address and its checksum on the other.</summary>
