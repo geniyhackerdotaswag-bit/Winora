@@ -93,6 +93,50 @@
                         </Grid>
                     </Border>
 
+                    <!--
+                      Winora already checks for a new version by itself at startup
+                      (UpdateViewModel.StartupAsync); this is the same check, run on request, for the
+                      moment somebody wants an answer right now instead of waiting. Collapsed whole in
+                      the packaged build, where a "Проверить" button could only ever report a version
+                      nobody here is able to install.
+                    -->
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Visibility="{x:Bind ctl:XamlConvert.Show(Update.IsSettingsSectionVisible), Mode=OneWay}"
+                               Text="{x:Bind Update.SettingsHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraCard}"
+                            Margin="{StaticResource WinoraStackGapL}"
+                            Visibility="{x:Bind ctl:XamlConvert.Show(Update.IsSettingsSectionVisible), Mode=OneWay}">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource WinoraRowDetail}"
+                                           Margin="0"
+                                           TextWrapping="Wrap"
+                                           Text="{x:Bind Update.SettingsDescription, Mode=OneWay}" />
+                                <Button Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource WinoraActionButton}"
+                                        Content="{x:Bind Update.SettingsCheckLabel, Mode=OneWay}"
+                                        Command="{x:Bind Update.CheckCommand}"
+                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(Update.IsBusy), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind Update.SettingsVersionLabel, Mode=OneWay}" />
+                            <!-- The check's own answer: "У вас последняя версия", "Доступна версия X",
+                                 or "Проверяем обновления…" while it runs. Empty until asked. -->
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind Update.Message, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock Style="{StaticResource WinoraSectionHeading}"
                                Text="{x:Bind ViewModel.StorageHeading, Mode=OneWay}" />
 

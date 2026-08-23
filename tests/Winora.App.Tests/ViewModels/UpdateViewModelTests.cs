@@ -294,6 +294,45 @@ public sealed class UpdateViewModelTests
         Assert.False(update.UpdateAsyncCalled);
     }
 
+    /// <summary>
+    /// The section added for spec section 6 (a "check now" button in Settings, alongside the
+    /// background check at startup). These properties read straight from
+    /// ILocalizationService/IAppEnvironment with no state of their own, so this is mostly a guard
+    /// against a copy-pasted resource key drifting from what the property actually reads, and
+    /// against the version's string.Format silently dropping its argument.
+    /// </summary>
+    [Fact]
+    public void The_settings_facing_properties_read_their_own_resource_keys()
+    {
+        var vm = Build(new FakeUpdateService());
+
+        Assert.Equal("Update_Settings_Heading", vm.SettingsHeading);
+        Assert.Equal("Update_Settings_Description", vm.SettingsDescription);
+        Assert.Equal("Update_Settings_Check", vm.SettingsCheckLabel);
+
+        // FakeLocalizationService returns a real "{0}" template for this one key specifically, so a
+        // dropped format argument would show up here rather than being masked by the key echo the
+        // other assertions above rely on.
+        Assert.Equal("v1.0.0", vm.SettingsVersionLabel);
+    }
+
+    [Fact]
+    public void The_settings_section_is_visible_outside_the_packaged_build()
+    {
+        Assert.True(Build(new FakeUpdateService(), isPackaged: false).IsSettingsSectionVisible);
+    }
+
+    /// <summary>
+    /// IsPackaged switches off the whole update surface. A "Проверить" button that could only ever
+    /// report a version nobody here is able to install is the exact empty promise the design refuses
+    /// everywhere else — see UpdateViewModel's own class remarks.
+    /// </summary>
+    [Fact]
+    public void The_settings_section_is_unavailable_in_the_packaged_build()
+    {
+        Assert.False(Build(new FakeUpdateService(), isPackaged: true).IsSettingsSectionVisible);
+    }
+
     private static UpdateViewModel Build(FakeUpdateService update, bool isPackaged = false) =>
         new(update, new FakeAppEnvironment(), new FakeDeploymentState(isPackaged), new FakeLocalizationService());
 
@@ -364,6 +403,10 @@ public sealed class UpdateViewModelTests
 
         // Returns the key itself: the assertions above check which key was chosen, not its Russian
         // text, which is already covered by ResourceKeyTests.Every_requested_resource_key_is_defined.
-        public string Get(string resourceKey) => resourceKey;
+        // The one exception is the version label, which is the only key UpdateViewModel actually
+        // formats with an argument — a real "{0}" template here is what lets a dropped format
+        // argument show up as a test failure instead of being hidden by the key-echo behaviour.
+        public string Get(string resourceKey) =>
+            resourceKey == "Update_Settings_Version" ? "v{0}" : resourceKey;
     }
 }

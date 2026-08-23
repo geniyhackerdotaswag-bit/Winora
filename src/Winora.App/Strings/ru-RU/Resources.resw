@@ -517,4 +517,8 @@
   <data name="Install_Yes"><value>Установить</value></data>
   <data name="Install_No"><value>Не сейчас</value></data>
   <data name="Install_Failed"><value>Не удалось скопировать. Программа продолжит работать отсюда.</value></data>
+  <data name="Update_Settings_Heading"><value>Обновления</value></data>
+  <data name="Update_Settings_Description"><value>Winora проверяет обновления сама при запуске. Здесь можно проверить прямо сейчас.</value></data>
+  <data name="Update_Settings_Check"><value>Проверить</value></data>
+  <data name="Update_Settings_Version"><value>Установлена версия {0}</value></data>
 </root>

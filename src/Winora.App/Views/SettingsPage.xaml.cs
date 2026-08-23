@@ -12,10 +12,21 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         ViewModel = App.Services.GetRequiredService<SettingsViewModel>();
+
+        // The same singleton the main window's strip is bound to, not a second instance: a manual
+        // check here and the strip at the top of the window are one conversation, not two.
+        Update = App.Services.GetRequiredService<UpdateViewModel>();
+
         InitializeComponent();
     }
 
     public SettingsViewModel ViewModel { get; }
+
+    /// <summary>
+    /// Exposed directly rather than through <see cref="SettingsViewModel" />: that would make one
+    /// view model a façade for another, which nothing else in this codebase does.
+    /// </summary>
+    public UpdateViewModel Update { get; }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {

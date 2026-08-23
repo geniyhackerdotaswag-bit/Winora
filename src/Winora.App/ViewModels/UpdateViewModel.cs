@@ -74,6 +74,36 @@ public sealed partial class UpdateViewModel : ObservableObject
             ? "https://github.com/geniyhackerdotaswag-bit/Winora/releases/latest"
             : $"https://github.com/geniyhackerdotaswag-bit/Winora/releases/tag/{_found.Tag}";
 
+    // The four members below back the "Обновления" section on the Settings page (spec section 6:
+    // a background check at startup plus a "Проверить" button). They read straight from
+    // ILocalizationService/IAppEnvironment rather than being cached in fields, the same way
+    // ReleasePageUrl above does: nothing here changes after construction, so there is nothing a
+    // cache would save except the one call CultureInfo.CurrentUICulture would need repeating for.
+
+    /// <summary>The heading over the section.</summary>
+    public string SettingsHeading => _text.Get("Update_Settings_Heading");
+
+    /// <summary>Says that Winora already checks by itself, so the button is for checking right now.</summary>
+    public string SettingsDescription => _text.Get("Update_Settings_Description");
+
+    /// <summary>Label for the "check now" button, bound to <see cref="CheckCommand" />.</summary>
+    public string SettingsCheckLabel => _text.Get("Update_Settings_Check");
+
+    /// <summary>The installed build, which is what a person quotes when reporting a problem.</summary>
+    public string SettingsVersionLabel =>
+        string.Format(CultureInfo.CurrentCulture, _text.Get("Update_Settings_Version"), _environment.Version);
+
+    /// <summary>
+    /// Whether the Settings section has anything to offer at all.
+    /// </summary>
+    /// <remarks>
+    /// False in the packaged build. <see cref="IDeploymentState.IsPackaged" /> switches off the
+    /// whole update surface — the strip at the top of the window included — and a "Проверить" button
+    /// that could only ever report a version nobody can install is the exact empty promise that
+    /// design refuses everywhere else.
+    /// </remarks>
+    public bool IsSettingsSectionVisible => !_deployment.IsPackaged;
+
     /// <summary>Raised when the process should end because a newer one has been started.</summary>
     public event EventHandler? RestartRequested;
 
