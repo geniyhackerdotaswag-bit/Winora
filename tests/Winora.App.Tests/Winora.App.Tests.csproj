@@ -60,6 +60,12 @@
     <Compile Include="..\..\src\Winora.App\Services\ProfileService.cs" LinkBase="Linked\Services" />
     <Compile Include="..\..\src\Winora.App\Services\ActionJournalReader.cs" LinkBase="Linked\Services" />
     <!--
+      RegistrationViewModel touches no WinUI type either: it talks only to IProfileService and
+      ILocalizationService, the same pair ProfileViewModel depends on, so it links in the same way
+      and needs no service of its own beyond what is already linked above.
+    -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\RegistrationViewModel.cs" LinkBase="Linked\ViewModels" />
+    <!--
       WelcomeOutcome is the pure half of WelcomeDialog: what to save, given how the dialog closed.
       It touches no WinUI type (WelcomeDialog itself extends ContentDialog and cannot be linked in
       for the same reason as everything else on this list), so it links in the same way.

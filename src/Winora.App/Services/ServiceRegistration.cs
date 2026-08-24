@@ -150,6 +150,7 @@ public static class ServiceRegistration
         services.AddSingleton<IUserProfileStore, UserProfileStore>();
         services.AddSingleton<IProfileService, ProfileService>();
         services.AddTransient<ProfileViewModel>();
+        services.AddTransient<RegistrationViewModel>();
 
         // The presentation-layer wrapper: UpdateViewModel may not reference Winora.System directly
         // (SolutionStructureTests.ViewModels_never_reference_infrastructure_or_system_directly), so

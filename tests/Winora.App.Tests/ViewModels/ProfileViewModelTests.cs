@@ -34,6 +34,8 @@ public sealed class ProfileViewModelTests
             return true;
         }
 
+        public bool Register(string name, string email, string password) => true;
+
         public Task<int> RecordedChangesAsync() => Task.FromResult(7);
     }
 

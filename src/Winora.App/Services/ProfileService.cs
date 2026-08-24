@@ -28,6 +28,9 @@ public interface IProfileService
     /// <summary>Stores the profile. False when it could not be written.</summary>
     bool Save(string name, string email, int avatar);
 
+    /// <summary>Creates the profile the registration window filled in.</summary>
+    bool Register(string name, string email, string password);
+
     /// <summary>How many actions the journal holds for this person.</summary>
     Task<int> RecordedChangesAsync();
 }
@@ -122,9 +125,7 @@ public sealed class ProfileService : IProfileService
     /// <remarks>
     /// The one place a profile comes into being. The password is hashed here rather than by a
     /// caller, so nothing above this layer ever holds the plain text longer than the keystroke
-    /// that produced it. Not on <see cref="IProfileService"/> yet — the registration window that
-    /// reaches it through the interface is a later task; it exists now so <see cref="Save"/> has a
-    /// real digest to carry across.
+    /// that produced it.
     /// </remarks>
     public bool Register(string name, string email, string password)
     {
