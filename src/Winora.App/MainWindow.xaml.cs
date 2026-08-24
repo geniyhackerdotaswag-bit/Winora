@@ -341,6 +341,10 @@ public sealed partial class MainWindow : Window
         // Once only: Loaded fires again whenever the element is re-parented into the tree.
         RootGrid.Loaded -= OnRootLoaded;
         OfferInstall();
+
+        // After the install offer, not before: two dialogs at once is one too many, and the install
+        // question decides where the program will live before the person settles into it.
+        _ = ShowWelcomeAsync();
     }
 
     private async void OfferInstall()
@@ -406,6 +410,20 @@ public sealed partial class MainWindow : Window
         {
             Diagnostics.DiagnosticSink.Write("OfferInstall", ex);
             _update.ReportInstallFailed();
+        }
+    }
+
+    /// <summary>Greets a new person once the window exists to hang a dialog on.</summary>
+    private async Task ShowWelcomeAsync()
+    {
+        try
+        {
+            await Views.WelcomeDialog.ShowIfNeededAsync(Content.XamlRoot).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // A greeting that will not open is not a reason to fail a launch.
+            Diagnostics.DiagnosticSink.Write("Welcome", ex);
         }
     }
 }
