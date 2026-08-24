@@ -45,16 +45,33 @@ public static class ProfileAvatar
     {
         var trimmed = ProfileRules.NormaliseName(name);
 
-        return trimmed.Length == 0
-            ? FallbackInitial
-            : char.ToUpper(trimmed[0], CultureInfo.CurrentCulture).ToString();
+        if (trimmed.Length == 0)
+        {
+            return FallbackInitial;
+        }
+
+        // Get the first grapheme as a whole unit, not just one UTF-16 code unit.
+        // This handles supplementary-plane characters (emoji, rare scripts) and combining diacritics correctly.
+        var firstGrapheme = StringInfo.GetNextTextElement(trimmed, 0);
+
+        // If the grapheme is more than one character, it is either a surrogate pair
+        // or a character with combining marks. Upcase the whole thing as a string.
+        if (firstGrapheme.Length > 1)
+        {
+            return char.ToUpper(firstGrapheme[0], CultureInfo.InvariantCulture) + firstGrapheme.Substring(1);
+        }
+
+        // Use InvariantCulture to ensure the mark is stable across locales.
+        // On tr-TR or az-AZ machines, CurrentCulture would upcase 'i' to 'İ' rather than 'I',
+        // making the mark depend on where the machine is — the same instability Bucket's comment warns about.
+        return char.ToUpper(firstGrapheme[0], CultureInfo.InvariantCulture).ToString();
     }
 
     /// <summary>
     /// Which colour a name lands on.
     /// </summary>
     /// <remarks>
-    /// A plain sum of code points, not a cryptographic hash and not <c>string.GetHashCode</c>. The
+    /// A plain sum of UTF-16 code units, not a cryptographic hash and not <c>string.GetHashCode</c>. The
     /// second is randomised per process in .NET Core, so the same person would get a different
     /// colour on every launch — which is exactly the thing this must not do.
     /// </remarks>

@@ -23,6 +23,15 @@ public sealed class ProfileAvatarTests
     }
 
     [Fact]
+    public void The_colour_derivation_is_pinned_for_stability()
+    {
+        // These values are pinned deliberately. If the derivation algorithm ever changes,
+        // everybody's mark will change colour, and that is a decision, not an accident.
+        Assert.Equal("#7C6BF5", ProfileAvatar.ColourFor("Аня", ProfileAvatar.FromName));
+        Assert.Equal("#3FA9F5", ProfileAvatar.ColourFor("bob", ProfileAvatar.FromName));
+    }
+
+    [Fact]
     public void A_chosen_colour_wins_over_the_derived_one()
     {
         Assert.Equal(ProfileAvatar.Palette[2], ProfileAvatar.ColourFor("Аня", 2));
@@ -65,5 +74,39 @@ public sealed class ProfileAvatarTests
     {
         Assert.False(string.IsNullOrEmpty(ProfileAvatar.InitialFor(name)));
         Assert.Contains(ProfileAvatar.ColourFor(name, ProfileAvatar.FromName), ProfileAvatar.Palette);
+    }
+
+    [Fact]
+    public void A_name_starting_with_an_emoji_returns_a_valid_initial()
+    {
+        var initial = ProfileAvatar.InitialFor("🎨 Alice");
+
+        // The initial must be non-empty.
+        Assert.False(string.IsNullOrEmpty(initial));
+
+        // It must not be a lone surrogate (which would be invalid UTF-16).
+        // The emoji is a surrogate pair (two chars), so if it is a lone surrogate,
+        // it means we only got the high surrogate, which is broken.
+        Assert.False(initial.Length == 1 && char.IsHighSurrogate(initial[0]));
+        Assert.False(initial.Length == 1 && char.IsLowSurrogate(initial[0]));
+    }
+
+    [Fact]
+    public void A_name_in_decomposed_form_preserves_combining_marks()
+    {
+        // "É" composed (U+00C9) vs decomposed (U+0045 U+0301: 'E' + combining acute)
+        var composed = "Érik";
+        var decomposed = "E\u0301rik";  // Explicitly decomposed
+
+        // Both should produce initials.
+        var composedInitial = ProfileAvatar.InitialFor(composed);
+        var decomposedInitial = ProfileAvatar.InitialFor(decomposed);
+
+        // Both should be non-empty.
+        Assert.False(string.IsNullOrEmpty(composedInitial));
+        Assert.False(string.IsNullOrEmpty(decomposedInitial));
+
+        // The decomposed form should have multiple characters (letter + combining mark).
+        Assert.True(decomposedInitial.Length > 1);
     }
 }
