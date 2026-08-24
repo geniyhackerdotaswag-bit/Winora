@@ -216,16 +216,18 @@ public static class ServiceRegistration
         services.AddSingleton<IDurableOperationJournal>(provider =>
             provider.GetRequiredService<DurableOperationJournal>());
 
-        // GlobalMutationLease proves its owner is the signed Winora package and throws without
-        // package identity. That is the intended control, not a bug: an unpackaged process must not
-        // be able to squat on the lock that guards system mutation. An unpackaged development launch
-        // therefore gets a lease that never grants, and the UI states why applying is unavailable.
+        // One lease for both shapes of the app. It used to be handed out only to the packaged
+        // build, with everything else given a lease that never granted — which meant the portable
+        // .exe, the only build anybody outside this project can get, could not change a thing.
+        //
+        // The lease still does its real job: a named mutex keyed to the user, so two Winoras cannot
+        // mutate the system at once. What changed is the ticket to hold it. Packaged, that remains
+        // the package Windows reports; unpackaged, it is the executable's own path. See
+        // WindowsMutationLeaseOwnerIdentity.ValidateRole for what is given up and what is not.
         services.AddSingleton<IMutationLease>(provider =>
-            provider.GetRequiredService<IDeploymentState>().IsPackaged
-                ? new GlobalMutationLease(
-                    provider.GetRequiredService<WinoraDataPaths>(),
-                    MutationLeasePackageRole.App)
-                : new UnavailableMutationLease());
+            new GlobalMutationLease(
+                provider.GetRequiredService<WinoraDataPaths>(),
+                MutationLeasePackageRole.App));
 
         // Only allowlisted catalog operation ids may appear in the sanitized journal, so the catalog
         // is derived from the registered operations rather than accepting anything.

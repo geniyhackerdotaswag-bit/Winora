@@ -797,16 +797,33 @@ internal sealed class WindowsMutationLeaseOwnerIdentity :
     private readonly string _currentUserSid;
     private readonly string _packageFullName;
     private readonly string _packageFamilyName;
+    private readonly string _imagePath;
+    private readonly bool _packaged;
 
     internal WindowsMutationLeaseOwnerIdentity(MutationLeasePackageRole currentRole)
     {
         _currentRole = currentRole;
         var current = WindowsLeaseProcessInspector.Inspect(Environment.ProcessId);
-        ValidatePackageRole(current, currentRole);
+        _packaged = current.PackageFullName.Length > 0;
+        _imagePath = current.ImagePath;
+        ValidateRole(current, currentRole, _packaged, current.ImagePath);
         _currentUserSid = current.UserSid;
         _packageFullName = current.PackageFullName;
         _packageFamilyName = current.PackageFamilyName;
     }
+
+    /// <summary>Whether a snapshot is the same program, judged the way this build is able to.</summary>
+    /// <remarks>
+    /// Packaged, the answer is the package Windows reports. Unpackaged there is no such thing, so it
+    /// is the executable path — which is what the package identity stood for all along: a way of
+    /// saying "the same program", not merely "the same user".
+    /// </remarks>
+    private bool SameProgram(LeaseProcessSnapshot candidate) =>
+        _packaged
+            ? StringComparer.Ordinal.Equals(candidate.PackageFullName, _packageFullName) &&
+              StringComparer.Ordinal.Equals(candidate.PackageFamilyName, _packageFamilyName)
+            : candidate.PackageFullName.Length == 0 &&
+              StringComparer.OrdinalIgnoreCase.Equals(candidate.ImagePath, _imagePath);
 
     internal string CurrentUserSid => _currentUserSid;
 
@@ -818,14 +835,12 @@ internal sealed class WindowsMutationLeaseOwnerIdentity :
         }
 
         var current = WindowsLeaseProcessInspector.Inspect(Environment.ProcessId);
-        if (!StringComparer.Ordinal.Equals(current.UserSid, _currentUserSid) ||
-            !StringComparer.Ordinal.Equals(current.PackageFullName, _packageFullName) ||
-            !StringComparer.Ordinal.Equals(current.PackageFamilyName, _packageFamilyName))
+        if (!StringComparer.Ordinal.Equals(current.UserSid, _currentUserSid) || !SameProgram(current))
         {
             throw new InvalidOperationException("The current process package or user identity changed unexpectedly.");
         }
 
-        ValidatePackageRole(current, packageRole);
+        ValidateRole(current, packageRole, _packaged, _imagePath);
         return new MutationLeaseOwnerIdentity(
             Environment.ProcessId,
             current.ProcessStartTimeFileTimeUtc,
@@ -857,15 +872,14 @@ internal sealed class WindowsMutationLeaseOwnerIdentity :
 
         if (!StringComparer.Ordinal.Equals(candidate.UserSid, owner.UserSid) ||
             !StringComparer.Ordinal.Equals(candidate.UserSid, _currentUserSid) ||
-            !StringComparer.Ordinal.Equals(candidate.PackageFullName, _packageFullName) ||
-            !StringComparer.Ordinal.Equals(candidate.PackageFamilyName, _packageFamilyName))
+            !SameProgram(candidate))
         {
             return MutationLeaseOwnerStatus.Unverifiable;
         }
 
         try
         {
-            ValidatePackageRole(candidate, owner.PackageRole);
+            ValidateRole(candidate, owner.PackageRole, _packaged, _imagePath);
         }
         catch (InvalidOperationException)
         {
@@ -875,13 +889,65 @@ internal sealed class WindowsMutationLeaseOwnerIdentity :
         return MutationLeaseOwnerStatus.Alive;
     }
 
-    private static void ValidatePackageRole(
+    /// <summary>
+    /// Checks that a process is entitled to the role its lease record claims.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Packaged, this is what it always was. Package full and family identities are supplied by
+    /// Windows only for a registered package, and binding the fixed executable leaf to that
+    /// package's installed root stops an arbitrary same-user executable claiming a role.
+    /// </para>
+    /// <para>
+    /// Unpackaged there is no package to appeal to, so the claim is anchored to the running
+    /// executable's own path: only the very file that holds the lease may be validated as holding
+    /// it. What that gives up is real and worth stating plainly. A process without package identity
+    /// can now hold the lease, where before none could. What it does not give up is the property
+    /// the lease exists for: two Winoras still cannot mutate the system at once, because that rests
+    /// on a named mutex keyed to the user, which never needed a package at all.
+    /// </para>
+    /// <para>
+    /// The old rule was also weaker than it read. Winora's package is signed with a self-signed
+    /// development certificate, so package identity never proved the holder was trustworthy, only
+    /// that it ran from a package — which anyone willing to build one could arrange. The rule dated
+    /// from when unpackaged meant a developer's launch from the debugger; it now also means the
+    /// shipping product, and the owner decided on 2026-08-24 that the shipping product must be able
+    /// to do its job.
+    /// </para>
+    /// <para>
+    /// The elevated host is unaffected. It runs with administrator rights and mutates the system
+    /// directly, so it is refused outright here when it has no package rather than being quietly
+    /// admitted through the relaxed path.
+    /// </para>
+    /// </remarks>
+    private static void ValidateRole(
         LeaseProcessSnapshot process,
-        MutationLeasePackageRole role)
+        MutationLeasePackageRole role,
+        bool packaged,
+        string currentImagePath)
     {
-        // Package full/family identities are supplied by Windows only for a registered,
-        // signed package. Binding the fixed executable leaf to that package's installed
-        // root prevents an arbitrary same-user executable from claiming an App/helper role.
+        if (role is not (MutationLeasePackageRole.App or MutationLeasePackageRole.ElevatedHost))
+        {
+            throw new InvalidOperationException("The mutation lease package role is unknown.");
+        }
+
+        if (!packaged)
+        {
+            if (role != MutationLeasePackageRole.App)
+            {
+                throw new InvalidOperationException(
+                    "Only the application may hold an unpackaged mutation lease.");
+            }
+
+            if (!StringComparer.OrdinalIgnoreCase.Equals(process.ImagePath, currentImagePath))
+            {
+                throw new InvalidOperationException(
+                    "The process executable is not the one holding this lease.");
+            }
+
+            return;
+        }
+
         var expectedFileName = role switch
         {
             MutationLeasePackageRole.App => "Winora.App.exe",
@@ -1028,9 +1094,15 @@ internal static partial class WindowsLeaseProcessInspector
         // Microsoft Learn: https://learn.microsoft.com/windows/win32/api/appmodel/nf-appmodel-getpackagefullname
         var length = 0u;
         var result = GetPackageFullName(process, ref length, null);
+
+        // No package is an answer, not a failure. It used to throw here, which is what made the
+        // portable build unable to hold the lease at all: the caller never got as far as deciding
+        // what to do about it. The decision belongs to WindowsMutationLeaseOwnerIdentity, which
+        // reads an empty name as "this process is unpackaged" and validates it by its executable
+        // path instead.
         if (result == AppModelErrorNoPackage)
         {
-            throw new InvalidOperationException("The mutation lease owner is not running from the signed Winora package.");
+            return string.Empty;
         }
 
         if (result != ErrorInsufficientBuffer || length == 0)
@@ -1053,6 +1125,13 @@ internal static partial class WindowsLeaseProcessInspector
         // Microsoft Learn: https://learn.microsoft.com/windows/win32/api/appmodel/nf-appmodel-getpackagefamilyname
         var length = 0u;
         var result = GetPackageFamilyName(process, ref length, null);
+
+        // Same reasoning as the full name above.
+        if (result == AppModelErrorNoPackage)
+        {
+            return string.Empty;
+        }
+
         if (result != ErrorInsufficientBuffer || length == 0)
         {
             throw new Win32Exception(result, "The lease owner package family name size could not be read.");
@@ -1070,6 +1149,13 @@ internal static partial class WindowsLeaseProcessInspector
 
     private static unsafe string GetPackageInstallPath(string packageFullName)
     {
+        // Nothing to look up without a package, and the value is only ever used to check that a
+        // packaged process runs from under its own install root.
+        if (packageFullName.Length == 0)
+        {
+            return string.Empty;
+        }
+
         // Microsoft Learn: https://learn.microsoft.com/windows/win32/api/appmodel/nf-appmodel-getpackagepathbyfullname
         var length = 0u;
         var result = GetPackagePathByFullName(packageFullName, ref length, null);

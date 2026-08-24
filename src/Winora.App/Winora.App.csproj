@@ -105,6 +105,13 @@
     <ProjectReference Include="..\Winora.System\Winora.System.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!--
+      The mark shown in the app's own title bar. Kept apart from the tiles below because it must
+      not carry a scale qualifier in its name: MRT reads one as an instruction rather than as part
+      of the file name, and unpackaged there is no PRI mapping it back.
+    -->
+    <Content Include="Assets\AppMark.png" />
+    <Content Include="Assets\Winora.ico" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />

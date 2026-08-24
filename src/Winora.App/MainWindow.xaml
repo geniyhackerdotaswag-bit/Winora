@@ -39,10 +39,17 @@
                         VerticalAlignment="Center"
                         Margin="16,0,0,0">
                 <!--
-                  The application's own icon, the same artwork the taskbar and Start show. It
-                  replaced a gradient square that stood in for a mark the project did not have yet.
+                  The application's own mark, the same artwork the taskbar and Start show.
+
+                  AppMark.png and not Square44x44Logo.scale-200.png, which is what stood here and
+                  showed nothing in the portable build. That name carries a resource qualifier, and
+                  MRT reads ".scale-200" as "pick the right scale for this display" rather than as
+                  part of a file name — so it looks for an unqualified Square44x44Logo, which does
+                  not exist. A packaged app has a PRI that maps the two; an unpackaged one does not,
+                  and the image silently resolved to nothing. This file has no qualifier to
+                  misread.
                 -->
-                <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                <Image Source="ms-appx:///Assets/AppMark.png"
                        Width="20"
                        Height="20"
                        VerticalAlignment="Center"

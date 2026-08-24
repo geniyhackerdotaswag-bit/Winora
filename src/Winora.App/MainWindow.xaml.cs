@@ -42,6 +42,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
+        ApplyWindowIcon();
+
         // Specification section 12: the content must never be clipped below this size.
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 860));
 
@@ -55,7 +57,11 @@ public sealed partial class MainWindow : Window
         BindUpdateBar();
 
         // After the window exists: a dialog needs a XamlRoot, and there is not one before this.
-        DispatcherQueue.TryEnqueue(OfferInstall);
+        // On Loaded, not merely enqueued. Posting to the dispatcher runs the moment the queue is
+        // free, which on a cold start is before the content tree has a XamlRoot — and a
+        // ContentDialog without one throws "This element does not have a XamlRoot". The log had
+        // three of those before anybody noticed the dialog was simply never appearing.
+        RootGrid.Loaded += OnRootLoaded;
     }
 
     private void OnSchemeApplied(object? sender, EventArgs e) => ApplyScheme();
@@ -247,6 +253,36 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Gives the window its icon, for the taskbar, Alt+Tab and the window list.
+    /// </summary>
+    /// <remarks>
+    /// The packaged build gets this from the tiles its manifest declares and never needed asking.
+    /// Unpackaged there is no manifest to read them from, and while the .exe now carries an icon of
+    /// its own, that one dresses the file in Explorer — the window is a separate thing and Windows
+    /// does not infer one from the other. Set from the icon beside the executable, which the
+    /// single-file host unpacks along with everything else.
+    ///
+    /// Failure is silent and harmless: a window without an icon is a window that still works, and
+    /// this runs in the constructor where a throw would take the whole app down before it appeared.
+    /// </remarks>
+    private void ApplyWindowIcon()
+    {
+        try
+        {
+            var icon = Path.Combine(AppContext.BaseDirectory, "Assets", "Winora.ico");
+
+            if (File.Exists(icon))
+            {
+                AppWindow.SetIcon(icon);
+            }
+        }
+        catch (Exception)
+        {
+            // Nothing to report and nothing a person could do about it.
+        }
+    }
+
+    /// <summary>
     /// Wires the update strip by hand rather than by binding.
     /// </summary>
     /// <remarks>
@@ -299,6 +335,14 @@ public sealed partial class MainWindow : Window
     /// better moment to ask than the first. If this turns out to be a nuisance the answer is a
     /// "don't ask again", but not before it has actually been a nuisance.
     /// </remarks>
+    /// <summary>Offers the install once, after the content tree exists.</summary>
+    private void OnRootLoaded(object sender, RoutedEventArgs e)
+    {
+        // Once only: Loaded fires again whenever the element is re-parented into the tree.
+        RootGrid.Loaded -= OnRootLoaded;
+        OfferInstall();
+    }
+
     private async void OfferInstall()
     {
         // async void has no caller to propagate a fault to: an exception here would be raised
