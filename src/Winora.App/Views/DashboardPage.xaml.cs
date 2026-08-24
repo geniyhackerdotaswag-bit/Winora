@@ -28,6 +28,13 @@ public sealed partial class DashboardPage : Page
     {
         base.OnNavigatedTo(e);
         await ViewModel.LoadAsync().ConfigureAwait(true);
+
+        // The same card as the cabinet. The dashboard was empty above the fold, and the name the
+        // person just typed had nowhere to land.
+        var profile = App.Services.GetRequiredService<ProfileViewModel>();
+        profile.Load();
+        await profile.LoadStatisticsAsync().ConfigureAwait(true);
+        Card.Show(profile);
     }
 
     private async void OnRecoverClick(object sender, RoutedEventArgs e) =>

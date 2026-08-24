@@ -26,6 +26,8 @@ public sealed class RouteRegistryTests
         "backups",
         "journal",
         "settings",
+        // Added by the profile feature, alongside journal and settings in the pane footer.
+        "profile",
         "change-review",
         "applying",
         "result-success",
@@ -116,13 +118,13 @@ public sealed class RouteRegistryTests
     }
 
     [Fact]
-    public void The_footer_holds_exactly_the_journal_and_settings_items()
+    public void The_footer_holds_exactly_the_journal_settings_and_profile_items()
     {
         var footer = Registry.Routes
             .Where(static route => route.Placement == RoutePlacement.Footer)
             .Select(static route => route.Key)
             .OrderBy(static key => key, StringComparer.Ordinal);
-        Assert.Equal(new[] { "journal", "settings" }, footer);
+        Assert.Equal(new[] { "journal", "profile", "settings" }, footer);
     }
 
     [Fact]

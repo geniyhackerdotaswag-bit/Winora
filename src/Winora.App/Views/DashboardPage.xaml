@@ -45,6 +45,8 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Padding="32,24,32,32">
 
+                        <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
+
                         <!--
                           The one thing this page still says, and only when it is true: an
                           unfinished change blocks every other screen, so a person who does not

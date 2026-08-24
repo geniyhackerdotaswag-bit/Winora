@@ -20,6 +20,7 @@ public static class RouteKeys
     public const string Backups = "backups";
     public const string Journal = "journal";
     public const string Settings = "settings";
+    public const string Profile = "profile";
     public const string ChangeReview = "change-review";
     public const string Applying = "applying";
     public const string ResultSuccess = "result-success";
@@ -42,6 +43,7 @@ public static class RouteKeys
         Backups,
         Journal,
         Settings,
+        Profile,
         ChangeReview,
         Applying,
         ResultSuccess,

@@ -35,6 +35,7 @@ public static class FluentIconCatalog
         ["backup"] = "",
         ["journal"] = "",
         ["settings"] = "",
+        ["profile"] = "",
     };
 
     /// <summary>

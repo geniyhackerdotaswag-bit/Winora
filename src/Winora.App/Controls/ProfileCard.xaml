@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Winora.App.Controls.ProfileCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+      One control, two homes: the cabinet and the dashboard. Written once so the two cannot drift
+      apart, which two copies of the same markup always eventually do.
+    -->
+    <Border Style="{StaticResource WinoraCard}">
+        <Grid ColumnSpacing="18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Drawn, not an image: nothing to ship and no blur at any size. -->
+            <Grid Grid.Column="0" Width="64" Height="64">
+                <Ellipse x:Name="AvatarCircle" />
+                <TextBlock x:Name="AvatarInitial"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Grid>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                <TextBlock x:Name="CardName" Style="{StaticResource WinoraRowTitle}" />
+                <TextBlock x:Name="CardEmail"
+                           Style="{StaticResource WinoraRowDetail}"
+                           Margin="0"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="CardSince" Style="{StaticResource WinoraRowDetail}" Margin="0" />
+                <TextBlock x:Name="CardChanges" Style="{StaticResource WinoraRowDetail}" Margin="0" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

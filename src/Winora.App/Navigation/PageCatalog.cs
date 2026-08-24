@@ -27,6 +27,7 @@ public static class PageCatalog
         RouteKeys.Recovery => typeof(RecoveryPage),
         RouteKeys.Backups => typeof(BackupsPage),
         RouteKeys.Journal => typeof(JournalPage),
+        RouteKeys.Profile => typeof(ProfilePage),
         RouteKeys.Settings => typeof(SettingsPage),
         RouteKeys.Sounds => typeof(SoundsPage),
         RouteKeys.ChangeReview => typeof(ChangeReviewPage),

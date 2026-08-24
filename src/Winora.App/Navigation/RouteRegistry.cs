@@ -41,6 +41,7 @@ public sealed class RouteRegistry
         new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Pane, GroupSystem, "history"),
         new(RouteKeys.Backups, "Nav_Backups", RoutePlacement.Pane, GroupSystem, "backup"),
 
+        new(RouteKeys.Profile, "Nav_Profile", RoutePlacement.Footer, IconGlyphKey: "profile"),
         new(RouteKeys.Journal, "Nav_Journal", RoutePlacement.Footer, IconGlyphKey: "journal"),
         new(RouteKeys.Settings, "Nav_Settings", RoutePlacement.Footer, IconGlyphKey: "settings"),
 
