@@ -495,10 +495,13 @@ public sealed class UpdateViewModelTests
 
     /// <summary>
     /// The section added for spec section 6 (a "check now" button in Settings, alongside the
-    /// background check at startup). These properties read straight from
-    /// ILocalizationService/IAppEnvironment with no state of their own, so this is mostly a guard
-    /// against a copy-pasted resource key drifting from what the property actually reads, and
-    /// against the version's string.Format silently dropping its argument.
+    /// background check at startup). These properties read straight from ILocalizationService with
+    /// no state of their own, so this is a guard against a copy-pasted resource key drifting from
+    /// what the property actually reads.
+    ///
+    /// The card carried three more lines until 2026-08-24 — what the check does, which version is
+    /// installed, and the last answer — and the owner had them removed. The answer has a home
+    /// already: the strip at the top of the window.
     /// </summary>
     [Fact]
     public void The_settings_facing_properties_read_their_own_resource_keys()
@@ -506,13 +509,7 @@ public sealed class UpdateViewModelTests
         var vm = Build(new FakeUpdateService());
 
         Assert.Equal("Update_Settings_Heading", vm.SettingsHeading);
-        Assert.Equal("Update_Settings_Description", vm.SettingsDescription);
         Assert.Equal("Update_Settings_Check", vm.SettingsCheckLabel);
-
-        // FakeLocalizationService returns a real "{0}" template for this one key specifically, so a
-        // dropped format argument would show up here rather than being masked by the key echo the
-        // other assertions above rely on.
-        Assert.Equal("v1.0.0", vm.SettingsVersionLabel);
     }
 
     [Fact]

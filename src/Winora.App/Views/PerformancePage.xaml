@@ -38,6 +38,13 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Padding="32,24,32,32">
 
+                    <InfoBar IsOpen="{x:Bind ViewModel.IsUnderMaintenance, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Title="{x:Bind ViewModel.MaintenanceTitle, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.MaintenanceNotice, Mode=OneWay}" />
+
                     <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                              IsClosable="False"
                              Severity="Informational"
@@ -50,7 +57,9 @@
                       busy. The list carries a minute of history each; the panel on the right shows
                       the selected component full size with its figures underneath.
                     -->
-                    <Grid ColumnSpacing="16" Margin="{StaticResource WinoraStackGapL}">
+                    <Grid ColumnSpacing="16"
+                          Margin="{StaticResource WinoraStackGapL}"
+                          Visibility="{x:Bind ctl:XamlConvert.Hide(ViewModel.IsUnderMaintenance), Mode=OneWay}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="320" />
                             <ColumnDefinition Width="*" />

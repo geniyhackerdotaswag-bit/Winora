@@ -104,6 +104,23 @@ public sealed partial class PerformanceViewModel : ObservableObject
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The screen is closed while it is being worked on.
+    /// </summary>
+    /// <remarks>
+    /// A constant, exactly as the sounds screen does it, because the state is a decision rather
+    /// than something measured. The readings and the tiles are hidden rather than greyed out: a
+    /// disabled control reads as a passing glitch and invites another press, while a plain notice
+    /// says what is actually true.
+    /// </remarks>
+    public bool IsUnderMaintenance => true;
+
+    [ObservableProperty]
+    public partial string MaintenanceTitle { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string MaintenanceNotice { get; set; } = string.Empty;
+
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
     partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(HasStatus));
@@ -137,6 +154,15 @@ public sealed partial class PerformanceViewModel : ObservableObject
 
         Title = _text.Get("Nav_Performance");
         Subtitle = _text.Get("Performance_Subtitle");
+        MaintenanceTitle = _text.Get("Performance_Maintenance_Title");
+        MaintenanceNotice = _text.Get("Performance_Maintenance");
+
+        // Nothing is sampled while the screen is closed. Walking the whole process list once a
+        // second for readings nobody is being shown would be work done purely to be discarded.
+        if (IsUnderMaintenance)
+        {
+            return Task.CompletedTask;
+        }
 
         Refresh();
 

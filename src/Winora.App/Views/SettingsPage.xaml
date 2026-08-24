@@ -38,33 +38,6 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Padding="32,24,32,32">
 
-                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
-                               Text="{x:Bind ViewModel.AboutHeading, Mode=OneWay}" />
-
-                    <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.Facts}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:SettingsFactViewModel">
-                                    <Grid Padding="18,13" ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0"
-                                                   Style="{StaticResource WinoraRowTitle}"
-                                                   VerticalAlignment="Center"
-                                                   Text="{x:Bind Label, Mode=OneWay}" />
-                                        <TextBlock Grid.Column="1"
-                                                   Style="{StaticResource WinoraRowDetail}"
-                                                   VerticalAlignment="Center"
-                                                   TextWrapping="Wrap"
-                                                   Text="{x:Bind Value, Mode=OneWay}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Border>
-
                     <!--
                       Winora's own colours live here rather than in the personalization group of the
                       pane: that group is for screens that change Windows, and an item there implied
@@ -107,34 +80,17 @@
                     <Border Style="{StaticResource WinoraCard}"
                             Margin="{StaticResource WinoraStackGapL}"
                             Visibility="{x:Bind ctl:XamlConvert.Show(Update.IsSettingsSectionVisible), Mode=OneWay}">
-                        <StackPanel Spacing="10">
-                            <Grid ColumnSpacing="16">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           VerticalAlignment="Center"
-                                           Style="{StaticResource WinoraRowDetail}"
-                                           Margin="0"
-                                           TextWrapping="Wrap"
-                                           Text="{x:Bind Update.SettingsDescription, Mode=OneWay}" />
-                                <Button Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Style="{StaticResource WinoraActionButton}"
-                                        Content="{x:Bind Update.SettingsCheckLabel, Mode=OneWay}"
-                                        Command="{x:Bind Update.CheckCommand}"
-                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(Update.IsBusy), Mode=OneWay}" />
-                            </Grid>
-                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                       TextWrapping="Wrap"
-                                       Text="{x:Bind Update.SettingsVersionLabel, Mode=OneWay}" />
-                            <!-- The check's own answer: "У вас последняя версия", "Доступна версия X",
-                                 or "Проверяем обновления…" while it runs. Empty until asked. -->
-                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                       TextWrapping="Wrap"
-                                       Text="{x:Bind Update.Message, Mode=OneWay}" />
-                        </StackPanel>
+                        <!--
+                          The button alone. The card said the same thing three times over — what the
+                          check does, which version is installed, and what the last answer was — and
+                          the answer already has a home: the strip at the top of the window, which is
+                          where every other thing Winora has to say about itself appears.
+                        -->
+                        <Button HorizontalAlignment="Left"
+                                Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind Update.SettingsCheckLabel, Mode=OneWay}"
+                                Command="{x:Bind Update.CheckCommand}"
+                                IsEnabled="{x:Bind ctl:XamlConvert.Not(Update.IsBusy), Mode=OneWay}" />
                     </Border>
 
                     <TextBlock Style="{StaticResource WinoraSectionHeading}"

@@ -3,6 +3,16 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>Winora.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      The icon Windows shows for the file, the taskbar and Alt+Tab.
+
+      The packaged build gets these from the tiles the manifest declares, so nothing here was ever
+      missing while MSIX was the only way to run Winora. An unpackaged .exe has no manifest to read
+      them from and falls back to the generic .NET icon — which is what the portable build shipped
+      with until 2026-08-24. Built from Square150x150Logo at nine sizes down to 16 px, because
+      Windows picks per surface and a single large image is resampled badly in the small ones.
+    -->
+    <ApplicationIcon>Assets\Winora.ico</ApplicationIcon>
     <UseWinUI>true</UseWinUI>
     <DefaultLanguage>ru-RU</DefaultLanguage>
     <!--

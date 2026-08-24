@@ -33,7 +33,13 @@ public sealed partial class PerformancePage : Page
     {
         base.OnNavigatedTo(e);
         await ViewModel.LoadAsync().ConfigureAwait(true);
-        _timer.Start();
+
+        // Not started while the screen is closed: the timer's only job is to refresh figures that
+        // are not on screen.
+        if (!ViewModel.IsUnderMaintenance)
+        {
+            _timer.Start();
+        }
     }
 
     /// <summary>

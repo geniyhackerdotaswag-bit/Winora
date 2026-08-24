@@ -128,15 +128,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// <summary>The heading over the section.</summary>
     public string SettingsHeading => _text.Get("Update_Settings_Heading");
 
-    /// <summary>Says that Winora already checks by itself, so the button is for checking right now.</summary>
-    public string SettingsDescription => _text.Get("Update_Settings_Description");
-
     /// <summary>Label for the "check now" button, bound to <see cref="CheckCommand" />.</summary>
     public string SettingsCheckLabel => _text.Get("Update_Settings_Check");
-
-    /// <summary>The installed build, which is what a person quotes when reporting a problem.</summary>
-    public string SettingsVersionLabel =>
-        string.Format(CultureInfo.CurrentCulture, _text.Get("Update_Settings_Version"), _environment.Version);
 
     /// <summary>
     /// Whether the Settings section has anything to offer at all.

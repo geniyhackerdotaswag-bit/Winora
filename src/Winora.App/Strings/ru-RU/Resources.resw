@@ -222,15 +222,6 @@
   <data name="Cursors_RestoreFailed"><value>Вернуть курсоры не удалось.</value></data>
   <data name="Cursors_NoneInstalled"><value>Наборов не найдено. Положите папку с файлами .cur или .ani в каталог выше — она появится здесь. Winora ничего не скачивает и не открывает install.inf.</value></data>
   <data name="Settings_Subtitle"><value>Что это за сборка и где она хранит данные.</value></data>
-  <data name="Settings_AboutHeading"><value>Об этой сборке</value></data>
-  <data name="Settings_Version"><value>Версия</value></data>
-  <data name="Settings_Elevation"><value>Права администратора</value></data>
-  <data name="Settings_Elevation_Yes"><value>Есть</value></data>
-  <data name="Settings_Elevation_No"><value>Нет</value></data>
-  <data name="Settings_CanApply"><value>Применение изменений</value></data>
-  <data name="Settings_CanApply_Yes"><value>Доступно</value></data>
-  <data name="Settings_CanApply_No"><value>Недоступно</value></data>
-  <data name="Settings_Language"><value>Язык интерфейса</value></data>
   <data name="Settings_StorageHeading"><value>Хранилище</value></data>
   <data name="Settings_StorageNote"><value>Здесь лежат журнал, архив планов и резервные копии — всё, на чём держится возможность отменить изменение. Папка намеренно вынесена за пределы хранилища пакета, чтобы переживать удаление приложения.</value></data>
   <data name="Settings_OpenFolder"><value>Открыть папку</value></data>
@@ -520,7 +511,7 @@
   <data name="Install_Failed"><value>Не удалось скопировать. Программа продолжит работать отсюда.</value></data>
   <data name="Install_Failed_Restart"><value>Установлено. Закройте окно и откройте Winora заново.</value></data>
   <data name="Update_Settings_Heading"><value>Обновления</value></data>
-  <data name="Update_Settings_Description"><value>Winora проверяет обновления сама при запуске. Здесь можно проверить прямо сейчас.</value></data>
   <data name="Update_Settings_Check"><value>Проверить</value></data>
-  <data name="Update_Settings_Version"><value>Установлена версия {0}</value></data>
+  <data name="Performance_Maintenance_Title"><value>Раздел закрыт на технические работы</value></data>
+  <data name="Performance_Maintenance"><value>Наблюдение за нагрузкой временно недоступно, пока раздел дорабатывается. Показывать цифры, за которые нельзя поручиться, хуже, чем не показывать ничего. Пока он закрыт, за нагрузкой можно следить Диспетчером задач: Ctrl + Shift + Esc.</value></data>
 </root>
