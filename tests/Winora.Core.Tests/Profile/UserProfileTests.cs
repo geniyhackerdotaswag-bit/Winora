@@ -53,14 +53,20 @@ public sealed class UserProfileTests
         Assert.Equal(string.Empty, ProfileRules.NormaliseName(null));
     }
 
-    /// <summary>Empty is allowed: the email is optional and always was.</summary>
     [Theory]
-    [InlineData(null)]
     [InlineData("")]
-    [InlineData("   ")]
     [InlineData("a@b.ru")]
     [InlineData("very.long.name+tag@mail.example.com")]
     public void An_acceptable_email(string? email)
+    {
+        Assert.True(ProfileRules.IsEmailValid(email));
+    }
+
+    /// <summary>An absent email is allowed, in all the shapes absence takes.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public void An_absent_email_is_allowed(string? email)
     {
         Assert.True(ProfileRules.IsEmailValid(email));
     }
@@ -72,8 +78,19 @@ public sealed class UserProfileTests
     [InlineData("a@b")]
     [InlineData("a b@c.ru")]
     [InlineData("a@@b.ru")]
+    [InlineData("a@b..ru")]
+    [InlineData("a@bcom")]
+    [InlineData("a@.ru")]
+    [InlineData("a@b.")]
     public void An_email_that_is_not_one(string email)
     {
         Assert.False(ProfileRules.IsEmailValid(email));
+    }
+
+    [Fact]
+    public void An_email_over_the_length_limit_is_not_one()
+    {
+        var tooLongEmail = "a@" + new string('x', 253);
+        Assert.False(ProfileRules.IsEmailValid(tooLongEmail));
     }
 }

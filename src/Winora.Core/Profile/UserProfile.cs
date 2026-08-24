@@ -12,9 +12,14 @@ public static class ProfileRules
     /// <summary>Long enough for a real name, short enough to fit the card.</summary>
     public const int NameMaxLength = 32;
 
+    /// <summary>The longest an address can be in practice.</summary>
+    public const int EmailMaxLength = 254;
+
     /// <summary>Trimmed, because surrounding space is typing rather than a name.</summary>
     public static string NormaliseName(string? name) => name?.Trim() ?? string.Empty;
 
+    /// <summary>Whether this looks like a real name.</summary>
+    /// <remarks>Accepts 1–32 characters after trimming. Surrounding space is typing, not the name.</remarks>
     public static bool IsNameValid(string? name)
     {
         var trimmed = NormaliseName(name);
@@ -39,7 +44,7 @@ public static class ProfileRules
             return true;
         }
 
-        if (trimmed.Any(char.IsWhiteSpace))
+        if (trimmed.Length > EmailMaxLength || trimmed.Any(char.IsWhiteSpace))
         {
             return false;
         }
@@ -54,6 +59,7 @@ public static class ProfileRules
         return domain.Length >= 3 &&
                domain.Contains('.') &&
                !domain.StartsWith('.') &&
-               !domain.EndsWith('.');
+               !domain.EndsWith('.') &&
+               !domain.Contains("..");
     }
 }
