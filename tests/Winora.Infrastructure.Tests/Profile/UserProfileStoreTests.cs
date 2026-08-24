@@ -125,4 +125,43 @@ public sealed class UserProfileStoreTests : IDisposable
         Assert.True(new UserProfileStore(nested).Write(Sample()));
         Assert.NotNull(new UserProfileStore(nested).Read());
     }
+
+    /// <summary>
+    /// A stored name that is too long (over 32 characters) is truncated to fit, not a reason to
+    /// forget everything else. The email and date are kept intact.
+    /// </summary>
+    [Fact]
+    public void An_overlong_stored_name_is_truncated_to_fit()
+    {
+        var longName = "12345678901234567890123456789012345678901234"; // 44 characters
+        var email = "long@example.com";
+        var date = new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero);
+
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            "{\"name\":\"" + longName + "\",\"email\":\"" + email + "\",\"avatar\":5,\"createdUtc\":\"2026-08-24T03:00:00+00:00\"}");
+
+        var read = Store().Read();
+
+        Assert.NotNull(read);
+        Assert.Equal(32, read.Name.Length);
+        Assert.Equal(longName[..32], read.Name);
+        Assert.Equal(email, read.Email);
+        Assert.Equal(date, read.CreatedUtc);
+        Assert.Equal(5, read.Avatar);
+    }
+
+    /// <summary>
+    /// After truncating, if the name becomes blank (which is impossible with the current logic
+    /// since truncation preserves existing characters, but verify the boundary holds).
+    /// </summary>
+    [Fact]
+    public void A_blank_name_after_normalisation_reads_as_no_profile()
+    {
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            "{\"name\":\"   \",\"email\":\"test@example.com\",\"avatar\":1,\"createdUtc\":\"2026-08-24T00:00:00+00:00\"}");
+
+        Assert.Null(Store().Read());
+    }
 }

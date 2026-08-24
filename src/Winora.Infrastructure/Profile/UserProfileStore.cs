@@ -67,15 +67,28 @@ public sealed class UserProfileStore : IUserProfileStore
 
             var stored = JsonSerializer.Deserialize<StoredProfile>(File.ReadAllText(Path), Options);
 
-            // A profile with no name has nothing for the card to show and nothing for the initial
-            // to take, so it is not one. The welcome window asks again.
-            if (stored is null || !ProfileRules.IsNameValid(stored.Name))
+            if (stored is null)
             {
                 return null;
             }
 
+            var normalisedName = ProfileRules.NormaliseName(stored.Name);
+
+            // A profile with no name has nothing for the card to show and nothing for the initial
+            // to take, so it is not one. The welcome window asks again.
+            if (string.IsNullOrEmpty(normalisedName))
+            {
+                return null;
+            }
+
+            // If the name is too long but present, truncate it to fit rather than discard
+            // the entire profile. The stored name may come from a hand edit or a looser build.
+            var finalName = normalisedName.Length > ProfileRules.NameMaxLength
+                ? normalisedName.Substring(0, ProfileRules.NameMaxLength)
+                : normalisedName;
+
             return new UserProfile(
-                ProfileRules.NormaliseName(stored.Name),
+                finalName,
                 stored.Email?.Trim() ?? string.Empty,
                 stored.Avatar,
                 stored.CreatedUtc);
@@ -92,10 +105,10 @@ public sealed class UserProfileStore : IUserProfileStore
     {
         ArgumentNullException.ThrowIfNull(profile);
 
-        var temporary = Path + ".tmp";
-
         try
         {
+            var temporary = Path + ".tmp";
+
             Directory.CreateDirectory(_directory);
 
             File.WriteAllText(
@@ -109,7 +122,7 @@ public sealed class UserProfileStore : IUserProfileStore
         }
         catch (Exception)
         {
-            TryDelete(temporary);
+            TryDelete(Path + ".tmp");
             return false;
         }
     }
