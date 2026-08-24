@@ -97,20 +97,25 @@ public sealed class ProfileService : IProfileService
             return false;
         }
 
-        // The introduction date survives an edit: it records when this person started, not when
-        // they last changed their mind about an avatar.
-        // The digest is carried over, not re-made: editing a name in the cabinet must not silently
-        // change what the password checks against.
         var existing = _store.Read();
-        var created = existing?.CreatedUtc ?? DateTimeOffset.UtcNow;
+
+        // Save edits a profile; it does not create one. When there is nothing to read — no profile
+        // yet, a transiently unreadable file, or a read that lost a race with another writer —
+        // writing anyway would store an empty digest, and the file would then fail Read's own guard
+        // on the next launch. That costs the person the whole profile, not just the password, and
+        // reports success while doing it. Registration is the only thing that creates a profile.
+        if (existing?.Password is null)
+        {
+            return false;
+        }
 
         return _store.Write(
             new UserProfile(
                 trimmed,
                 email?.Trim() ?? string.Empty,
                 avatar,
-                created,
-                existing?.Password));
+                existing.CreatedUtc,
+                existing.Password));
     }
 
     /// <summary>Creates the profile the registration window fills in.</summary>

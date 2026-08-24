@@ -62,4 +62,22 @@ public sealed class ProfileServiceTests : IDisposable
         Assert.Equal("Пётр", stored.Name);
         Assert.True(PasswordHash.Verify("Password1!", stored.Password));
     }
+
+    /// <summary>
+    /// With nothing to edit, Save refuses rather than writing a profile with no password.
+    /// </summary>
+    /// <remarks>
+    /// The dangerous case is not "no profile yet" — it is a file that is momentarily unreadable.
+    /// Writing then would store an empty digest, and that file fails the store's own guard on the
+    /// next launch: the whole profile is gone, and Save returned true while doing it.
+    /// </remarks>
+    [Fact]
+    public void Saving_with_nothing_to_edit_refuses_rather_than_writing_a_passwordless_profile()
+    {
+        var store = new UserProfileStore(_folder);
+        var service = new ProfileService(store, new SilentJournal());
+
+        Assert.False(service.Save("Аня", "a@b.ru", 0));
+        Assert.Null(store.Read());
+    }
 }
