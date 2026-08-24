@@ -336,23 +336,31 @@ public sealed partial class MainWindow : Window
     /// "don't ask again", but not before it has actually been a nuisance.
     /// </remarks>
     /// <summary>Offers the install once, after the content tree exists.</summary>
-    private void OnRootLoaded(object sender, RoutedEventArgs e)
+    private async void OnRootLoaded(object sender, RoutedEventArgs e)
     {
-        // Once only: Loaded fires again whenever the element is re-parented into the tree.
+        // Once only: Loaded fires again whenever the element is re-parented into the tree. Unhooked
+        // before either await below, so a second Loaded firing on this same window (re-parenting)
+        // can never queue a second run of either dialog.
         RootGrid.Loaded -= OnRootLoaded;
-        OfferInstall();
 
-        // After the install offer, not before: two dialogs at once is one too many, and the install
-        // question decides where the program will live before the person settles into it.
-        _ = ShowWelcomeAsync();
+        // Awaited in order, not fired-and-forgotten side by side: WinUI does not allow two open
+        // ContentDialogs on the same XamlRoot, and OfferInstallAsync opens one whenever the app
+        // still needs installing. Firing ShowWelcomeAsync() while that dialog is still open would
+        // make its own ShowAsync() throw, and the try/catch around it would swallow that silently —
+        // which is exactly how the welcome window would fail to appear on a real first run. The
+        // install question also decides where the program will live before the person settles into
+        // it, which is reason enough on its own to ask it first.
+        await OfferInstallAsync();
+        await ShowWelcomeAsync();
     }
 
-    private async void OfferInstall()
+    private async Task OfferInstallAsync()
     {
-        // async void has no caller to propagate a fault to: an exception here would be raised
-        // straight on the synchronization context and take the whole process down, in the first
-        // seconds of a new user's first launch. Every callee happens to swallow its own exceptions
-        // today, but that is incidental safety, not a guarantee this method may rely on.
+        // No caller further up propagates a fault out of OnRootLoaded's async void either, so a
+        // throw here would still reach the synchronization context directly and take the whole
+        // process down, in the first seconds of a new user's first launch. Every callee happens to
+        // swallow its own exceptions today, but that is incidental safety, not a guarantee this
+        // method may rely on.
         try
         {
             var installer = App.Services.GetRequiredService<IAppInstaller>();

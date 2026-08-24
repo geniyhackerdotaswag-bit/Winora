@@ -33,6 +33,21 @@ public sealed partial class WelcomeDialog : ContentDialog
 
         NameBox.PlaceholderText = text.Get("Welcome_NameHint");
         NameBox.Text = profile.Name;
+
+        // "Начать" is disabled until the name and email both pass the same rules the save itself
+        // enforces — otherwise pressing it silently does nothing, which looks like the button (or
+        // the whole dialog) is broken rather than like a rejected form.
+        NameBox.TextChanged += (_, _) => UpdatePrimaryButton();
+        EmailBox.TextChanged += (_, _) => UpdatePrimaryButton();
+        UpdatePrimaryButton();
+    }
+
+    /// <summary>Reflects the current field contents on the button that submits them.</summary>
+    private void UpdatePrimaryButton()
+    {
+        _profile.Name = NameBox.Text;
+        _profile.Email = EmailBox.Text;
+        IsPrimaryButtonEnabled = _profile.CanSave;
     }
 
     /// <summary>Shows the greeting when nobody has introduced themselves yet.</summary>
@@ -57,17 +72,21 @@ public sealed partial class WelcomeDialog : ContentDialog
 
         var pressed = await dialog.ShowAsync();
 
-        profile.Name = pressed == ContentDialogResult.Primary
-            ? dialog.NameBox.Text
-            : App.Services.GetRequiredService<IProfileService>().SuggestedName;
-
-        profile.Email = pressed == ContentDialogResult.Primary ? dialog.EmailBox.Text : string.Empty;
+        // The decision itself — what to save, given how the dialog closed — is pure and lives in
+        // WelcomeOutcome, where it can be covered without touching this WinUI type at all.
+        var outcome = WelcomeOutcome.Resolve(
+            pressed == ContentDialogResult.Primary,
+            dialog.NameBox.Text,
+            dialog.EmailBox.Text,
+            App.Services.GetRequiredService<IProfileService>().SuggestedName);
 
         // Skipping still writes a profile, so the greeting does not come back every launch. If the
         // Windows account name will not pass the rules — which would take an empty one — nothing is
         // written and the person is asked again next time. That is the honest outcome either way.
-        if (profile.CanSave)
+        if (outcome is { } saved)
         {
+            profile.Name = saved.Name;
+            profile.Email = saved.Email;
             profile.SaveCommand.Execute(null);
         }
     }
