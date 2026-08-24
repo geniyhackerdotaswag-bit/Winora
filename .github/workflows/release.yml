@@ -52,12 +52,14 @@ jobs:
           -p:Version=${{ steps.version.outputs.value }}
           -o publish
 
-      # Published as Winora.exe: that is the name an installed copy has, and AppInstallLocation
-      # checks the name as well as the folder.
-      - name: Name it as the release
+      # No rename here, and that is the point. WinUI resolves its resource map — which is where
+      # compiled XAML lives — by the running module's name, so a published file renamed after the
+      # build dies at startup with a stowed WinRT exception before anything can report it. Measured
+      # on 2026-08-24: identical bytes named Winora.exe, Winora2.exe and WinoraApp.exe all died;
+      # only the name the build produced started. The project now builds as Winora.exe directly.
+      - name: Checksum
         shell: pwsh
         run: |
-          Move-Item publish/Winora.App.exe publish/Winora.exe
           $hash = (Get-FileHash publish/Winora.exe -Algorithm SHA256).Hash
           "$hash  Winora.exe" | Out-File publish/Winora.exe.sha256 -Encoding ascii -NoNewline
 

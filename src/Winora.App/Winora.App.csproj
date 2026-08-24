@@ -35,6 +35,20 @@
   <PropertyGroup Condition="'$(WinoraPortable)' == 'true'">
     <WindowsPackageType>None</WindowsPackageType>
     <!--
+      The released file is named here, not renamed afterwards.
+
+      WinUI keeps compiled XAML in resources.pri and resolves the resource map by the running
+      module's name. Renaming the published file breaks that lookup: the window's own markup is
+      never found and the process dies at startup with a stowed WinRT exception (0xC000027B) before
+      anything can report it. Measured on 2026-08-24 — identical bytes named Winora.exe, Winora2.exe
+      and WinoraApp.exe all died; only Winora.App.exe, the name it was built under, started.
+
+      The release workflow used to do that rename, which means every published build would have
+      failed to start on every machine. Building under the final name removes the rename entirely
+      and keeps the assembly, the resource map and the file agreeing with each other.
+    -->
+    <AssemblyName>Winora</AssemblyName>
+    <!--
       Still true, and not a leftover: the SDK's single-file targets refuse to build without it,
       because the MSIX tooling is what generates the resources.pri they then embed.
     -->
