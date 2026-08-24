@@ -50,6 +50,15 @@
     <Compile Include="..\..\src\Winora.App\Services\JournalAllowlist.cs" LinkBase="Linked\Services" />
     <Compile Include="..\..\src\Winora.App\Services\OperationRollback.cs" LinkBase="Linked\Services" />
     <Compile Include="..\..\src\Winora.App\Services\RecoveryState.cs" LinkBase="Linked\Services" />
+    <!--
+      ProfileViewModel touches no WinUI type either: it talks only to IProfileService and
+      ILocalizationService. ProfileService in turn depends on IActionJournalReader (App-layer,
+      hence linked here too) and on IUserProfileStore from Winora.Infrastructure (a ProjectReference,
+      so it needs no linking of its own).
+    -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\ProfileViewModel.cs" LinkBase="Linked\ViewModels" />
+    <Compile Include="..\..\src\Winora.App\Services\ProfileService.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\ActionJournalReader.cs" LinkBase="Linked\Services" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winora.Core\Winora.Core.csproj" />

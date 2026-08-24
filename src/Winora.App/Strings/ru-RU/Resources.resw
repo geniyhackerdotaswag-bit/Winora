@@ -514,4 +514,20 @@
   <data name="Update_Settings_Check"><value>Проверить</value></data>
   <data name="Performance_Maintenance_Title"><value>Раздел закрыт на технические работы</value></data>
   <data name="Performance_Maintenance"><value>Наблюдение за нагрузкой временно недоступно, пока раздел дорабатывается. Показывать цифры, за которые нельзя поручиться, хуже, чем не показывать ничего. Пока он закрыт, за нагрузкой можно следить Диспетчером задач: Ctrl + Shift + Esc.</value></data>
+  <data name="Nav_Profile"><value>Профиль</value></data>
+  <data name="Profile_Heading"><value>Личный кабинет</value></data>
+  <data name="Profile_NameLabel"><value>Имя</value></data>
+  <data name="Profile_EmailLabel"><value>Почта</value></data>
+  <data name="Profile_EmailPrivacy"><value>Почта остаётся на этом компьютере. Winora ничего никуда не отправляет.</value></data>
+  <data name="Profile_AvatarLabel"><value>Значок</value></data>
+  <data name="Profile_Save"><value>Сохранить</value></data>
+  <data name="Profile_Saved"><value>Сохранено.</value></data>
+  <data name="Profile_SaveFailed"><value>Не удалось сохранить профиль. Остальное работает.</value></data>
+  <data name="Profile_MemberSince"><value>С нами с {0}</value></data>
+  <data name="Profile_RecordedChanges"><value>Изменений записано: {0}</value></data>
+  <data name="Welcome_Title"><value>Знакомство</value></data>
+  <data name="Welcome_About"><value>Winora меняет оформление Windows: темы, панель задач, курсоры и звуки. Ещё она умеет обходить блокировки Discord и YouTube.</value></data>
+  <data name="Welcome_NameHint"><value>Как к вам обращаться</value></data>
+  <data name="Welcome_Start"><value>Начать</value></data>
+  <data name="Welcome_Skip"><value>Пропустить</value></data>
 </root>

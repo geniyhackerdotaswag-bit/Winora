@@ -12,6 +12,7 @@ using Winora.Infrastructure.Leases;
 using Winora.Infrastructure.Operations;
 using Winora.Infrastructure.Paths;
 using Winora.Infrastructure.Persistence;
+using Winora.Infrastructure.Profile;
 using Winora.Infrastructure.Recovery;
 using Winora.Infrastructure.Time;
 using Winora.System.Backups;
@@ -143,6 +144,12 @@ public static class ServiceRegistration
             new AppInstaller(
                 provider.GetRequiredService<IAppInstallLocation>(),
                 provider.GetRequiredService<IShortcutWriter>()));
+
+        // Singletons: the store is a file and the card appears in two places, which must not read
+        // it into two different answers.
+        services.AddSingleton<IUserProfileStore, UserProfileStore>();
+        services.AddSingleton<IProfileService, ProfileService>();
+        services.AddTransient<ProfileViewModel>();
 
         // The presentation-layer wrapper: UpdateViewModel may not reference Winora.System directly
         // (SolutionStructureTests.ViewModels_never_reference_infrastructure_or_system_directly), so
