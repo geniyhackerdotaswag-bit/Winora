@@ -26,13 +26,36 @@ public sealed record PasswordDigest(string Hash, string Salt, int Iterations);
 /// </remarks>
 public static class PasswordHash
 {
-    /// <summary>Rounds for a new password. Stored per digest, so this may rise over time.</summary>
-    public const int DefaultIterations = 210_000;
+    /// <summary>
+    /// Rounds for a new password. Stored per digest, so this may rise over time.
+    /// </summary>
+    /// <remarks>
+    /// OWASP's current minimum for PBKDF2-HMAC-SHA256. The count is stored per digest so
+    /// existing profiles keep verifying at whatever they were made with.
+    /// </remarks>
+    public const int DefaultIterations = 600_000;
+
+    /// <summary>
+    /// The most rounds a stored digest may ask for.
+    /// </summary>
+    /// <remarks>
+    /// Generous next to <see cref="DefaultIterations" />, so raising the default later needs no
+    /// change here — but finite, because the count arrives from a file a person can edit and
+    /// PBKDF2 does not refuse an absurd one. It simply runs, and a launch that hangs for an hour is
+    /// worse than one that reports a problem: nothing is caught, nothing is shown, and there is
+    /// nothing on screen to explain it.
+    /// </remarks>
+    public const int MaxIterations = 5_000_000;
 
     private const int SaltBytes = 16;
 
     private const int KeyBytes = 32;
 
+    /// <summary>Turns a password into a digest that can be checked but not read back.</summary>
+    /// <remarks>
+    /// This method throws on a null password; <see cref="Verify" /> refuses a null password instead.
+    /// <see cref="Create" /> is only ever reached from validated input, so the distinction is fine.
+    /// </remarks>
     public static PasswordDigest Create(string password)
     {
         ArgumentNullException.ThrowIfNull(password);
@@ -54,7 +77,7 @@ public static class PasswordHash
     /// </remarks>
     public static bool Verify(string password, PasswordDigest? digest)
     {
-        if (password is null || digest is null || digest.Iterations <= 0)
+        if (password is null || digest is null || digest.Iterations <= 0 || digest.Iterations > MaxIterations)
         {
             return false;
         }

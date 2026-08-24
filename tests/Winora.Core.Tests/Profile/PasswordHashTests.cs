@@ -76,6 +76,8 @@ public sealed class PasswordHashTests
     [InlineData("aGFzaA==", "not base64!", 210_000)]
     [InlineData("aGFzaA==", "c2FsdA==", 0)]
     [InlineData("aGFzaA==", "c2FsdA==", -1)]
+    [InlineData("aGFzaA==", "c2FsdA==", PasswordHash.MaxIterations + 1)]
+    [InlineData("aGFzaA==", "c2FsdA==", int.MaxValue)]
     public void A_broken_digest_refuses_everything(string hash, string salt, int iterations)
     {
         var digest = new PasswordDigest(hash, salt, iterations);
