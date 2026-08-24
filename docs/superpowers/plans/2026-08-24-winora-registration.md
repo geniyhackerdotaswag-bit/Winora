@@ -964,7 +964,11 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj --nologo --filter "Fu
 
 Ожидаемо: `CS0246` — `RegistrationViewModel` и `RegistrationStep` не найдены.
 
-- [ ] **Step 4: Добавить регистрацию в прослойку**
+- [ ] **Step 4: Открыть регистрацию через интерфейс**
+
+**Тело `Register` уже написано в задаче 3** — там оно понадобилось её же тесту. Добавить его
+второй раз значит получить `CS0111`. Здесь добавляется **только член интерфейса**; сверьтесь с
+`src/Winora.App/Services/ProfileService.cs` перед правкой.
 
 В `src/Winora.App/Services/ProfileService.cs`, к интерфейсу `IProfileService`:
 
@@ -973,7 +977,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj --nologo --filter "Fu
     bool Register(string name, string email, string password);
 ```
 
-и к классу:
+Метод в классе уже есть и менять его не нужно. Если его там почему-то нет, он такой:
 
 ```csharp
     /// <remarks>
@@ -999,6 +1003,9 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj --nologo --filter "Fu
                 PasswordHash.Create(password)));
     }
 ```
+
+Заодно `FakeProfileService` в существующем `ProfileViewModelTests.cs` перестанет
+удовлетворять интерфейсу — добавить в него `Register`, возвращающий `true`.
 
 - [ ] **Step 5: Написать модель**
 
