@@ -4,7 +4,16 @@ namespace Winora.Core.Profile;
 /// <param name="Email">Optional, and it stays on this machine. May be empty.</param>
 /// <param name="Avatar">Index into the palette, or -1 for "work it out from the name".</param>
 /// <param name="CreatedUtc">When the introduction happened.</param>
-public sealed record UserProfile(string Name, string Email, int Avatar, DateTimeOffset CreatedUtc);
+/// <param name="Password">
+/// The password digest. Null only in memory, while a registration is being filled in — a stored
+/// profile always has one, because registration is the only way a profile comes to exist.
+/// </param>
+public sealed record UserProfile(
+    string Name,
+    string Email,
+    int Avatar,
+    DateTimeOffset CreatedUtc,
+    PasswordDigest? Password = null);
 
 /// <summary>What the welcome form accepts.</summary>
 public static class ProfileRules

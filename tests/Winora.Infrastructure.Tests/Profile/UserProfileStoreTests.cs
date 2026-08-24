@@ -37,7 +37,12 @@ public sealed class UserProfileStoreTests : IDisposable
     private UserProfileStore Store() => new(_folder);
 
     private static UserProfile Sample() =>
-        new("Аня", "anya@example.com", 2, new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero));
+        new(
+            "Аня",
+            "anya@example.com",
+            2,
+            new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero),
+            PasswordHash.Create("Password1!"));
 
     [Fact]
     public void A_written_profile_comes_back_whole()
@@ -89,9 +94,15 @@ public sealed class UserProfileStoreTests : IDisposable
     [Fact]
     public void A_profile_without_a_name_reads_as_no_profile()
     {
+        // schemaVersion 2 and a usable digest, so the only reason this reads as absent is the
+        // blank name — not the old-format check exercised separately below.
         File.WriteAllText(
             Path.Combine(_folder, "profile.json"),
-            "{\"name\":\"   \",\"email\":\"\",\"avatar\":0,\"createdUtc\":\"2026-08-24T00:00:00+00:00\"}");
+            """
+            {"schemaVersion":2,"name":"   ","email":"","avatar":0,
+             "createdUtc":"2026-08-24T00:00:00+00:00",
+             "passwordHash":"h","passwordSalt":"s","passwordIterations":600000}
+            """);
 
         Assert.Null(Store().Read());
     }
@@ -137,9 +148,13 @@ public sealed class UserProfileStoreTests : IDisposable
         var email = "long@example.com";
         var date = new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero);
 
+        // schemaVersion 2 with a usable digest: a stored profile always has one now, so this test
+        // of name truncation needs a valid current-format file to reach that code at all.
         File.WriteAllText(
             Path.Combine(_folder, "profile.json"),
-            "{\"name\":\"" + longName + "\",\"email\":\"" + email + "\",\"avatar\":5,\"createdUtc\":\"2026-08-24T03:00:00+00:00\"}");
+            "{\"schemaVersion\":2,\"name\":\"" + longName + "\",\"email\":\"" + email +
+            "\",\"avatar\":5,\"createdUtc\":\"2026-08-24T03:00:00+00:00\"," +
+            "\"passwordHash\":\"h\",\"passwordSalt\":\"s\",\"passwordIterations\":600000}");
 
         var read = Store().Read();
 
@@ -158,9 +173,66 @@ public sealed class UserProfileStoreTests : IDisposable
     [Fact]
     public void A_blank_name_after_normalisation_reads_as_no_profile()
     {
+        // schemaVersion 2 and a usable digest, so the only reason this reads as absent is the
+        // blank name — not the old-format check exercised separately below.
         File.WriteAllText(
             Path.Combine(_folder, "profile.json"),
-            "{\"name\":\"   \",\"email\":\"test@example.com\",\"avatar\":1,\"createdUtc\":\"2026-08-24T00:00:00+00:00\"}");
+            """
+            {"schemaVersion":2,"name":"   ","email":"test@example.com","avatar":1,
+             "createdUtc":"2026-08-24T00:00:00+00:00",
+             "passwordHash":"h","passwordSalt":"s","passwordIterations":600000}
+            """);
+
+        Assert.Null(Store().Read());
+    }
+
+    /// <summary>The digest survives the round trip whole, or the password stops working.</summary>
+    [Fact]
+    public void The_password_digest_comes_back_whole()
+    {
+        var written = Sample();
+        Store().Write(written);
+
+        var read = Store().Read();
+
+        Assert.NotNull(read?.Password);
+        Assert.Equal(written.Password!.Hash, read.Password!.Hash);
+        Assert.Equal(written.Password.Salt, read.Password.Salt);
+        Assert.Equal(written.Password.Iterations, read.Password.Iterations);
+        Assert.True(PasswordHash.Verify("Password1!", read.Password));
+    }
+
+    /// <summary>
+    /// A profile from the previous version has no password, so registration was never completed.
+    /// </summary>
+    /// <remarks>
+    /// It reads as absent rather than as a half-profile: the registration window is the only way in
+    /// now, and letting an old file skip it would leave somebody with an account that has no way to
+    /// be checked. Nothing of value is lost — a name and an email are half a minute to retype.
+    /// </remarks>
+    [Fact]
+    public void A_profile_from_the_old_format_reads_as_no_profile()
+    {
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            """
+            {"name":"Аня","email":"anya@example.com","avatar":2,
+             "createdUtc":"2026-08-24T00:00:00+00:00"}
+            """);
+
+        Assert.Null(Store().Read());
+    }
+
+    [Fact]
+    public void A_profile_whose_digest_is_empty_reads_as_no_profile()
+    {
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            """
+            {"schemaVersion":2,"name":"Аня","email":"","avatar":0,
+             "createdUtc":"2026-08-24T00:00:00+00:00",
+             "passwordHash":"","passwordSalt":"","passwordIterations":0}
+            """);
 
         Assert.Null(Store().Read());
     }

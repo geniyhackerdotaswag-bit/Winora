@@ -99,10 +99,44 @@ public sealed class ProfileService : IProfileService
 
         // The introduction date survives an edit: it records when this person started, not when
         // they last changed their mind about an avatar.
-        var created = _store.Read()?.CreatedUtc ?? DateTimeOffset.UtcNow;
+        // The digest is carried over, not re-made: editing a name in the cabinet must not silently
+        // change what the password checks against.
+        var existing = _store.Read();
+        var created = existing?.CreatedUtc ?? DateTimeOffset.UtcNow;
 
         return _store.Write(
-            new UserProfile(trimmed, email?.Trim() ?? string.Empty, avatar, created));
+            new UserProfile(
+                trimmed,
+                email?.Trim() ?? string.Empty,
+                avatar,
+                created,
+                existing?.Password));
+    }
+
+    /// <summary>Creates the profile the registration window fills in.</summary>
+    /// <remarks>
+    /// The one place a profile comes into being. The password is hashed here rather than by a
+    /// caller, so nothing above this layer ever holds the plain text longer than the keystroke
+    /// that produced it. Not on <see cref="IProfileService"/> yet — the registration window that
+    /// reaches it through the interface is a later task; it exists now so <see cref="Save"/> has a
+    /// real digest to carry across.
+    /// </remarks>
+    public bool Register(string name, string email, string password)
+    {
+        var trimmed = ProfileRules.NormaliseName(name);
+
+        if (!ProfileRules.IsNameValid(trimmed) || !ProfileRules.IsEmailValid(email))
+        {
+            return false;
+        }
+
+        return _store.Write(
+            new UserProfile(
+                trimmed,
+                email?.Trim() ?? string.Empty,
+                ProfileAvatar.FromName,
+                DateTimeOffset.UtcNow,
+                PasswordHash.Create(password)));
     }
 
     public async Task<int> RecordedChangesAsync()

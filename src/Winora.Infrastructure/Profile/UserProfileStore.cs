@@ -34,6 +34,15 @@ public sealed class UserProfileStore : IUserProfileStore
 {
     private const string FileName = "profile.json";
 
+    /// <summary>
+    /// The current shape of profile.json.
+    /// </summary>
+    /// <remarks>
+    /// Version 2 added the password. A file without one was written before registration existed,
+    /// and is treated as no profile at all rather than as a profile to be trusted — see Read.
+    /// </remarks>
+    private const int CurrentSchemaVersion = 2;
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -87,11 +96,27 @@ public sealed class UserProfileStore : IUserProfileStore
                 ? normalisedName.Substring(0, ProfileRules.NameMaxLength)
                 : normalisedName;
 
+            // A profile with no usable digest never went through registration. That is the only
+            // way in now, so such a file reads as absent and the person is asked to register.
+            var digest = new PasswordDigest(
+                stored.PasswordHash ?? string.Empty,
+                stored.PasswordSalt ?? string.Empty,
+                stored.PasswordIterations);
+
+            if (stored.SchemaVersion < CurrentSchemaVersion ||
+                digest.Hash.Length == 0 ||
+                digest.Salt.Length == 0 ||
+                digest.Iterations <= 0)
+            {
+                return null;
+            }
+
             return new UserProfile(
                 finalName,
                 stored.Email?.Trim() ?? string.Empty,
                 stored.Avatar,
-                stored.CreatedUtc);
+                stored.CreatedUtc,
+                digest);
         }
         catch (Exception)
         {
@@ -114,7 +139,15 @@ public sealed class UserProfileStore : IUserProfileStore
             File.WriteAllText(
                 temporary,
                 JsonSerializer.Serialize(
-                    new StoredProfile(profile.Name, profile.Email, profile.Avatar, profile.CreatedUtc),
+                    new StoredProfile(
+                        CurrentSchemaVersion,
+                        profile.Name,
+                        profile.Email,
+                        profile.Avatar,
+                        profile.CreatedUtc,
+                        profile.Password?.Hash ?? string.Empty,
+                        profile.Password?.Salt ?? string.Empty,
+                        profile.Password?.Iterations ?? 0),
                     Options));
 
             File.Move(temporary, Path, overwrite: true);
@@ -143,8 +176,12 @@ public sealed class UserProfileStore : IUserProfileStore
     }
 
     private sealed record StoredProfile(
+        int SchemaVersion,
         string? Name,
         string? Email,
         int Avatar,
-        DateTimeOffset CreatedUtc);
+        DateTimeOffset CreatedUtc,
+        string? PasswordHash,
+        string? PasswordSalt,
+        int PasswordIterations);
 }
