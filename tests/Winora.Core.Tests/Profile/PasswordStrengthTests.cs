@@ -81,4 +81,34 @@ public sealed class PasswordStrengthTests
     {
         Assert.Equal(expected, PasswordStrengthRules.Evaluate(password).IsAcceptable);
     }
+
+    /// <summary>
+    /// Nothing but spaces is not a password, however many of them there are.
+    /// </summary>
+    /// <remarks>
+    /// It used to score two — the length rule counted the spaces, and the special rule counted a
+    /// space as "not a letter, not a digit" — which lit two ticks on the checklist and turned the
+    /// button on. A nudge that shows green for an empty string is worse than no nudge.
+    /// </remarks>
+    [Theory]
+    [InlineData("        ")]
+    [InlineData("               ")]
+    [InlineData("\t\t\t\t\t\t\t\t")]
+    public void Nothing_but_whitespace_is_not_long_enough(string password)
+    {
+        var strength = PasswordStrengthRules.Evaluate(password);
+
+        Assert.False(strength.HasMinLength);
+        Assert.False(strength.IsAcceptable);
+    }
+
+    /// <summary>Spaces between words are content, and still count towards the length.</summary>
+    [Fact]
+    public void A_passphrase_with_spaces_is_still_long_enough()
+    {
+        var strength = PasswordStrengthRules.Evaluate("два слова");
+
+        Assert.True(strength.HasMinLength);
+        Assert.True(strength.HasSpecial);
+    }
 }

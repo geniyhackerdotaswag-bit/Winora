@@ -27,7 +27,10 @@ public static class PasswordStrengthRules
     {
         var value = password ?? string.Empty;
 
-        var hasMinLength = value.Length >= MinLength;
+        // Trimmed, so a password of nothing but spaces cannot clear the bar. Interior spaces are
+        // still content and still count — "два слова" is a fine password — but eight spaces is not
+        // a password, and a checklist that lit up green for it would be lying to the person typing.
+        var hasMinLength = value.Trim().Length >= MinLength;
         var hasNumber = value.Any(char.IsDigit);
         var hasUppercase = value.Any(char.IsUpper);
 
