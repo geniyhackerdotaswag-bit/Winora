@@ -40,7 +40,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
     /// generators can emit the WinRT marshalling code.
     /// </remarks>
     [ObservableProperty]
-    public partial RegistrationStep Step { get; set; }
+    public partial RegistrationStep Step { get; private set; }
 
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -57,6 +57,20 @@ public sealed partial class RegistrationViewModel : ObservableObject
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Whether the person has left each field, so a message appears after they typed rather than
+    /// while they are still typing the first letter.
+    /// </summary>
+    /// <remarks>
+    /// The reference the owner supplied does the same: a field is not scolded for being incomplete
+    /// until somebody has moved on from it.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool NameTouched { get; set; }
+
+    [ObservableProperty]
+    public partial bool EmailTouched { get; set; }
+
     public PasswordStrength Strength => PasswordStrengthRules.Evaluate(Password);
 
     /// <summary>Two characters, matching the reference the owner supplied.</summary>
@@ -68,6 +82,14 @@ public sealed partial class RegistrationViewModel : ObservableObject
     /// </summary>
     public bool IsEmailAcceptable =>
         Email.Trim().Length > 0 && ProfileRules.IsEmailValid(Email);
+
+    /// <summary>What is wrong with the name, or empty when nothing is.</summary>
+    public string NameError =>
+        NameTouched && !IsNameAcceptable ? _text.Get("Reg_NameTooShort") : string.Empty;
+
+    /// <summary>What is wrong with the email, or empty when nothing is.</summary>
+    public string EmailError =>
+        EmailTouched && !IsEmailAcceptable ? _text.Get("Reg_EmailInvalid") : string.Empty;
 
     public bool CanGoNext => Step switch
     {
@@ -98,11 +120,17 @@ public sealed partial class RegistrationViewModel : ObservableObject
 
     partial void OnStepChanged(RegistrationStep value) => Recheck();
 
+    partial void OnNameTouchedChanged(bool value) => Recheck();
+
+    partial void OnEmailTouchedChanged(bool value) => Recheck();
+
     private void Recheck()
     {
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(CanFinish));
         OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(NameError));
+        OnPropertyChanged(nameof(EmailError));
     }
 
     /// <summary>Raised once the profile exists and the app may open.</summary>
@@ -157,9 +185,20 @@ public sealed partial class RegistrationViewModel : ObservableObject
         // The plain text is not kept a moment longer than it takes to hash it.
         Password = string.Empty;
         Confirm = string.Empty;
+        StatusMessage = string.Empty;
         Step = RegistrationStep.Done;
     }
 
     [RelayCommand]
-    private void Open() => Completed?.Invoke(this, EventArgs.Empty);
+    private void Open()
+    {
+        // Only from the last step. The window hangs the app's opening on this event, and raising it
+        // early would show the shell over an unfinished registration.
+        if (Step != RegistrationStep.Done)
+        {
+            return;
+        }
+
+        Completed?.Invoke(this, EventArgs.Empty);
+    }
 }

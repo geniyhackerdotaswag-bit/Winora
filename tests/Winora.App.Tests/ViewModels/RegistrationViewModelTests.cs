@@ -17,7 +17,9 @@ public sealed class RegistrationViewModelTests
 
         public IReadOnlyList<string> Palette { get; } = ["#7C6BF5"];
 
-        public bool RegisterSucceeds { get; init; } = true;
+        // Settable, not init: the stale-status-message test flips this mid-test to prove a later
+        // success clears an earlier failure's message on the same view model instance.
+        public bool RegisterSucceeds { get; set; } = true;
 
         public (string Name, string Email, string Password)? Registered { get; private set; }
 
@@ -181,5 +183,138 @@ public sealed class RegistrationViewModelTests
 
         Assert.Equal(4, vm.Strength.Score);
         Assert.True(vm.Strength.IsAcceptable);
+    }
+
+    [Fact]
+    public void The_name_error_is_silent_until_the_field_is_touched()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "A";
+
+        Assert.Equal(string.Empty, vm.NameError);
+    }
+
+    [Fact]
+    public void The_name_error_appears_once_touched_and_still_wrong()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "A";
+        vm.NameTouched = true;
+
+        Assert.Equal("Reg_NameTooShort", vm.NameError);
+    }
+
+    [Fact]
+    public void The_name_error_clears_once_touched_and_right()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "Аня";
+        vm.NameTouched = true;
+
+        Assert.Equal(string.Empty, vm.NameError);
+    }
+
+    [Fact]
+    public void The_email_error_is_silent_until_the_field_is_touched()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "Аня";
+        vm.NextCommand.Execute(null);
+        vm.Email = "not-an-address";
+
+        Assert.Equal(string.Empty, vm.EmailError);
+    }
+
+    [Fact]
+    public void The_email_error_appears_once_touched_and_still_wrong()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "Аня";
+        vm.NextCommand.Execute(null);
+        vm.Email = "not-an-address";
+        vm.EmailTouched = true;
+
+        Assert.Equal("Reg_EmailInvalid", vm.EmailError);
+    }
+
+    [Fact]
+    public void The_email_error_clears_once_touched_and_right()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Name = "Аня";
+        vm.NextCommand.Execute(null);
+        vm.Email = "a@b.ru";
+        vm.EmailTouched = true;
+
+        Assert.Equal(string.Empty, vm.EmailError);
+    }
+
+    [Fact]
+    public void A_failed_finish_leaves_the_password_and_confirm_typed_in_so_the_person_can_retry()
+    {
+        var vm = AtPasswordStep(new FakeProfileService { RegisterSucceeds = false });
+        vm.Password = "Password1!";
+        vm.Confirm = "Password1!";
+
+        vm.FinishCommand.Execute(null);
+
+        Assert.Equal(RegistrationStep.Password, vm.Step);
+        Assert.Equal("Password1!", vm.Password);
+        Assert.Equal("Password1!", vm.Confirm);
+    }
+
+    [Fact]
+    public void A_stale_failure_message_does_not_survive_into_the_done_step()
+    {
+        var service = new FakeProfileService { RegisterSucceeds = false };
+        var vm = AtPasswordStep(service);
+        vm.Password = "Password1!";
+        vm.Confirm = "Password1!";
+        vm.FinishCommand.Execute(null);
+
+        Assert.Equal("Reg_SaveFailed", vm.StatusMessage);
+
+        service.RegisterSucceeds = true;
+        vm.FinishCommand.Execute(null);
+
+        Assert.Equal(RegistrationStep.Done, vm.Step);
+        Assert.Equal(string.Empty, vm.StatusMessage);
+    }
+
+    [Fact]
+    public void Opening_mid_wizard_raises_nothing()
+    {
+        var vm = Build(new FakeProfileService());
+        var raised = false;
+        vm.Completed += (_, _) => raised = true;
+
+        vm.OpenCommand.Execute(null);
+        Assert.False(raised);
+
+        vm.Name = "Аня";
+        vm.NextCommand.Execute(null);
+        vm.OpenCommand.Execute(null);
+        Assert.False(raised);
+
+        vm.Email = "a@b.ru";
+        vm.NextCommand.Execute(null);
+        vm.OpenCommand.Execute(null);
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public void Opening_after_finishing_raises_completed()
+    {
+        var vm = AtPasswordStep(new FakeProfileService());
+        vm.Password = "Password1!";
+        vm.Confirm = "Password1!";
+        vm.FinishCommand.Execute(null);
+
+        var raised = false;
+        vm.Completed += (_, _) => raised = true;
+
+        vm.OpenCommand.Execute(null);
+
+        Assert.True(raised);
     }
 }
