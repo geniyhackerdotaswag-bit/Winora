@@ -566,6 +566,16 @@
   <data name="Reg_DoneSub"><value>Профиль создан на этом компьютере.</value></data>
   <data name="Reg_Open"><value>Открыть Winora</value></data>
   <data name="Reg_SaveFailed"><value>Не удалось сохранить профиль. Попробуйте ещё раз.</value></data>
+  <!--
+    The domains offered on the email step. They are here rather than in the markup because they are
+    text a person reads and presses, and because which four are worth offering is a question about
+    where the people using Winora keep their mail: this list is right for ru-RU and would be wrong
+    almost anywhere else.
+  -->
+  <data name="Reg_Domain_1"><value>@gmail.com</value></data>
+  <data name="Reg_Domain_2"><value>@yandex.ru</value></data>
+  <data name="Reg_Domain_3"><value>@mail.ru</value></data>
+  <data name="Reg_Domain_4"><value>@icloud.com</value></data>
   <data name="Reg_StepName"><value>Имя</value></data>
   <data name="Reg_StepEmail"><value>Почта</value></data>
   <data name="Reg_StepPassword"><value>Пароль</value></data>

@@ -17,6 +17,18 @@ public static class XamlConvert
     public static bool Not(bool value) => !value;
 
     /// <summary>
+    /// Shows a message only when there is one.
+    /// </summary>
+    /// <remarks>
+    /// A message bound to an empty string is not invisible: the block keeps its line height, and in
+    /// a spaced stack that is a gap which opens and closes as somebody types. The registration
+    /// wizard has four of these — two field errors, the repeated password and the save failure —
+    /// and every one of them is empty for most of the time it is on screen.
+    /// </remarks>
+    public static Visibility ShowText(string? value) =>
+        string.IsNullOrEmpty(value) ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
     /// The inverse of <see cref="Show"/>. Needed because x:Bind cannot nest function bindings, and a
     /// control that must disappear while its busy indicator is up has no other way to say so.
     /// </summary>

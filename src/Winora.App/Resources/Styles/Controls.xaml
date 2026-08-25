@@ -389,4 +389,194 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
+    <!--
+      The registration card.
+
+      These live here rather than inside the window because a style dictionary is where this project
+      keeps the look of a surface, and because the window's markup is long enough already without
+      four copies of a button template inside it.
+
+      Their colours are written out rather than taken from the palette, and that is deliberate. The
+      welcome card is the one screen shown before anybody has chosen a scheme — it is the screen on
+      which that choice has not happened yet — so it wears the fixed dark look of the reference the
+      owner supplied. Every screen after registration follows the palette as before.
+    -->
+
+    <Style x:Key="WinoraRegistrationBadge" TargetType="Border">
+        <Setter Property="Background" Value="#141418" />
+        <Setter Property="BorderBrush" Value="#26262C" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Padding" Value="10,4,12,4" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationBadgeText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#B9B9C2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="23" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#F4F4F6" />
+        <Setter Property="LineHeight" Value="29" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationSub" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="#8E8E96" />
+        <Setter Property="LineHeight" Value="19" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#A9A9B2" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="#F4F4F6" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationRule" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#8E8E96" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- A refusal, and the only thing on this card allowed to be red. -->
+    <Style x:Key="WinoraRegistrationError" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#F87171" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!--
+      The chrome of a field. The TextBox inside is stripped to nothing by the brush overrides the
+      window declares, so this border is the whole visible field: it can therefore turn red or green
+      without fighting the control's own visual states, which overwrite BorderBrush on hover and on
+      focus and would take the colour away exactly when somebody is looking at the field.
+    -->
+    <Style x:Key="WinoraRegistrationFieldShell" TargetType="Border">
+        <Setter Property="Background" Value="#0E0E12" />
+        <Setter Property="BorderBrush" Value="#26262C" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <!-- An inner panel: the requirement checklist, and the summary on the last screen. -->
+    <Style x:Key="WinoraRegistrationSurface" TargetType="Border">
+        <Setter Property="Background" Value="#0E0E12" />
+        <Setter Property="BorderBrush" Value="#1E1E24" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <!--
+      The card's buttons.
+
+      A template of its own rather than one based on WinoraActionButton, because that one paints its
+      background from a theme resource and so cannot be made white. Here the states move opacity
+      instead of colour, which lets a single template serve both the white action button and the
+      dark one standing beside it.
+    -->
+    <Style x:Key="WinoraRegistrationButton" TargetType="Button">
+        <Setter Property="Padding" Value="18,10,18,10" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="PressRoot"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="Normal" GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="PointerOver" GeneratedDuration="0:0:0.10" />
+                                </VisualStateGroup.Transitions>
+
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Opacity" Value="0.88" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Opacity" Value="0.75" />
+                                    </VisualState.Setters>
+                                    <Storyboard>
+                                        <!-- The platform press scale, as WinoraActionButton uses. -->
+                                        <PointerDownThemeAnimation Storyboard.TargetName="PressRoot" />
+                                    </Storyboard>
+                                </VisualState>
+
+                                <!--
+                                  Dead, not merely dimmer. The reference greys the action out until
+                                  the step has been answered, and a button that still looks pressable
+                                  while doing nothing is worse than one that plainly cannot be
+                                  pressed.
+                                -->
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Opacity" Value="0.28" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <ContentPresenter x:Name="Label"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The one thing on each screen that moves it forward. -->
+    <Style x:Key="WinoraRegistrationPrimaryButton" TargetType="Button" BasedOn="{StaticResource WinoraRegistrationButton}">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="Foreground" Value="#08080A" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style x:Key="WinoraRegistrationSecondaryButton" TargetType="Button" BasedOn="{StaticResource WinoraRegistrationButton}">
+        <Setter Property="Background" Value="#141418" />
+        <Setter Property="Foreground" Value="#D5D5DC" />
+        <Setter Property="BorderBrush" Value="#26262C" />
+    </Style>
+
+    <!-- A domain offered on the email step: the same dark button, smaller. -->
+    <Style x:Key="WinoraRegistrationChipButton" TargetType="Button" BasedOn="{StaticResource WinoraRegistrationSecondaryButton}">
+        <Setter Property="Padding" Value="10,5,10,5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
 </ResourceDictionary>

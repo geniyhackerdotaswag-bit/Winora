@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Winora.App.Controls.StepProgress"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+      Three circles on a line: where the person is, what they have answered, what is still coming.
+      Everything it shows is set from the code-behind by Show(), as ProfileCard does — three circles
+      whose only input is one enum value do not need three bindings and a converter each.
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--
+          Fixed 32px columns for the circles so the line between them starts and ends exactly at
+          their edges. The labels underneath are wider than that and simply overhang, centred; a
+          Grid does not clip, and the gaps either side are far wider than any of the three words.
+        -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="32" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="32" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="32" />
+        </Grid.ColumnDefinitions>
+
+        <!-- The unlit track, drawn first so the circles sit on top of it. -->
+        <Rectangle Grid.Row="0"
+                   Grid.Column="1"
+                   Grid.ColumnSpan="3"
+                   Height="2"
+                   Fill="#232329"
+                   VerticalAlignment="Center" />
+
+        <!--
+          The lit part. Scaled rather than resized: a width animation is a dependent one and WinUI
+          refuses to run it off the composition thread, so it would stutter against everything else
+          on the card. A scale from the left edge is the same picture and runs for free.
+        -->
+        <Rectangle x:Name="TrackFill"
+                   Grid.Row="0"
+                   Grid.Column="1"
+                   Grid.ColumnSpan="3"
+                   Height="2"
+                   Fill="#FFFFFF"
+                   VerticalAlignment="Center"
+                   RenderTransformOrigin="0,0.5">
+            <Rectangle.RenderTransform>
+                <ScaleTransform x:Name="TrackScale" ScaleX="0" />
+            </Rectangle.RenderTransform>
+        </Rectangle>
+
+        <Grid Grid.Row="0" Grid.Column="0" Width="32" Height="32" HorizontalAlignment="Center">
+            <Ellipse x:Name="Ring1" />
+            <TextBlock x:Name="Number1"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+            <FontIcon x:Name="Tick1"
+                      AutomationProperties.AccessibilityView="Raw"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="12"
+                      Glyph="&#xE73E;"
+                      Visibility="Collapsed" />
+        </Grid>
+
+        <Grid Grid.Row="0" Grid.Column="2" Width="32" Height="32" HorizontalAlignment="Center">
+            <Ellipse x:Name="Ring2" />
+            <TextBlock x:Name="Number2"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+            <FontIcon x:Name="Tick2"
+                      AutomationProperties.AccessibilityView="Raw"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="12"
+                      Glyph="&#xE73E;"
+                      Visibility="Collapsed" />
+        </Grid>
+
+        <Grid Grid.Row="0" Grid.Column="4" Width="32" Height="32" HorizontalAlignment="Center">
+            <Ellipse x:Name="Ring3" />
+            <TextBlock x:Name="Number3"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+            <FontIcon x:Name="Tick3"
+                      AutomationProperties.AccessibilityView="Raw"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="12"
+                      Glyph="&#xE73E;"
+                      Visibility="Collapsed" />
+        </Grid>
+
+        <TextBlock x:Name="Label1"
+                   Grid.Row="1"
+                   Grid.Column="0"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center" />
+
+        <TextBlock x:Name="Label2"
+                   Grid.Row="1"
+                   Grid.Column="2"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center" />
+
+        <TextBlock x:Name="Label3"
+                   Grid.Row="1"
+                   Grid.Column="4"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center" />
+    </Grid>
+</UserControl>

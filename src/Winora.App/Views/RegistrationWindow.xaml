@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Winora.App.Views.RegistrationWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="#070709">
+        <Grid.Resources>
+            <!--
+              The fields, stripped.
+
+              Every text box and password box on this card sits inside a border of its own, which is
+              what draws the field: it is the border that turns red on a refusal and green on an
+              address that will do. For that to be the only chrome, the control's own has to go —
+              and setting Background and BorderBrush on the control is not enough, because its
+              template puts the theme values back in the hover, focus and disabled states. These
+              keys are what those states read, so overriding them here silences all of them at once
+              for everything inside this window and for nothing outside it.
+            -->
+            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlForeground" Color="#F4F4F6" />
+            <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#F4F4F6" />
+            <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#F4F4F6" />
+            <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="#6E6E78" />
+            <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#5F5F69" />
+            <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#5F5F69" />
+            <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#5F5F69" />
+            <SolidColorBrush x:Key="TextControlButtonForeground" Color="#8E8E96" />
+            <SolidColorBrush x:Key="TextControlButtonForegroundPointerOver" Color="#F4F4F6" />
+            <SolidColorBrush x:Key="TextControlButtonForegroundPressed" Color="#08080A" />
+            <SolidColorBrush x:Key="TextControlButtonBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="TextControlButtonBackgroundPointerOver" Color="#1B1B21" />
+            <SolidColorBrush x:Key="TextControlButtonBackgroundPressed" Color="#FFFFFF" />
+        </Grid.Resources>
+
+        <!--
+          The window draws its own caption, so this strip is what is left to drag it by. It is
+          transparent and sits above the card, over background nobody was going to click anyway.
+        -->
+        <Border x:Name="DragStrip" Height="44" VerticalAlignment="Top" Background="Transparent" />
+
+        <!--
+          Centred while it fits, scrollable when it does not.
+
+          A ScrollViewer aligned Center rather than Stretch takes the height of what is inside it, so
+          on an ordinary screen it is simply the card, in the middle, and no scrollbar appears. The
+          case it exists for is the one where the card is taller than the window — a large text scale
+          or a small display — where without it the third step's "Готово" button would be off the
+          bottom edge with no way to reach it, and registration could not be finished at all.
+        -->
+        <ScrollViewer VerticalAlignment="Center"
+                      Padding="0,8,0,8"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+
+            <!--
+              The card, bounded. The reference keeps it narrow on purpose: a registration form stretched
+              across a wide monitor reads as a web page, not as a program.
+            -->
+            <Border Width="520"
+                    HorizontalAlignment="Center"
+                    Background="#0A0A0C"
+                    BorderBrush="#1F1F23"
+                    BorderThickness="1"
+                    CornerRadius="16">
+                <StackPanel>
+
+                    <!-- Title bar of the card, matching the reference's window-inside-a-window look. -->
+                    <Border Background="#111114"
+                            BorderBrush="#1F1F23"
+                            BorderThickness="0,0,0,1"
+                            CornerRadius="16,16,0,0"
+                            Padding="20,12,20,12">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="14"
+                                      Foreground="#9A9AA2"
+                                      Glyph="&#xE8FA;" />
+                            <TextBlock x:Name="CardTitle"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#C9C9D1" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Padding="32,26,32,30" Spacing="22">
+                        <ctl:StepProgress x:Name="Steps" />
+
+                        <!-- One panel per step; the code-behind shows one and animates the swap. -->
+                        <Grid x:Name="StepHost" MinHeight="320">
+
+                            <!-- Step 1: the name. -->
+                            <StackPanel x:Name="StepName" Spacing="14" VerticalAlignment="Top">
+                                <Border Style="{StaticResource WinoraRegistrationBadge}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="12"
+                                                  Foreground="#8E8E96"
+                                                  Glyph="&#xE8FA;"
+                                                  VerticalAlignment="Center" />
+                                        <TextBlock Style="{StaticResource WinoraRegistrationBadgeText}"
+                                                   Text="{x:Bind Localized('Reg_Step1Badge')}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
+                                               Text="{x:Bind Localized('Reg_Step1Title')}" />
+                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
+                                               Text="{x:Bind Localized('Reg_Step1Sub')}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                               Text="{x:Bind Localized('Reg_NameLabel')}" />
+
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}"
+                                            BorderBrush="{x:Bind FieldEdge(Model.NameError), Mode=OneWay}">
+                                        <Grid>
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="15"
+                                                      Foreground="#6E6E78"
+                                                      Glyph="&#xE77B;"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="13,0,0,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center" />
+                                            <TextBox x:Name="NameField"
+                                                     FontSize="14"
+                                                     MinHeight="42"
+                                                     Padding="38,10,12,10"
+                                                     LostFocus="OnNameLostFocus"
+                                                     PlaceholderText="{x:Bind Localized('Reg_NamePlaceholder')}"
+                                                     Text="{x:Bind Model.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                               Text="{x:Bind Model.NameError, Mode=OneWay}"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(Model.NameError), Mode=OneWay}" />
+                                </StackPanel>
+
+                                <Button Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                        Margin="0,6,0,0"
+                                        HorizontalAlignment="Stretch"
+                                        Command="{x:Bind Model.NextCommand}"
+                                        Content="{x:Bind Localized('Reg_Next')}"
+                                        IsEnabled="{x:Bind Model.CanGoNext, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <!-- Step 2: the address. -->
+                            <StackPanel x:Name="StepEmail" Spacing="14" VerticalAlignment="Top" Visibility="Collapsed">
+                                <Border Style="{StaticResource WinoraRegistrationBadge}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="12"
+                                                  Foreground="#8E8E96"
+                                                  Glyph="&#xE715;"
+                                                  VerticalAlignment="Center" />
+                                        <TextBlock Style="{StaticResource WinoraRegistrationBadgeText}"
+                                                   Text="{x:Bind Localized('Reg_Step2Badge')}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
+                                               Text="{x:Bind Localized('Reg_Step2Title')}" />
+                                    <!--
+                                      Not the reference's line. That one promises a confirmation letter,
+                                      and Winora has nowhere to send one from.
+                                    -->
+                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
+                                               Text="{x:Bind Localized('Reg_Step2Sub')}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                               Text="{x:Bind Localized('Reg_EmailLabel')}" />
+
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}"
+                                            BorderBrush="{x:Bind EmailEdge(Model.EmailError, Model.CanGoNext), Mode=OneWay}">
+                                        <Grid>
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="15"
+                                                      Foreground="#6E6E78"
+                                                      Glyph="&#xE715;"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="13,0,0,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center" />
+                                            <TextBox x:Name="EmailField"
+                                                     FontSize="14"
+                                                     MinHeight="42"
+                                                     Padding="38,10,38,10"
+                                                     LostFocus="OnEmailLostFocus"
+                                                     PlaceholderText="{x:Bind Localized('Reg_EmailPlaceholder')}"
+                                                     Text="{x:Bind Model.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <!--
+                                              CanGoNext, not IsEmailAcceptable: on this step they are the
+                                              same question, and only the first of them is announced when
+                                              the address changes.
+                                            -->
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="14"
+                                                      Foreground="#34D399"
+                                                      Glyph="&#xE73E;"
+                                                      HorizontalAlignment="Right"
+                                                      Margin="0,0,13,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center"
+                                                      Visibility="{x:Bind ctl:XamlConvert.Show(Model.CanGoNext), Mode=OneWay}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                               Text="{x:Bind Model.EmailError, Mode=OneWay}"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(Model.EmailError), Mode=OneWay}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationRule}"
+                                               Text="{x:Bind Localized('Reg_QuickDomains')}" />
+                                    <ctl:WrapPanel HorizontalSpacing="8" VerticalSpacing="8">
+                                        <Button Style="{StaticResource WinoraRegistrationChipButton}"
+                                                Click="OnDomainChosen"
+                                                Content="{x:Bind Localized('Reg_Domain_1')}" />
+                                        <Button Style="{StaticResource WinoraRegistrationChipButton}"
+                                                Click="OnDomainChosen"
+                                                Content="{x:Bind Localized('Reg_Domain_2')}" />
+                                        <Button Style="{StaticResource WinoraRegistrationChipButton}"
+                                                Click="OnDomainChosen"
+                                                Content="{x:Bind Localized('Reg_Domain_3')}" />
+                                        <Button Style="{StaticResource WinoraRegistrationChipButton}"
+                                                Click="OnDomainChosen"
+                                                Content="{x:Bind Localized('Reg_Domain_4')}" />
+                                    </ctl:WrapPanel>
+                                </StackPanel>
+
+                                <Grid Margin="0,6,0,0" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource WinoraRegistrationSecondaryButton}"
+                                            Command="{x:Bind Model.BackCommand}"
+                                            Content="{x:Bind Localized('Reg_Back')}"
+                                            IsEnabled="{x:Bind Model.CanGoBack, Mode=OneWay}" />
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                            HorizontalAlignment="Stretch"
+                                            Command="{x:Bind Model.NextCommand}"
+                                            Content="{x:Bind Localized('Reg_Next')}"
+                                            IsEnabled="{x:Bind Model.CanGoNext, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Step 3: the password, and the plain truth about what it is worth. -->
+                            <StackPanel x:Name="StepPassword" Spacing="14" VerticalAlignment="Top" Visibility="Collapsed">
+                                <Border Style="{StaticResource WinoraRegistrationBadge}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="12"
+                                                  Foreground="#8E8E96"
+                                                  Glyph="&#xE72E;"
+                                                  VerticalAlignment="Center" />
+                                        <TextBlock Style="{StaticResource WinoraRegistrationBadgeText}"
+                                                   Text="{x:Bind Localized('Reg_Step3Badge')}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
+                                               Text="{x:Bind Localized('Reg_Step3Title')}" />
+                                    <!--
+                                      Not the reference's line either. Nothing here is protected: there
+                                      is no server, so this password guards a file on this machine and
+                                      cannot be recovered. Saying so is the whole point of this screen.
+                                    -->
+                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
+                                               Text="{x:Bind Localized('Reg_Step3Sub')}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <Grid>
+                                        <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                                   HorizontalAlignment="Left"
+                                                   Text="{x:Bind Localized('Reg_PasswordLabel')}" />
+                                        <TextBlock FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{x:Bind StrengthEdge(Model.Strength), Mode=OneWay}"
+                                                   Text="{x:Bind StrengthLabel(Model.Strength), Mode=OneWay}" />
+                                    </Grid>
+
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}">
+                                        <Grid>
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="15"
+                                                      Foreground="#6E6E78"
+                                                      Glyph="&#xE72E;"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="13,0,0,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center" />
+                                            <PasswordBox x:Name="PasswordField"
+                                                         FontSize="14"
+                                                         MinHeight="42"
+                                                         Padding="38,10,4,10"
+                                                         PasswordChanged="OnPasswordTyped"
+                                                         PasswordRevealMode="Peek" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+
+                                <Border Style="{StaticResource WinoraRegistrationSurface}" Padding="14">
+                                    <StackPanel Spacing="7">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="12"
+                                                      VerticalAlignment="Center"
+                                                      Foreground="{x:Bind RuleEdge(Model.Strength.HasMinLength), Mode=OneWay}"
+                                                      Glyph="{x:Bind RuleGlyph(Model.Strength.HasMinLength), Mode=OneWay}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationRule}"
+                                                       Text="{x:Bind Localized('Reg_ReqMinLength')}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="12"
+                                                      VerticalAlignment="Center"
+                                                      Foreground="{x:Bind RuleEdge(Model.Strength.HasNumber), Mode=OneWay}"
+                                                      Glyph="{x:Bind RuleGlyph(Model.Strength.HasNumber), Mode=OneWay}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationRule}"
+                                                       Text="{x:Bind Localized('Reg_ReqNumber')}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="12"
+                                                      VerticalAlignment="Center"
+                                                      Foreground="{x:Bind RuleEdge(Model.Strength.HasUppercase), Mode=OneWay}"
+                                                      Glyph="{x:Bind RuleGlyph(Model.Strength.HasUppercase), Mode=OneWay}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationRule}"
+                                                       Text="{x:Bind Localized('Reg_ReqUppercase')}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="12"
+                                                      VerticalAlignment="Center"
+                                                      Foreground="{x:Bind RuleEdge(Model.Strength.HasSpecial), Mode=OneWay}"
+                                                      Glyph="{x:Bind RuleGlyph(Model.Strength.HasSpecial), Mode=OneWay}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationRule}"
+                                                       Text="{x:Bind Localized('Reg_ReqSpecial')}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                               Text="{x:Bind Localized('Reg_ConfirmLabel')}" />
+
+                                    <!--
+                                      A function of its own rather than FieldEdge(ConfirmError(...)):
+                                      x:Bind cannot nest one function binding inside another.
+                                    -->
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}"
+                                            BorderBrush="{x:Bind ConfirmEdge(Model.Password, Model.Confirm), Mode=OneWay}">
+                                        <Grid>
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="Segoe Fluent Icons"
+                                                      FontSize="15"
+                                                      Foreground="#6E6E78"
+                                                      Glyph="&#xE72E;"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="13,0,0,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center" />
+                                            <PasswordBox x:Name="ConfirmField"
+                                                         FontSize="14"
+                                                         MinHeight="42"
+                                                         Padding="38,10,4,10"
+                                                         PasswordChanged="OnConfirmTyped"
+                                                         PasswordRevealMode="Peek" />
+                                        </Grid>
+                                    </Border>
+
+                                    <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                               Text="{x:Bind ConfirmError(Model.Password, Model.Confirm), Mode=OneWay}"
+                                               Visibility="{x:Bind ConfirmErrorShown(Model.Password, Model.Confirm), Mode=OneWay}" />
+                                </StackPanel>
+
+                                <!-- A save that failed. It says so here and nothing typed is lost. -->
+                                <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                           Text="{x:Bind Model.StatusMessage, Mode=OneWay}"
+                                           Visibility="{x:Bind ctl:XamlConvert.ShowText(Model.StatusMessage), Mode=OneWay}" />
+
+                                <Grid Margin="0,6,0,0" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource WinoraRegistrationSecondaryButton}"
+                                            Command="{x:Bind Model.BackCommand}"
+                                            Content="{x:Bind Localized('Reg_Back')}"
+                                            IsEnabled="{x:Bind Model.CanGoBack, Mode=OneWay}" />
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                            HorizontalAlignment="Stretch"
+                                            Command="{x:Bind Model.FinishCommand}"
+                                            Content="{x:Bind Localized('Reg_Finish')}"
+                                            IsEnabled="{x:Bind Model.CanFinish, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Done: what was saved, and the way in. -->
+                            <StackPanel x:Name="StepDone" Spacing="16" VerticalAlignment="Top" Visibility="Collapsed">
+                                <Grid Width="76" Height="76" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                    <Border Background="#141418"
+                                            BorderBrush="#26262C"
+                                            BorderThickness="1"
+                                            CornerRadius="20" />
+                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                              FontFamily="Segoe Fluent Icons"
+                                              FontSize="30"
+                                              Foreground="#E6E6EA"
+                                              Glyph="&#xE77B;" />
+                                    <Grid Width="26"
+                                          Height="26"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Bottom"
+                                          Margin="0,0,-4,-4">
+                                        <Ellipse Fill="#34D399" Stroke="#0A0A0C" StrokeThickness="2" />
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="11"
+                                                  Foreground="#08080A"
+                                                  Glyph="&#xE73E;" />
+                                    </Grid>
+                                </Grid>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
+                                               HorizontalAlignment="Center"
+                                               TextAlignment="Center"
+                                               Text="{x:Bind Localized('Reg_DoneTitle')}" />
+                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
+                                               HorizontalAlignment="Center"
+                                               TextAlignment="Center"
+                                               Text="{x:Bind Localized('Reg_DoneSub')}" />
+                                </StackPanel>
+
+                                <Border Style="{StaticResource WinoraRegistrationSurface}">
+                                    <StackPanel Spacing="12">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                                       Text="{x:Bind Localized('Reg_NameLabel')}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationValue}"
+                                                       Text="{x:Bind Model.Name, Mode=OneWay}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                                       Text="{x:Bind Localized('Reg_EmailLabel')}" />
+                                            <TextBlock Style="{StaticResource WinoraRegistrationValue}"
+                                                       Text="{x:Bind Model.Email, Mode=OneWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                        HorizontalAlignment="Stretch"
+                                        Command="{x:Bind Model.OpenCommand}"
+                                        Content="{x:Bind Localized('Reg_Open')}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</Window>
