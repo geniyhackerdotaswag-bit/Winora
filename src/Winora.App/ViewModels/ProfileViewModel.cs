@@ -54,6 +54,28 @@ public sealed partial class ProfileViewModel : ObservableObject
     [ObservableProperty]
     public partial string RecordedChanges { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The same count, as a bare number.
+    /// </summary>
+    /// <remarks>
+    /// The card sets it large with a caption underneath rather than as a sentence, which is also
+    /// how it dodges Russian numeral agreement: a caption states the category and never has to
+    /// agree with the figure above it, so there is no branch on 1, on 2 to 4, and on the rest.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string RecordedChangesValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whole days since the profile was created, as a bare number.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the stored creation date rather than counted anywhere, so it costs nothing and
+    /// cannot disagree with the "member since" line beside it. It is the second figure the cabinet
+    /// has; there is no third that is not invented.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string DaysWithWinora { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
@@ -76,6 +98,19 @@ public sealed partial class ProfileViewModel : ObservableObject
     public string AvatarLabel => _text.Get("Profile_AvatarLabel");
 
     public string SaveLabel => _text.Get("Profile_Save");
+
+    public string Subtitle => _text.Get("Profile_Subtitle");
+
+    /// <summary>The title in the header strip of the card the fields sit in.</summary>
+    public string DetailsHeading => _text.Get("Profile_DetailsHeading");
+
+    public string NamePlaceholder => _text.Get("Profile_NamePlaceholder");
+
+    public string EmailPlaceholder => _text.Get("Profile_EmailPlaceholder");
+
+    public string ChangesCaption => _text.Get("Profile_ChangesCaption");
+
+    public string DaysCaption => _text.Get("Profile_DaysCaption");
 
     /// <summary>The palette, so the picker does not have to know how colours are chosen.</summary>
     public IReadOnlyList<string> Palette => _profile.Palette;
@@ -105,6 +140,14 @@ public sealed partial class ProfileViewModel : ObservableObject
                 CultureInfo.CurrentCulture,
                 _text.Get("Profile_MemberSince"),
                 current.CreatedUtc.ToLocalTime().ToString("d MMMM yyyy", CultureInfo.CurrentCulture));
+
+        // Floored at zero. A profile file carried over from a machine whose clock ran ahead would
+        // otherwise put a negative number on the card, which is worse than an unremarkable nought.
+        var days = current is null ? 0 : (DateTimeOffset.Now - current.CreatedUtc).Days;
+
+        DaysWithWinora = current is null
+            ? string.Empty
+            : (days < 0 ? 0 : days).ToString(CultureInfo.CurrentCulture);
     }
 
     public async Task LoadStatisticsAsync()
@@ -115,6 +158,8 @@ public sealed partial class ProfileViewModel : ObservableObject
             CultureInfo.CurrentCulture,
             _text.Get("Profile_RecordedChanges"),
             recorded);
+
+        RecordedChangesValue = recorded.ToString(CultureInfo.CurrentCulture);
     }
 
     [RelayCommand]

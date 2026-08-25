@@ -12,51 +12,166 @@
         <StackPanel>
 
             <Grid Background="{ThemeResource WinoraHeaderSystem}" Padding="32,28,32,26">
+                <FontIcon Glyph="&#xE77B;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="112"
+                          Opacity="0.06"
+                          Foreground="{ThemeResource WinoraTextPrimary}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,48,0"
+                          IsHitTestVisible="False"
+                          AutomationProperties.AccessibilityView="Raw" />
+
                 <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
                     <TextBlock Style="{StaticResource WinoraPageTitle}"
                                Text="{x:Bind ViewModel.Heading, Mode=OneWay}" />
                     <Rectangle Style="{StaticResource WinoraRuleSystem}" />
+                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
+                               Margin="0"
+                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
 
-            <StackPanel Padding="32,24,32,32" MaxWidth="1800" HorizontalAlignment="Left">
+            <!--
+              A column, not a field. Every other page caps its content at 1800 because every other
+              page is a list of rows that genuinely wants the width; this one is a card and a form,
+              and a form smeared across a wide monitor is the look the cabinet was rewritten to get
+              away from. WinoraBodyMaxWidth is the token the house already keeps for content meant
+              to be read rather than scanned, which is what this is.
+            -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="{StaticResource WinoraBodyMaxWidth}" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
+                <StackPanel Grid.Column="0" Padding="{StaticResource WinoraPagePadding}">
 
-                <TextBlock Style="{StaticResource WinoraRowDetail}"
-                           Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
-                <TextBox x:Name="NameBox"
-                         MaxWidth="420"
-                         HorizontalAlignment="Left"
-                         Margin="0,4,0,14"
-                         Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
 
-                <TextBlock Style="{StaticResource WinoraRowDetail}"
-                           Text="{x:Bind ViewModel.EmailLabel, Mode=OneWay}" />
-                <TextBox x:Name="EmailBox"
-                         MaxWidth="420"
-                         HorizontalAlignment="Left"
-                         Margin="0,4,0,4"
-                         Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <!-- The honest part of the form. Not small print. -->
-                <TextBlock Style="{StaticResource WinoraRowDetail}"
-                           TextWrapping="Wrap"
-                           MaxWidth="420"
-                           HorizontalAlignment="Left"
-                           Margin="0,0,0,14"
-                           Text="{x:Bind ViewModel.EmailPrivacyNote, Mode=OneWay}" />
+                    <!--
+                      The form, in a card of its own with a header strip: the registration window's
+                      shape, so somebody who filled that in three weeks ago recognises this as the
+                      same program rather than as a settings page that happens to hold their name.
+                    -->
+                    <Border Style="{StaticResource WinoraCard}" Padding="0">
+                        <StackPanel>
 
-                <Button Style="{StaticResource WinoraActionButton}"
-                        HorizontalAlignment="Left"
-                        Content="{x:Bind ViewModel.SaveLabel, Mode=OneWay}"
-                        Command="{x:Bind ViewModel.SaveCommand}" />
+                            <Border Style="{StaticResource WinoraCardHeaderStrip}">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8"
+                                            VerticalAlignment="Center">
+                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                              FontFamily="Segoe Fluent Icons"
+                                              FontSize="13"
+                                              Foreground="{ThemeResource WinoraTextFaint}"
+                                              Glyph="&#xE70F;"
+                                              VerticalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.DetailsHeading, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
 
-                <TextBlock Style="{StaticResource WinoraRowDetail}"
-                           Margin="0,10,0,0"
-                           TextWrapping="Wrap"
-                           Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+                            <StackPanel Padding="24" Spacing="18">
 
-            </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
+
+                                    <!--
+                                      The icon is a sibling drawn over the left padding rather than
+                                      part of the control, which is how the registration window does
+                                      it. The TextBox keeps the platform's own template, so the
+                                      focus underline, the selection colours and High Contrast are
+                                      all still the platform's.
+                                    -->
+                                    <Grid>
+                                        <TextBox x:Name="NameBox"
+                                                 Style="{StaticResource WinoraFieldBox}"
+                                                 AutomationProperties.Name="{x:Bind ViewModel.NameLabel, Mode=OneWay}"
+                                                 PlaceholderText="{x:Bind ViewModel.NamePlaceholder, Mode=OneWay}"
+                                                 Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="15"
+                                                  Foreground="{ThemeResource WinoraTextFaint}"
+                                                  Glyph="&#xE77B;"
+                                                  HorizontalAlignment="Left"
+                                                  Margin="13,0,0,0"
+                                                  IsHitTestVisible="False"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               Text="{x:Bind ViewModel.EmailLabel, Mode=OneWay}" />
+
+                                    <Grid>
+                                        <TextBox x:Name="EmailBox"
+                                                 Style="{StaticResource WinoraFieldBox}"
+                                                 AutomationProperties.Name="{x:Bind ViewModel.EmailLabel, Mode=OneWay}"
+                                                 PlaceholderText="{x:Bind ViewModel.EmailPlaceholder, Mode=OneWay}"
+                                                 Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="15"
+                                                  Foreground="{ThemeResource WinoraTextFaint}"
+                                                  Glyph="&#xE715;"
+                                                  HorizontalAlignment="Left"
+                                                  Margin="13,0,0,0"
+                                                  IsHitTestVisible="False"
+                                                  VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!-- The honest part of the form. Not small print. -->
+                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                               Margin="2,2,0,0"
+                                               TextWrapping="Wrap"
+                                               Text="{x:Bind ViewModel.EmailPrivacyNote, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <Rectangle Height="1"
+                                           Fill="{ThemeResource WinoraDividerBrush}"
+                                           Margin="0,2,0,2" />
+
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!--
+                                      Dead until the name and the address are both answerable, as
+                                      the registration card's action is. The command already refuses
+                                      in that state; this is the button admitting it rather than
+                                      taking a press and doing nothing with it.
+                                    -->
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource WinoraPrimaryButton}"
+                                            Content="{x:Bind ViewModel.SaveLabel, Mode=OneWay}"
+                                            IsEnabled="{x:Bind ViewModel.CanSave, Mode=OneWay}"
+                                            Command="{x:Bind ViewModel.SaveCommand}" />
+
+                                    <!--
+                                      Hidden while empty. A status line bound to an empty string
+                                      still takes its line height, and a gap that opens and closes
+                                      beside the button as somebody types reads as a flinch.
+                                    -->
+                                    <TextBlock Grid.Column="1"
+                                               Style="{StaticResource WinoraRowDetail}"
+                                               Margin="0"
+                                               VerticalAlignment="Center"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(ViewModel.StatusMessage), Mode=OneWay}"
+                                               Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </StackPanel>
     </ScrollViewer>
 </Page>

@@ -525,6 +525,12 @@
   <data name="Profile_SaveFailed"><value>Не удалось сохранить профиль. Остальное работает.</value></data>
   <data name="Profile_MemberSince"><value>С нами с {0}</value></data>
   <data name="Profile_RecordedChanges"><value>Изменений записано: {0}</value></data>
+  <data name="Profile_Subtitle"><value>Кто вы для Winora и что она записала о сделанной работе.</value></data>
+  <data name="Profile_DetailsHeading"><value>Данные профиля</value></data>
+  <data name="Profile_NamePlaceholder"><value>Например: Александр</value></data>
+  <data name="Profile_EmailPlaceholder"><value>name@example.com</value></data>
+  <data name="Profile_ChangesCaption"><value>Изменений записано</value></data>
+  <data name="Profile_DaysCaption"><value>Дней с Winora</value></data>
   <data name="Reg_WindowTitle"><value>Регистрация нового пользователя</value></data>
   <data name="Reg_Step1Badge"><value>Шаг 1 из 3: Знакомство</value></data>
   <data name="Reg_Step2Badge"><value>Шаг 2 из 3: Контакты</value></data>

@@ -15,7 +15,7 @@ public sealed partial class ProfileCard : UserControl
     /// Filled by hand rather than by binding.
     /// </summary>
     /// <remarks>
-    /// Six values into a control created once. A set of bindings, a colour converter and a
+    /// A dozen values into a control created once. A set of bindings, a colour converter and a
     /// visibility converter would be more machinery than the thing they drive.
     /// </remarks>
     /// <remarks>
@@ -39,11 +39,27 @@ public sealed partial class ProfileCard : UserControl
         Visibility = Visibility.Visible;
         CardName.Text = viewModel.Name;
         CardEmail.Text = viewModel.Email;
-        CardEmail.Visibility = viewModel.Email.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmailRow.Visibility = viewModel.Email.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         CardSince.Text = viewModel.MemberSince;
-        CardChanges.Text = viewModel.RecordedChanges;
+        SinceRow.Visibility = viewModel.MemberSince.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         AvatarInitial.Text = viewModel.Initial;
-        AvatarCircle.Fill = Brush(viewModel.Colour);
+
+        // One instance for both shapes: the halo is softened by the Ellipse's own opacity, not by
+        // a second brush carrying a different alpha.
+        var colour = Brush(viewModel.Colour);
+        AvatarCircle.Fill = colour;
+        AvatarHalo.Fill = colour;
+
+        ChangesValue.Text = viewModel.RecordedChangesValue;
+        ChangesCaption.Text = viewModel.ChangesCaption;
+        DaysValue.Text = viewModel.DaysWithWinora;
+        DaysCaption.Text = viewModel.DaysCaption;
+
+        // The journal is read after the profile, so the figures are briefly absent on a card that
+        // is otherwise complete. Nothing is drawn for them until they arrive.
+        var hasFigures = viewModel.RecordedChangesValue.Length > 0;
+        StatsRule.Visibility = hasFigures ? Visibility.Visible : Visibility.Collapsed;
+        Stats.Visibility = hasFigures ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>

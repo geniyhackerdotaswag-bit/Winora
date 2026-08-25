@@ -579,4 +579,92 @@
         <Setter Property="CornerRadius" Value="8" />
     </Style>
 
+    <!--
+      The cabinet's form language.
+
+      The registration card and the personal cabinet are meant to read as one product, so the
+      geometry below is the registration card's: a 42-pixel field with a 10-pixel corner and room
+      at its leading edge for an icon, a header strip across the top of a card, and one flat button
+      that carries the action.
+
+      The colours are not the registration card's, and that difference is the whole point. That
+      card writes its palette out because it is the one screen shown before anybody has chosen a
+      scheme. Every screen inside the program is shown after, so these read the palette and follow
+      the scheme the user picked — a cabinet painted in fixed greys would be the one page that
+      ignored the choice made two screens earlier.
+    -->
+
+    <!-- The caption above a field, and the title inside a card's header strip. -->
+    <Style x:Key="WinoraFieldLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextSecondary}" />
+    </Style>
+
+    <!--
+      A field with room for a leading icon.
+
+      Based on the platform's own TextBox style rather than started from nothing, so the template,
+      the focus underline, the selection colours and High Contrast all keep working and only the
+      geometry changes. The left padding is the icon's column: the icon is a sibling in a Grid, not
+      part of the control, so nothing in here has to know it is there.
+    -->
+    <Style x:Key="WinoraFieldBox" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="38,9,12,9" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <!--
+      The strip across the top of a card, as the registration card wears one.
+
+      Its radius is the card radius written out rather than taken from WinoraCardRadius, because a
+      CornerRadius resource cannot be read one corner at a time and a strip rounded on all four
+      shows the card's own colour in the two gaps at the top.
+    -->
+    <Style x:Key="WinoraCardHeaderStrip" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource WinoraHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource WinoraDividerBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="CornerRadius" Value="14,14,0,0" />
+        <Setter Property="Padding" Value="20,0,20,0" />
+        <Setter Property="Height" Value="44" />
+    </Style>
+
+    <!--
+      The one button on a screen that commits what was typed.
+
+      The template is the registration card's, reused rather than copied out: it moves opacity
+      instead of colour on hover and on press, which is what lets a solid fill stay solid, and it
+      goes flatly dead rather than merely dimmer while the form cannot be answered. Only the two
+      colours are the palette's. WinoraHueSystem is near-white on a dark scheme and near-black on a
+      light one, with WinoraOnAccentBrush the inverse of it, so this is the reference's white
+      button on the scheme it was drawn for and the right button on every other.
+    -->
+    <Style x:Key="WinoraPrimaryButton" TargetType="Button" BasedOn="{StaticResource WinoraRegistrationButton}">
+        <Setter Property="Background" Value="{ThemeResource WinoraHueSystem}" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraOnAccentBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <!-- The name on the profile card: the largest thing on the screen after the page title. -->
+    <Style x:Key="WinoraProfileName" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="32" />
+        <Setter Property="CharacterSpacing" Value="-20" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- The quieter lines under it: the address, and the day they arrived. -->
+    <Style x:Key="WinoraProfileDetail" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
 </ResourceDictionary>

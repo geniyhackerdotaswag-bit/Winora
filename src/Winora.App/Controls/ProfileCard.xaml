@@ -10,34 +10,107 @@
     <!--
       One control, two homes: the cabinet and the dashboard. Written once so the two cannot drift
       apart, which two copies of the same markup always eventually do.
-    -->
-    <Border Style="{StaticResource WinoraCard}">
-        <Grid ColumnSpacing="18">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
 
-            <!-- Drawn, not an image: nothing to ship and no blur at any size. -->
-            <Grid Grid.Column="0" Width="64" Height="64">
-                <Ellipse x:Name="AvatarCircle" />
-                <TextBlock x:Name="AvatarInitial"
-                           FontSize="28"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
+      It is the centrepiece of the cabinet now rather than a tile in the corner of it. The avatar is
+      large enough to be the anchor of the screen, the name is set as a heading rather than as row
+      text, and the address and the joining date are the quiet lines beneath it — the shape of the
+      registration card, in the colours of whatever scheme the user chose.
+
+      The two figures along the bottom are every number Winora actually holds about a person. They
+      live in the card rather than on a panel of their own because the card is shared: the dashboard
+      gets them for free, and there is one place to change them when a third arrives.
+    -->
+    <Border Style="{StaticResource WinoraCard}" Padding="24">
+        <StackPanel>
+
+            <Grid ColumnSpacing="20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Drawn, not an image: nothing to ship and no blur at any size. -->
+                <Grid Grid.Column="0"
+                      Width="96"
+                      Height="96"
+                      VerticalAlignment="Center">
+                    <!--
+                      The person's colour twice over: a faint halo behind a solid disc. One brush
+                      serves both, because the softening is opacity on the shape rather than alpha
+                      in the colour.
+                    -->
+                    <Ellipse x:Name="AvatarHalo" Opacity="0.16" />
+                    <Ellipse x:Name="AvatarCircle" Width="76" Height="76" />
+                    <TextBlock x:Name="AvatarInitial"
+                               FontFamily="Segoe UI Variable Display"
+                               FontSize="34"
+                               FontWeight="SemiBold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="10">
+                    <TextBlock x:Name="CardName" Style="{StaticResource WinoraProfileName}" />
+
+                    <StackPanel Spacing="6">
+                        <Grid x:Name="EmailRow" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Grid.Column="0"
+                                      AutomationProperties.AccessibilityView="Raw"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="13"
+                                      Foreground="{ThemeResource WinoraTextFaint}"
+                                      Glyph="&#xE715;"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="CardEmail"
+                                       Style="{StaticResource WinoraProfileDetail}" />
+                        </Grid>
+
+                        <Grid x:Name="SinceRow" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Grid.Column="0"
+                                      AutomationProperties.AccessibilityView="Raw"
+                                      FontFamily="Segoe Fluent Icons"
+                                      FontSize="13"
+                                      Foreground="{ThemeResource WinoraTextFaint}"
+                                      Glyph="&#xE787;"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="CardSince"
+                                       Style="{StaticResource WinoraProfileDetail}" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
             </Grid>
 
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                <TextBlock x:Name="CardName" Style="{StaticResource WinoraRowTitle}" />
-                <TextBlock x:Name="CardEmail"
-                           Style="{StaticResource WinoraRowDetail}"
-                           Margin="0"
-                           TextWrapping="Wrap" />
-                <TextBlock x:Name="CardSince" Style="{StaticResource WinoraRowDetail}" Margin="0" />
-                <TextBlock x:Name="CardChanges" Style="{StaticResource WinoraRowDetail}" Margin="0" />
+            <!--
+              Both the rule and the figures go when there are no figures yet: the statistics arrive
+              from the journal a moment after the rest of the card, and a hairline over two blank
+              captions is exactly the unfinished look this control was rewritten to remove.
+            -->
+            <Rectangle x:Name="StatsRule"
+                       Height="1"
+                       Fill="{ThemeResource WinoraDividerBrush}"
+                       Margin="0,22,0,18" />
+
+            <StackPanel x:Name="Stats" Orientation="Horizontal" Spacing="56">
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="ChangesValue" Style="{StaticResource WinoraMetric}" />
+                    <TextBlock x:Name="ChangesCaption" Style="{StaticResource WinoraMetricCaption}" />
+                </StackPanel>
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="DaysValue" Style="{StaticResource WinoraMetric}" />
+                    <TextBlock x:Name="DaysCaption" Style="{StaticResource WinoraMetricCaption}" />
+                </StackPanel>
             </StackPanel>
-        </Grid>
+        </StackPanel>
     </Border>
 </UserControl>
