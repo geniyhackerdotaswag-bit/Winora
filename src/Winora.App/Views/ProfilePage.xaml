@@ -55,7 +55,9 @@
                       shape, so somebody who filled that in three weeks ago recognises this as the
                       same program rather than as a settings page that happens to hold their name.
                     -->
-                    <Border Style="{StaticResource WinoraCard}" Padding="0">
+                    <Border Style="{StaticResource WinoraCard}"
+                            Padding="0"
+                            Margin="{StaticResource WinoraStackGapL}">
                         <StackPanel>
 
                             <Border Style="{StaticResource WinoraCardHeaderStrip}">
@@ -167,6 +169,108 @@
                                                Visibility="{x:Bind ctl:XamlConvert.ShowText(ViewModel.StatusMessage), Mode=OneWay}"
                                                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
                                 </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!--
+                      The pictures, in a card of their own.
+
+                      Not folded into the details card above it: that one is a form with one action
+                      at the bottom, and these are two pairs of buttons that each act immediately.
+                      Mixing them would put four buttons that do things next to one button that
+                      saves, and leave it ambiguous which of them "Сохранить" applies to.
+
+                      Each half states its limits above its buttons rather than only complaining
+                      afterwards, and keeps its own line for a refusal underneath them. A single
+                      shared message line would show a complaint about the avatar under the
+                      background's buttons.
+                    -->
+                    <Border Style="{StaticResource WinoraCard}" Padding="0">
+                        <StackPanel>
+
+                            <Border Style="{StaticResource WinoraCardHeaderStrip}">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="8"
+                                            VerticalAlignment="Center">
+                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                              FontFamily="Segoe Fluent Icons"
+                                              FontSize="13"
+                                              Foreground="{ThemeResource WinoraTextFaint}"
+                                              Glyph="&#xE91B;"
+                                              VerticalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               VerticalAlignment="Center"
+                                               Text="{x:Bind ViewModel.PicturesHeading, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Padding="24" Spacing="18">
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               Text="{x:Bind ViewModel.AvatarPictureLabel, Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                               TextWrapping="Wrap"
+                                               Text="{x:Bind ViewModel.AvatarLimits, Mode=OneWay}" />
+
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="10"
+                                                Margin="0,6,0,0">
+                                        <Button x:Name="ChooseAvatarButton"
+                                                Style="{StaticResource WinoraActionButton}"
+                                                Content="{x:Bind ViewModel.ChoosePictureLabel, Mode=OneWay}"
+                                                Click="OnChooseAvatarClick" />
+
+                                        <!--
+                                          Dead while there is nothing to remove, rather than absent.
+                                          A button that appears and disappears moves the one beside
+                                          it, and the person who has just chosen a bad photograph is
+                                          aiming at exactly that spot.
+                                        -->
+                                        <Button x:Name="RemoveAvatarButton"
+                                                Style="{StaticResource WinoraActionButton}"
+                                                Content="{x:Bind ViewModel.RemovePictureLabel, Mode=OneWay}"
+                                                IsEnabled="{x:Bind ViewModel.HasAvatarImage, Mode=OneWay}"
+                                                Click="OnRemoveAvatarClick" />
+                                    </StackPanel>
+
+                                    <TextBlock Style="{StaticResource WinoraRowWarning}"
+                                               TextWrapping="Wrap"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(ViewModel.AvatarPictureMessage), Mode=OneWay}"
+                                               Text="{x:Bind ViewModel.AvatarPictureMessage, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <Rectangle Height="1"
+                                           Fill="{ThemeResource WinoraDividerBrush}"
+                                           Margin="0,2,0,2" />
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                               Text="{x:Bind ViewModel.BackgroundPictureLabel, Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                               TextWrapping="Wrap"
+                                               Text="{x:Bind ViewModel.BackgroundLimits, Mode=OneWay}" />
+
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="10"
+                                                Margin="0,6,0,0">
+                                        <Button x:Name="ChooseBackgroundButton"
+                                                Style="{StaticResource WinoraActionButton}"
+                                                Content="{x:Bind ViewModel.ChoosePictureLabel, Mode=OneWay}"
+                                                Click="OnChooseBackgroundClick" />
+                                        <Button x:Name="RemoveBackgroundButton"
+                                                Style="{StaticResource WinoraActionButton}"
+                                                Content="{x:Bind ViewModel.RemovePictureLabel, Mode=OneWay}"
+                                                IsEnabled="{x:Bind ViewModel.HasBackgroundImage, Mode=OneWay}"
+                                                Click="OnRemoveBackgroundClick" />
+                                    </StackPanel>
+
+                                    <TextBlock Style="{StaticResource WinoraRowWarning}"
+                                               TextWrapping="Wrap"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(ViewModel.BackgroundPictureMessage), Mode=OneWay}"
+                                               Text="{x:Bind ViewModel.BackgroundPictureMessage, Mode=OneWay}" />
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Border>

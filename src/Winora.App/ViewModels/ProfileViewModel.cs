@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Winora.App.Services;
+using Winora.Core.Profile;
 
 namespace Winora.App.ViewModels;
 
@@ -79,6 +80,67 @@ public sealed partial class ProfileViewModel : ObservableObject
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Where the avatar picture is, or empty for the drawn mark.
+    /// </summary>
+    /// <remarks>
+    /// A path, and a path is all the card is given: turning it into something that can be drawn is
+    /// WinUI's business, and a view model in this project holds no WinUI type. Empty rather than
+    /// null because an empty string is what the card already treats as "nothing to show", and
+    /// because binding an image source to null is the crash <c>ImageBindingTests</c> exists for.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string AvatarImagePath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string BackgroundImagePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Why the last avatar file was turned away, in words, or empty when nothing was.
+    /// </summary>
+    /// <remarks>
+    /// One per picture rather than one shared line. Two controls that write into the same message
+    /// leave the person reading a complaint about the other one.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string AvatarPictureMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string BackgroundPictureMessage { get; set; } = string.Empty;
+
+    /// <summary>Whether there is an avatar picture to take back off.</summary>
+    public bool HasAvatarImage => AvatarImagePath.Length > 0;
+
+    /// <summary>Whether there is a card background to take back off.</summary>
+    public bool HasBackgroundImage => BackgroundImagePath.Length > 0;
+
+    partial void OnAvatarImagePathChanged(string value) => OnPropertyChanged(nameof(HasAvatarImage));
+
+    partial void OnBackgroundImagePathChanged(string value) =>
+        OnPropertyChanged(nameof(HasBackgroundImage));
+
+    /// <summary>The title of the card the two pickers sit in.</summary>
+    public string PicturesHeading => _text.Get("Profile_PicturesHeading");
+
+    public string AvatarPictureLabel => _text.Get("Profile_AvatarPicture");
+
+    /// <summary>
+    /// What will be accepted, said before the dialog opens rather than after it closes.
+    /// </summary>
+    /// <remarks>
+    /// A limit that is only ever stated as a refusal reads as the program changing its mind. These
+    /// two lines are the same numbers the checker enforces, written out.
+    /// </remarks>
+    public string AvatarLimits => _text.Get("Profile_AvatarLimits");
+
+    public string BackgroundPictureLabel => _text.Get("Profile_BackgroundPicture");
+
+    public string BackgroundLimits => _text.Get("Profile_BackgroundLimits");
+
+    public string ChoosePictureLabel => _text.Get("Profile_PictureChoose");
+
+    public string RemovePictureLabel => _text.Get("Profile_PictureRemove");
+
     public string Heading => _text.Get("Profile_Heading");
 
     public string NameLabel => _text.Get("Profile_NameLabel");
@@ -134,6 +196,8 @@ public sealed partial class ProfileViewModel : ObservableObject
         Colour = current?.Colour ?? string.Empty;
         Initial = current?.Initial ?? string.Empty;
 
+        LoadPictures();
+
         MemberSince = current is null
             ? string.Empty
             : string.Format(
@@ -160,6 +224,94 @@ public sealed partial class ProfileViewModel : ObservableObject
             recorded);
 
         RecordedChangesValue = recorded.ToString(CultureInfo.CurrentCulture);
+    }
+
+    /// <summary>
+    /// Takes the file the person picked and, if it is one, makes it their picture.
+    /// </summary>
+    /// <remarks>
+    /// The dialog itself is not here: it needs a window handle, and a view model in this project
+    /// has no window. The page opens it and hands the path over.
+    /// </remarks>
+    public void ApplyPicture(ProfilePictureKind kind, string? sourcePath)
+    {
+        // The dialog was dismissed. Not a refusal, so nothing is said about it.
+        if (string.IsNullOrWhiteSpace(sourcePath))
+        {
+            return;
+        }
+
+        var verdict = _profile.SetPicture(kind, sourcePath);
+
+        if (verdict == PictureVerdict.Ok)
+        {
+            LoadPictures();
+        }
+
+        SetPictureMessage(kind, MessageFor(kind, verdict));
+    }
+
+    /// <summary>Takes the picture back off, leaving the drawn mark and its colour.</summary>
+    public void RemovePicture(ProfilePictureKind kind)
+    {
+        if (_profile.RemovePicture(kind))
+        {
+            LoadPictures();
+            SetPictureMessage(kind, string.Empty);
+            return;
+        }
+
+        SetPictureMessage(kind, MessageFor(kind, PictureVerdict.NotStored));
+    }
+
+    /// <summary>
+    /// Re-reads only the two pictures.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Load"/>. Choosing a picture is one action on a screen that also holds a form,
+    /// and Load puts the stored name and address back into the fields — so somebody who had typed a
+    /// correction and not yet pressed Save would watch it vanish because they changed their avatar.
+    /// The two are unrelated and stay unrelated.
+    /// </remarks>
+    private void LoadPictures()
+    {
+        var current = _profile.Current;
+
+        AvatarImagePath = current?.AvatarImagePath ?? string.Empty;
+        BackgroundImagePath = current?.BackgroundImagePath ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Which sentence goes under the control.
+    /// </summary>
+    /// <remarks>
+    /// Every refusal names the rule it broke. The two size rules differ by place — an avatar needs
+    /// both sides, a card background needs its width — so they get a sentence each rather than one
+    /// that would have to be vague enough to cover both.
+    /// </remarks>
+    private string MessageFor(ProfilePictureKind kind, PictureVerdict verdict) => verdict switch
+    {
+        PictureVerdict.Ok => string.Empty,
+        PictureVerdict.UnsupportedFormat => _text.Get("Profile_PictureBadFormat"),
+        PictureVerdict.TooLarge => _text.Get("Profile_PictureTooLarge"),
+        PictureVerdict.TooSmall => kind == ProfilePictureKind.Avatar
+            ? _text.Get("Profile_PictureAvatarTooSmall")
+            : _text.Get("Profile_PictureBackgroundTooSmall"),
+        PictureVerdict.WrongShape => _text.Get("Profile_PictureWrongShape"),
+        PictureVerdict.Unreadable => _text.Get("Profile_PictureUnreadable"),
+        PictureVerdict.NotStored => _text.Get("Profile_PictureNotStored"),
+        _ => throw new ArgumentOutOfRangeException(nameof(verdict)),
+    };
+
+    private void SetPictureMessage(ProfilePictureKind kind, string message)
+    {
+        if (kind == ProfilePictureKind.Avatar)
+        {
+            AvatarPictureMessage = message;
+            return;
+        }
+
+        BackgroundPictureMessage = message;
     }
 
     [RelayCommand]

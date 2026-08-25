@@ -8,7 +8,17 @@ namespace Winora.App;
 
 public partial class App : Application
 {
-    private Window? _window;
+    /// <summary>
+    /// The window on screen, whichever of the two it is.
+    /// </summary>
+    /// <remarks>
+    /// Held here because a page has no route to the window it is drawn in, and a file dialog has to
+    /// be given one — a WinUI desktop app has no ambient answer to "which window owns this", and a
+    /// picker created without one throws when it is opened rather than when it is built. It
+    /// replaces the private field the two windows were kept in; there was never more than one of
+    /// them at a time, and nothing outside this class could see it.
+    /// </remarks>
+    public static Window? CurrentWindow { get; private set; }
 
     public App()
     {
@@ -95,8 +105,8 @@ public partial class App : Application
                         // the process the moment the last window closes (Application.Start's message
                         // loop returns when the window count reaches zero). Closing registration
                         // before the shell exists would end the app instead of handing off to it.
-                        _window = new MainWindow();
-                        _window.Activate();
+                        CurrentWindow = new MainWindow();
+                        CurrentWindow.Activate();
                         registration.Close();
                     }
                     catch (Exception ex)
@@ -114,13 +124,13 @@ public partial class App : Application
 
                 registration.Completed += OnRegistrationCompleted;
 
-                _window = registration;
+                CurrentWindow = registration;
                 registration.Activate();
                 return;
             }
 
-            _window = new MainWindow();
-            _window.Activate();
+            CurrentWindow = new MainWindow();
+            CurrentWindow.Activate();
         }
         catch (Exception ex)
         {

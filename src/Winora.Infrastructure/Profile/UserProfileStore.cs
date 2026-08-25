@@ -38,10 +38,30 @@ public sealed class UserProfileStore : IUserProfileStore
     /// The current shape of profile.json.
     /// </summary>
     /// <remarks>
-    /// Version 2 added the password. A file without one was written before registration existed,
-    /// and is treated as no profile at all rather than as a profile to be trusted — see Read.
+    /// Version 3 added the two picture file names. Nothing about it makes an older file unusable,
+    /// so unlike version 2 it is not a bar to reading one — see <see cref="ReadableSchemaVersion"/>.
     /// </remarks>
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
+
+    /// <summary>
+    /// The oldest file this store will still read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Version 2 is where the password arrived, and the password is what makes a file a profile: a
+    /// version 1 file was written before registration existed, so it describes somebody who never
+    /// registered, and it reads as no profile at all.
+    /// </para>
+    /// <para>
+    /// Version 3 only added two optional picture names. A version 2 file is a complete, registered
+    /// profile that simply has no pictures yet, and discarding it would cost its owner their name,
+    /// their address, their joining date and their password over a feature they have not used.
+    /// The check is therefore against this floor and not against
+    /// <see cref="CurrentSchemaVersion"/> — which is what it used to be, and which would have
+    /// thrown every existing profile away the moment the version was raised.
+    /// </para>
+    /// </remarks>
+    private const int ReadableSchemaVersion = 2;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -103,7 +123,7 @@ public sealed class UserProfileStore : IUserProfileStore
                 stored.PasswordSalt ?? string.Empty,
                 stored.PasswordIterations);
 
-            if (stored.SchemaVersion < CurrentSchemaVersion ||
+            if (stored.SchemaVersion < ReadableSchemaVersion ||
                 digest.Hash.Length == 0 ||
                 digest.Salt.Length == 0 ||
                 digest.Iterations <= 0)
@@ -116,7 +136,14 @@ public sealed class UserProfileStore : IUserProfileStore
                 stored.Email?.Trim() ?? string.Empty,
                 stored.Avatar,
                 stored.CreatedUtc,
-                digest);
+                digest,
+
+                // A name that is not one this program generates is dropped, not obeyed. It reaches
+                // here from a text file anybody can edit, and joining "..\..\Windows\x.png" to the
+                // media folder resolves somewhere else entirely — which an elevated program must
+                // never follow. A dropped name is a card with the drawn mark on it, nothing worse.
+                Safe(stored.AvatarFile),
+                Safe(stored.BackgroundFile));
         }
         catch (Exception)
         {
@@ -147,7 +174,9 @@ public sealed class UserProfileStore : IUserProfileStore
                         profile.CreatedUtc,
                         profile.Password?.Hash ?? string.Empty,
                         profile.Password?.Salt ?? string.Empty,
-                        profile.Password?.Iterations ?? 0),
+                        profile.Password?.Iterations ?? 0,
+                        Safe(profile.AvatarFile),
+                        Safe(profile.BackgroundFile)),
                     Options));
 
             File.Move(temporary, Path, overwrite: true);
@@ -159,6 +188,15 @@ public sealed class UserProfileStore : IUserProfileStore
             return false;
         }
     }
+
+    /// <summary>A picture file name, or null if it is not one this program could have written.</summary>
+    /// <remarks>
+    /// Applied on the way in and on the way out. On the way in because the file is editable text;
+    /// on the way out so that a name that somehow got past the layer above is not written back and
+    /// made to look legitimate.
+    /// </remarks>
+    private static string? Safe(string? fileName) =>
+        ProfilePictureRules.IsStoredFileName(fileName) ? fileName : null;
 
     private static void TryDelete(string path)
     {
@@ -183,5 +221,7 @@ public sealed class UserProfileStore : IUserProfileStore
         DateTimeOffset CreatedUtc,
         string? PasswordHash,
         string? PasswordSalt,
-        int PasswordIterations);
+        int PasswordIterations,
+        string? AvatarFile = null,
+        string? BackgroundFile = null);
 }

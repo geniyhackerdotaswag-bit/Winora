@@ -223,6 +223,111 @@ public sealed class UserProfileStoreTests : IDisposable
         Assert.Null(Store().Read());
     }
 
+    /// <summary>
+    /// A version 2 profile is a whole profile that simply has no pictures yet.
+    /// </summary>
+    /// <remarks>
+    /// This is the test that stands between a schema bump and the owner's profile. The version
+    /// check used to read "older than the current version means discard", which was right while the
+    /// only older version was the one written before registration existed. Version 3 added two
+    /// optional picture names and nothing else; a version 2 file has a name, an address, a joining
+    /// date and a password, and throwing all of it away over a feature its owner has not used would
+    /// be the worst thing this store could do. Every existing profile on every machine is version 2.
+    /// </remarks>
+    [Fact]
+    public void A_profile_from_before_pictures_existed_is_kept_whole()
+    {
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            """
+            {"schemaVersion":2,"name":"Аня","email":"anya@example.com","avatar":2,
+             "createdUtc":"2026-08-24T00:00:00+00:00",
+             "passwordHash":"h","passwordSalt":"s","passwordIterations":600000}
+            """);
+
+        var read = Store().Read();
+
+        Assert.NotNull(read);
+        Assert.Equal("Аня", read.Name);
+        Assert.Equal("anya@example.com", read.Email);
+        Assert.Equal(2, read.Avatar);
+        Assert.Equal("h", read.Password!.Hash);
+        Assert.Null(read.AvatarFile);
+        Assert.Null(read.BackgroundFile);
+    }
+
+    [Fact]
+    public void Picture_names_survive_the_round_trip()
+    {
+        var written = Sample() with
+        {
+            AvatarFile = "avatar-0123456789abcdef0123456789abcdef.png",
+            BackgroundFile = "background-fedcba9876543210fedcba9876543210.jpg",
+        };
+
+        Assert.True(Store().Write(written));
+
+        var read = Store().Read();
+
+        Assert.Equal(written.AvatarFile, read!.AvatarFile);
+        Assert.Equal(written.BackgroundFile, read.BackgroundFile);
+    }
+
+    /// <summary>A picture is optional, so a profile without one is not a broken profile.</summary>
+    [Fact]
+    public void A_profile_with_no_pictures_is_still_a_profile()
+    {
+        Assert.True(Store().Write(Sample()));
+
+        var read = Store().Read();
+
+        Assert.NotNull(read);
+        Assert.Null(read.AvatarFile);
+        Assert.Null(read.BackgroundFile);
+    }
+
+    /// <summary>
+    /// A hand-edited picture name that could leave the media folder is dropped, not obeyed.
+    /// </summary>
+    /// <remarks>
+    /// profile.json is plain text in the person's own folder and Winora runs elevated, so a name
+    /// like <c>..\..\Windows\System32\config\SAM</c> must never be joined to a folder and followed.
+    /// Dropping it costs a picture; the profile around it is untouched, because the name is
+    /// decoration and the rest is not.
+    /// </remarks>
+    [Theory]
+    [InlineData("..\\..\\Windows\\System32\\config\\SAM.png")]
+    [InlineData("../../profile.json")]
+    [InlineData("C:\\Windows\\notepad.png")]
+    [InlineData("avatar.svg")]
+    public void A_picture_name_that_is_not_a_plain_file_name_is_dropped(string name)
+    {
+        File.WriteAllText(
+            Path.Combine(_folder, "profile.json"),
+            "{\"schemaVersion\":3,\"name\":\"Аня\",\"email\":\"\",\"avatar\":0," +
+            "\"createdUtc\":\"2026-08-24T00:00:00+00:00\"," +
+            "\"passwordHash\":\"h\",\"passwordSalt\":\"s\",\"passwordIterations\":600000," +
+            "\"avatarFile\":\"" + name.Replace("\\", "\\\\", StringComparison.Ordinal) + "\"}");
+
+        var read = Store().Read();
+
+        Assert.NotNull(read);
+        Assert.Equal("Аня", read.Name);
+        Assert.Null(read.AvatarFile);
+    }
+
+    /// <summary>
+    /// A name that got past the layer above is not written back and made to look legitimate.
+    /// </summary>
+    [Fact]
+    public void A_picture_name_that_is_not_a_plain_file_name_is_never_written()
+    {
+        Assert.True(Store().Write(Sample() with { AvatarFile = "..\\escape.png" }));
+
+        Assert.Null(Store().Read()!.AvatarFile);
+        Assert.DoesNotContain("escape", File.ReadAllText(Path.Combine(_folder, "profile.json")), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_profile_whose_digest_is_empty_reads_as_no_profile()
     {

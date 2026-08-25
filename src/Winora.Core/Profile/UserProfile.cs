@@ -8,12 +8,27 @@ namespace Winora.Core.Profile;
 /// The password digest. Null only in memory, while a registration is being filled in — a stored
 /// profile always has one, because registration is the only way a profile comes to exist.
 /// </param>
+/// <param name="AvatarFile">
+/// The name of the picture kept in the profile's media folder, or null for the drawn mark.
+/// </param>
+/// <param name="BackgroundFile">
+/// The name of the card's background picture, on the same terms as <paramref name="AvatarFile"/>.
+/// </param>
+/// <remarks>
+/// The two file names are names, never paths. A path would be a promise about somebody else's
+/// folder that Winora cannot keep — the picture disappears the day the Downloads folder is tidied —
+/// so the file is copied into the profile's own storage and only its name is kept. Both are
+/// nullable and both default to absent, because <see cref="Avatar"/> — the palette colour — is the
+/// fallback and is never given up when a picture is set.
+/// </remarks>
 public sealed record UserProfile(
     string Name,
     string Email,
     int Avatar,
     DateTimeOffset CreatedUtc,
-    PasswordDigest? Password = null);
+    PasswordDigest? Password = null,
+    string? AvatarFile = null,
+    string? BackgroundFile = null);
 
 /// <summary>What the welcome form accepts.</summary>
 public static class ProfileRules

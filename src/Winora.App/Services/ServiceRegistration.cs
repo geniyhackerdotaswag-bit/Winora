@@ -148,6 +148,9 @@ public static class ServiceRegistration
         // Singletons: the store is a file and the card appears in two places, which must not read
         // it into two different answers.
         services.AddSingleton<IUserProfileStore, UserProfileStore>();
+
+        // The folder the two pictures are copied into, beside the profile that names them.
+        services.AddSingleton<IProfileMediaStore, ProfileMediaStore>();
         services.AddSingleton<IProfileService, ProfileService>();
         services.AddTransient<ProfileViewModel>();
         services.AddTransient<RegistrationViewModel>();

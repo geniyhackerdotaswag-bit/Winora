@@ -1,5 +1,6 @@
 using Winora.App.Services;
 using Winora.App.ViewModels;
+using Winora.Core.Profile;
 using Xunit;
 
 namespace Winora.App.Tests.ViewModels;
@@ -30,6 +31,13 @@ public sealed class RegistrationViewModelTests
             Registered = (name, email, password);
             return RegisterSucceeds;
         }
+
+        // The wizard has no pictures in it: they belong to the cabinet, which is the only place a
+        // profile can be edited after it exists. Present because the interface asks for them.
+        public PictureVerdict SetPicture(ProfilePictureKind kind, string sourcePath) =>
+            PictureVerdict.NotStored;
+
+        public bool RemovePicture(ProfilePictureKind kind) => false;
 
         public Task<int> RecordedChangesAsync() => Task.FromResult(0);
     }

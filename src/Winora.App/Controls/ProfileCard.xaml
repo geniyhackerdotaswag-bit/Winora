@@ -20,8 +20,37 @@
       live in the card rather than on a panel of their own because the card is shared: the dashboard
       gets them for free, and there is one place to change them when a third arrives.
     -->
-    <Border Style="{StaticResource WinoraCard}" Padding="24">
-        <StackPanel>
+    <Border Style="{StaticResource WinoraCard}" Padding="0">
+      <Grid>
+
+        <!--
+          The chosen background, and a sheet of the card's own colour over it.
+
+          Two layers, not one. The picture is an ImageBrush on a Border's Background rather than an
+          Image element, so the corner radius does the clipping — a Border always paints its
+          background inside its own radius, whether or not it would clip a child.
+
+          The sheet is the part that is not decoration. Raw photograph behind this card's text is
+          unreadable at some point in every photograph: the name is WinoraTextPrimary and the two
+          quiet lines are WinoraTextMuted, both chosen against WinoraCardFill and against nothing
+          else. At 0.86 the worst case a picture can produce — pure white under the dark scheme,
+          pure black under the light one — still leaves the muted tone above 5:1 on both, which is
+          measured arithmetic rather than a look at it. Both layers use the palette rather than a
+          fixed black, because this card is only ever shown after a scheme has been chosen.
+
+          The radius is 13 rather than the card's 14: the card carries a one-pixel border, so its
+          child sits one pixel inside it, and 14 would overhang the curve by exactly that pixel.
+        -->
+        <Border x:Name="Backdrop"
+                CornerRadius="13"
+                Visibility="Collapsed" />
+        <Border x:Name="BackdropScrim"
+                Background="{ThemeResource WinoraCardFill}"
+                CornerRadius="13"
+                Opacity="0.86"
+                Visibility="Collapsed" />
+
+        <StackPanel Margin="24">
 
             <Grid ColumnSpacing="20">
                 <Grid.ColumnDefinitions>
@@ -41,6 +70,21 @@
                     -->
                     <Ellipse x:Name="AvatarHalo" Opacity="0.16" />
                     <Ellipse x:Name="AvatarCircle" Width="76" Height="76" />
+
+                    <!--
+                      The picture, when there is one, in the disc's place. An Ellipse filled with an
+                      ImageBrush set to UniformToFill is the square centre crop and the circle in one
+                      step, with no pixels touched and nothing to get wrong: the brush scales the
+                      picture to cover the disc and centres what it cannot fit.
+
+                      The halo behind it stays. It is the person's palette colour, which a picture
+                      borrows the card for rather than replaces — and which comes straight back if
+                      the picture is removed.
+                    -->
+                    <Ellipse x:Name="AvatarPicture"
+                             Width="76"
+                             Height="76"
+                             Visibility="Collapsed" />
                     <TextBlock x:Name="AvatarInitial"
                                FontFamily="Segoe UI Variable Display"
                                FontSize="34"
@@ -112,5 +156,6 @@
                 </StackPanel>
             </StackPanel>
         </StackPanel>
+      </Grid>
     </Border>
 </UserControl>
