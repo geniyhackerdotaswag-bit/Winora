@@ -80,23 +80,51 @@ public sealed class ResourceKeyTests
             $"'{enumName}' members with no '{prefix}*' string: " + string.Join(", ", missing));
     }
 
-    private static IEnumerable<(string File, string Key)> RequestedKeys()
+    /// <summary>A literal <c>Get("Key")</c> in C#.</summary>
+    /// <remarks>
+    /// Only literal arguments. A key assembled at run time cannot be checked this way, and the enum
+    /// theory above covers the families that are.
+    /// </remarks>
+    private const string CodeCall = @"Get\(""([A-Za-z0-9_.]+)""\)";
+
+    /// <summary>A key reaching the localizer from markup instead.</summary>
+    /// <remarks>
+    /// <para>
+    /// The registration window binds its labels as <c>{x:Bind Localized('Reg_Next')}</c> rather than
+    /// holding a property per label on a view model whose whole point is that it holds no view. That
+    /// puts about thirty keys in a .xaml file, passed as a method argument, in single quotes — three
+    /// separate reasons the scan above cannot see them, so until this pattern existed nobody was
+    /// checking any of them.
+    /// </para>
+    /// <para>
+    /// A key nobody checks is the failure this whole class was written for: a typo produces a blank
+    /// label on the first screen the program ever shows, and nothing fails anywhere.
+    /// </para>
+    /// <para>
+    /// Both quote characters are accepted because XAML allows either around an attribute value, and
+    /// the inner literal has to use whichever one the attribute did not.
+    /// </para>
+    /// </remarks>
+    private const string MarkupCall = @"Localized\(\s*['""]([A-Za-z0-9_.]+)['""]\s*\)";
+
+    private static IEnumerable<(string File, string Key)> RequestedKeys() =>
+        Requested("*.cs", CodeCall).Concat(Requested("*.xaml", MarkupCall));
+
+    private static IEnumerable<(string File, string Key)> Requested(string files, string call)
     {
         foreach (var file in Directory.EnumerateFiles(
                      Path.Combine(Root, "src", "Winora.App"),
-                     "*.cs",
+                     files,
                      SearchOption.AllDirectories))
         {
+            // obj holds the XAML compiler's own copy of every page and the code it generates from
+            // them, so everything in there is a second sighting of a key already counted.
             if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var text = File.ReadAllText(file);
-
-            // Only literal arguments. A key assembled at run time cannot be checked this way, and
-            // the enum theory above covers the families that are.
-            foreach (Match match in Regex.Matches(text, @"Get\(""([A-Za-z0-9_.]+)""\)"))
+            foreach (Match match in Regex.Matches(File.ReadAllText(file), call))
             {
                 yield return (file, match.Groups[1].Value);
             }

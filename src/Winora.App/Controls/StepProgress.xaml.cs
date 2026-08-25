@@ -35,6 +35,22 @@ public sealed partial class StepProgress : UserControl
     private readonly FontIcon[] _ticks;
     private readonly TextBlock[] _labels;
 
+    /// <summary>The fill now running, held so that the next one can stop it.</summary>
+    /// <remarks>
+    /// A step can be left again before this 500 ms has finished — it is the slowest thing on the
+    /// card, and Назад is one click — and two storyboards on one ScaleX do not queue, they argue.
+    /// </remarks>
+    private Storyboard? _fill;
+
+    /// <summary>How far along the line was last asked to reach.</summary>
+    /// <remarks>
+    /// Where the next run starts from. An independent animation is played by the compositor rather
+    /// than by the property system, so reading ScaleX back mid flight does not reliably say where
+    /// the line actually is; the last place it was sent is the honest answer available here, and it
+    /// is the exact one in every case except an interruption inside half a second.
+    /// </remarks>
+    private double _reach;
+
     public StepProgress()
     {
         InitializeComponent();
@@ -105,13 +121,25 @@ public sealed partial class StepProgress : UserControl
         if (!IsLoaded)
         {
             TrackScale.ScaleX = fraction;
+            _reach = fraction;
             return;
         }
+
+        var from = _reach;
+
+        _fill?.Stop();
+
+        // The base value is the destination, not the origin: a stop leaves ScaleX at whatever is
+        // written here, and the place a line that has been interrupted belongs is the end of its
+        // journey rather than the start of it.
+        TrackScale.ScaleX = fraction;
+        _reach = fraction;
 
         var storyboard = new Storyboard();
 
         var grow = new DoubleAnimation
         {
+            From = from,
             To = fraction,
             Duration = new Duration(TimeSpan.FromMilliseconds(500)),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
@@ -120,6 +148,8 @@ public sealed partial class StepProgress : UserControl
         Storyboard.SetTarget(grow, TrackScale);
         Storyboard.SetTargetProperty(grow, "ScaleX");
         storyboard.Children.Add(grow);
+
+        _fill = storyboard;
         storyboard.Begin();
     }
 

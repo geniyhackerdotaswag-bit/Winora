@@ -41,6 +41,14 @@ public sealed partial class RegistrationWindow : Window
 
     private readonly ILocalizationService _text;
 
+    /// <summary>The slide now running, held so that the next one can stop it.</summary>
+    /// <remarks>
+    /// A step can be re-entered before the previous 220 ms has finished — Назад, Продолжить, Назад,
+    /// pressed faster than the animation plays — and two storyboards on one Opacity do not queue,
+    /// they argue: both keep writing, and the panel is left wherever the loser wrote last.
+    /// </remarks>
+    private Storyboard? _slide;
+
     public RegistrationWindow()
     {
         Model = App.Services.GetRequiredService<RegistrationViewModel>();
@@ -207,11 +215,17 @@ public sealed partial class RegistrationWindow : Window
         }
     }
 
-    private static void Slide(UIElement target)
+    private void Slide(UIElement target)
     {
-        var transform = new TranslateTransform { X = 24 };
+        _slide?.Stop();
+
+        // The values a panel rests at, written as the base values rather than as the start of the
+        // animation: both animations below carry an explicit From, so stopping either of them mid
+        // flight leaves the panel where it belongs — in place and visible — instead of stranded at
+        // the opacity it happened to have been started from.
+        var transform = new TranslateTransform();
         target.RenderTransform = transform;
-        target.Opacity = 0;
+        target.Opacity = 1;
 
         var storyboard = new Storyboard();
 
@@ -238,6 +252,8 @@ public sealed partial class RegistrationWindow : Window
 
         storyboard.Children.Add(move);
         storyboard.Children.Add(fade);
+
+        _slide = storyboard;
         storyboard.Begin();
     }
 
