@@ -136,6 +136,19 @@ public sealed partial class RegistrationViewModel : ObservableObject
     /// <summary>Raised once the profile exists and the app may open.</summary>
     public event EventHandler? Completed;
 
+    /// <summary>
+    /// Whether <see cref="Completed"/> has already been raised.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Step"/> stays <see cref="RegistrationStep.Done"/> after the first raise, so
+    /// <see cref="Open"/>'s step check alone does not stop a second click — a fast double press on
+    /// "Открыть Winora" would raise <see cref="Completed"/> twice. Its subscriber in
+    /// <c>App.xaml.cs</c> constructs and activates a second <c>MainWindow</c> and closes the
+    /// registration window a second time on the second raise, which is worth refusing here where the
+    /// state that decides it already lives, rather than leaving every subscriber to guard itself.
+    /// </remarks>
+    private bool _completed;
+
     [RelayCommand]
     private void Next()
     {
@@ -193,12 +206,15 @@ public sealed partial class RegistrationViewModel : ObservableObject
     private void Open()
     {
         // Only from the last step. The window hangs the app's opening on this event, and raising it
-        // early would show the shell over an unfinished registration.
-        if (Step != RegistrationStep.Done)
+        // early would show the shell over an unfinished registration. The second guard is for the
+        // step this one cannot catch: Step remains Done after the first raise, so nothing here would
+        // otherwise stop a second click from raising Completed again — see _completed's remarks.
+        if (Step != RegistrationStep.Done || _completed)
         {
             return;
         }
 
+        _completed = true;
         Completed?.Invoke(this, EventArgs.Empty);
     }
 }

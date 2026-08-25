@@ -317,4 +317,26 @@ public sealed class RegistrationViewModelTests
 
         Assert.True(raised);
     }
+
+    /// <summary>
+    /// A fast double-click on "Открыть Winora" must not raise Completed twice: Step stays Done after
+    /// the first raise, so the step check alone would let a second click through.
+    /// </summary>
+    [Fact]
+    public void Opening_twice_raises_completed_once()
+    {
+        var vm = AtPasswordStep(new FakeProfileService());
+        vm.Password = "Password1!";
+        vm.Confirm = "Password1!";
+        vm.FinishCommand.Execute(null);
+
+        var raisedCount = 0;
+        vm.Completed += (_, _) => raisedCount++;
+
+        vm.OpenCommand.Execute(null);
+        vm.OpenCommand.Execute(null);
+        vm.OpenCommand.Execute(null);
+
+        Assert.Equal(1, raisedCount);
+    }
 }

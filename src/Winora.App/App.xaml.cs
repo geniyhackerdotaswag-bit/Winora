@@ -81,16 +81,38 @@ public partial class App : Application
             if (Services.GetRequiredService<IProfileService>().Current is null)
             {
                 var registration = new Views.RegistrationWindow();
-                registration.Completed += (_, _) =>
+
+                void OnRegistrationCompleted(object? sender, EventArgs e)
                 {
-                    // MainWindow first, registration second: WinUI posts a quit message and ends the
-                    // process the moment the last window closes (Application.Start's message loop
-                    // returns when the window count reaches zero). Closing registration before the
-                    // shell exists would end the app instead of handing off to it.
-                    _window = new MainWindow();
-                    _window.Activate();
-                    registration.Close();
-                };
+                    // Unsubscribed first, before anything below can throw. RegistrationViewModel.Open
+                    // already refuses to raise Completed a second time itself; this is the belt to
+                    // that braces, so nothing reaches this handler twice from any cause.
+                    registration.Completed -= OnRegistrationCompleted;
+
+                    try
+                    {
+                        // MainWindow first, registration second: WinUI posts a quit message and ends
+                        // the process the moment the last window closes (Application.Start's message
+                        // loop returns when the window count reaches zero). Closing registration
+                        // before the shell exists would end the app instead of handing off to it.
+                        _window = new MainWindow();
+                        _window.Activate();
+                        registration.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        // This runs off a button click, not inside OnLaunched's own try/catch, so a
+                        // throw here reaches only the UnhandledException handler below, which logs it
+                        // and marks it handled — leaving the registration window open with no
+                        // explanation at all, the same silent failure StartupFailureNotice exists to
+                        // prevent. The profile is already saved at this point, so a relaunch reaches
+                        // the shell even when this particular handover failed.
+                        DiagnosticSink.Write("Registration.Completed", ex);
+                        StartupFailureNotice.Show(DiagnosticSink.LogPath);
+                    }
+                }
+
+                registration.Completed += OnRegistrationCompleted;
 
                 _window = registration;
                 registration.Activate();
@@ -103,6 +125,11 @@ public partial class App : Application
         catch (Exception ex)
         {
             DiagnosticSink.Write("OnLaunched", ex);
+
+            // Rethrowing alone ends the process before any window exists on a first run — the exact
+            // silent failure StartupFailureNotice was written for on 2026-08-04. This try covers both
+            // the registration path and the returning-user path, so both get the same notice.
+            StartupFailureNotice.Show(DiagnosticSink.LogPath);
             throw;
         }
     }
