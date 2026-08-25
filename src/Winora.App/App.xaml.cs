@@ -75,6 +75,28 @@ public partial class App : Application
 
             ApplyStoredScheme();
 
+            // Registration comes first, and the shell is not created at all until it is done — not
+            // created and hidden. A hidden window still shows in the taskbar and in Alt+Tab, which is
+            // exactly the "app is visible before registration" the owner asked to remove.
+            if (Services.GetRequiredService<IProfileService>().Current is null)
+            {
+                var registration = new Views.RegistrationWindow();
+                registration.Completed += (_, _) =>
+                {
+                    // MainWindow first, registration second: WinUI posts a quit message and ends the
+                    // process the moment the last window closes (Application.Start's message loop
+                    // returns when the window count reaches zero). Closing registration before the
+                    // shell exists would end the app instead of handing off to it.
+                    _window = new MainWindow();
+                    _window.Activate();
+                    registration.Close();
+                };
+
+                _window = registration;
+                registration.Activate();
+                return;
+            }
+
             _window = new MainWindow();
             _window.Activate();
         }

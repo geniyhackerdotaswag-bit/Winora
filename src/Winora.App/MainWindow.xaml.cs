@@ -339,19 +339,11 @@ public sealed partial class MainWindow : Window
     private async void OnRootLoaded(object sender, RoutedEventArgs e)
     {
         // Once only: Loaded fires again whenever the element is re-parented into the tree. Unhooked
-        // before either await below, so a second Loaded firing on this same window (re-parenting)
-        // can never queue a second run of either dialog.
+        // before the await below, so a second Loaded firing on this same window (re-parenting) can
+        // never queue a second run of the install offer.
         RootGrid.Loaded -= OnRootLoaded;
 
-        // Awaited in order, not fired-and-forgotten side by side: WinUI does not allow two open
-        // ContentDialogs on the same XamlRoot, and OfferInstallAsync opens one whenever the app
-        // still needs installing. Firing ShowWelcomeAsync() while that dialog is still open would
-        // make its own ShowAsync() throw, and the try/catch around it would swallow that silently —
-        // which is exactly how the welcome window would fail to appear on a real first run. The
-        // install question also decides where the program will live before the person settles into
-        // it, which is reason enough on its own to ask it first.
         await OfferInstallAsync();
-        await ShowWelcomeAsync();
     }
 
     private async Task OfferInstallAsync()
@@ -418,20 +410,6 @@ public sealed partial class MainWindow : Window
         {
             Diagnostics.DiagnosticSink.Write("OfferInstall", ex);
             _update.ReportInstallFailed();
-        }
-    }
-
-    /// <summary>Greets a new person once the window exists to hang a dialog on.</summary>
-    private async Task ShowWelcomeAsync()
-    {
-        try
-        {
-            await Views.WelcomeDialog.ShowIfNeededAsync(Content.XamlRoot).ConfigureAwait(true);
-        }
-        catch (Exception ex)
-        {
-            // A greeting that will not open is not a reason to fail a launch.
-            Diagnostics.DiagnosticSink.Write("Welcome", ex);
         }
     }
 }
