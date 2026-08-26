@@ -88,6 +88,19 @@ public sealed partial class BypassViewModel : ObservableObject
     [ObservableProperty]
     public partial string StrategiesHeading { get; set; } = string.Empty;
 
+    /// <summary>Whose work this screen runs.</summary>
+    /// <remarks>
+    /// The whole module is a wrapper over Flowseal's zapret-discord-youtube: Winora downloads that
+    /// project's own archive, reads the strategies out of it and starts its executable. This line
+    /// existed and was assigned on every load, and was drawn nowhere — which is how it came to be
+    /// deleted as dead code on 2026-08-26. Being dead was the defect, not the line.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string Disclosure { get; set; } = string.Empty;
+
+    /// <summary>Where that project lives, so the credit is one somebody can follow.</summary>
+    public static string UpstreamUrl => "https://github.com/Flowseal/zapret-discord-youtube";
+
     [ObservableProperty]
     public partial string Folder { get; set; } = string.Empty;
 
@@ -194,6 +207,7 @@ public sealed partial class BypassViewModel : ObservableObject
         CheckLabel = _text.Get("Bypass_Check");
         InstallLabel = _text.Get("Bypass_Install");
         StrategiesHeading = _text.Get("Bypass_StrategiesHeading");
+        Disclosure = _text.Get("Bypass_Disclosure");
         NotInstalledMessage = _text.Get("Bypass_NotInstalled");
         // The real path, and it is no longer shown anywhere — the folder button opens it. Printing
         // it across the screen put the account name, often a real name, into every screenshot.

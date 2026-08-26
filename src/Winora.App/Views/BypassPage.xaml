@@ -115,6 +115,16 @@
                     <TextBlock Style="{StaticResource WinoraSectionHeading}"
                                Text="{x:Bind ViewModel.StrategiesHeading, Mode=OneWay}" />
 
+                    <!--
+                      Whose work this is. Every strategy in the list below is a file from Flowseal's
+                      release, read but not altered, and the executable they start is his. A program
+                      built on somebody else's work should say so where the work is being used.
+                    -->
+                    <HyperlinkButton NavigateUri="https://github.com/Flowseal/zapret-discord-youtube"
+                                     Margin="2,0,0,6"
+                                     Padding="0"
+                                     Content="{x:Bind ViewModel.Disclosure, Mode=OneWay}" />
+
                     <TextBlock Style="{StaticResource WinoraRowDetail}"
                                TextWrapping="Wrap"
                                Margin="2,0,0,0"
