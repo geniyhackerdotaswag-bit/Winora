@@ -79,6 +79,11 @@ public sealed partial class BypassPage : Page
 
     private void OnStopClick(object sender, RoutedEventArgs e) => ViewModel.Stop();
 
+    /// <summary>The verdict, which is the person's to give and nobody else's.</summary>
+    private void OnWorkedClick(object sender, RoutedEventArgs e) => ViewModel.Worked();
+
+    private void OnDidNotWorkClick(object sender, RoutedEventArgs e) => ViewModel.DidNotWork();
+
     private async void OnCheckClick(object sender, RoutedEventArgs e) =>
         await ViewModel.CheckAsync().ConfigureAwait(true);
 

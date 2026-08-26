@@ -12,6 +12,7 @@ using Winora.Infrastructure.Leases;
 using Winora.Infrastructure.Operations;
 using Winora.Infrastructure.Paths;
 using Winora.Infrastructure.Persistence;
+using Winora.Infrastructure.Bypass;
 using Winora.Infrastructure.Profile;
 using Winora.Infrastructure.Recovery;
 using Winora.Infrastructure.Time;
@@ -130,6 +131,13 @@ public static class ServiceRegistration
         services.AddSingleton<IBypassProcessController, BypassProcessController>();
         services.AddSingleton<IBypassReleaseInstaller, BypassReleaseInstaller>();
         services.AddSingleton<IBypassService, BypassService>();
+        // Singletons, and for the same reason as the profile store: this is one file, and two
+        // readers of it would disagree about what has already been tried.
+        services.AddSingleton<IBypassAttemptStore, BypassAttemptStore>();
+        services.AddSingleton<IBypassHistory>(provider =>
+            new BypassHistoryService(
+                provider.GetRequiredService<IBypassAttemptStore>(),
+                TimeProvider.System));
         services.AddTransient<BypassViewModel>();
 
         // Winora's own release feed and updater. Singletons for the same reason as the bypass

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
+using Winora.Core.Bypass;
 
 namespace Winora.App.ViewModels;
 
@@ -15,6 +16,22 @@ public sealed partial class BypassStrategyViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>What happened last time this one was started, in words.</summary>
+    /// <remarks>
+    /// The only thing on this screen the program knows and the person does not. Everything else —
+    /// which strategy suits this network, what the names mean — it cannot know either.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string OutcomeText { get; set; } = string.Empty;
+
+    /// <summary>True for the strategy running right now.</summary>
+    [ObservableProperty]
+    public partial bool IsCurrent { get; set; }
+
+    /// <summary>True when this machine has been told this one does not help.</summary>
+    [ObservableProperty]
+    public partial bool HasFailed { get; set; }
 }
 
 /// <summary>
@@ -38,6 +55,7 @@ public sealed partial class BypassViewModel : ObservableObject
 {
     private readonly IBypassService _bypass;
     private readonly ILocalizationService _text;
+    private readonly IBypassHistory _history;
 
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
@@ -132,11 +150,46 @@ public sealed partial class BypassViewModel : ObservableObject
 
     public ObservableCollection<BypassStrategyViewModel> Strategies { get; } = [];
 
-    public BypassViewModel(IBypassService bypass, ILocalizationService text)
+    public BypassViewModel(IBypassService bypass, ILocalizationService text, IBypassHistory history)
     {
         _bypass = bypass ?? throw new ArgumentNullException(nameof(bypass));
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _history = history ?? throw new ArgumentNullException(nameof(history));
     }
+
+    /// <summary>
+    /// The question that only a person can answer, shown after a strategy has been started.
+    /// </summary>
+    /// <remarks>
+    /// Winora can see that <c>winws.exe</c> is alive. It cannot see whether Discord opened, and no
+    /// probe would tell it, because what counts as working is whatever the person came here to do.
+    /// So it asks, once, and only after something was actually started.
+    /// </remarks>
+    [ObservableProperty]
+    public partial bool IsAskingVerdict { get; set; }
+
+    [ObservableProperty]
+    public partial string VerdictQuestion { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string VerdictYes { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string VerdictNo { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the search has left to offer, or a sentence saying it has run out.
+    /// </summary>
+    /// <remarks>
+    /// Every strategy having failed is a real answer and worth stating. Pointing at the first one
+    /// again, as though it were new, would send somebody round the list a second time.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string ExhaustedNote { get; set; } = string.Empty;
+
+    public bool IsExhausted => !string.IsNullOrEmpty(ExhaustedNote);
+
+    partial void OnExhaustedNoteChanged(string value) => OnPropertyChanged(nameof(IsExhausted));
 
     public Task LoadAsync(CancellationToken cancellationToken = default)
     {
@@ -155,6 +208,9 @@ public sealed partial class BypassViewModel : ObservableObject
         // it across the screen put the account name, often a real name, into every screenshot.
         Folder = _bypass.Folder;
         OpenFolderLabel = _text.Get("Bypass_OpenFolder");
+        VerdictQuestion = _text.Get("Bypass_Verdict_Question");
+        VerdictYes = _text.Get("Bypass_Verdict_Yes");
+        VerdictNo = _text.Get("Bypass_Verdict_No");
 
         LoadStrategies();
         RefreshStatus();
@@ -204,6 +260,15 @@ public sealed partial class BypassViewModel : ObservableObject
             : string.Concat(
                 _text.Get(report.ReasonResourceKey),
                 report.Detail.Length > 0 ? " " + report.Detail : string.Empty);
+
+        if (report.Started)
+        {
+            // Recorded at the start, unjudged, so a run that is abandoned without an answer still
+            // shows up as "tried" rather than vanishing from the search.
+            _history.Started(strategy.Id);
+            RefreshHistory();
+            IsAskingVerdict = true;
+        }
 
         RefreshStatus();
     }
@@ -317,11 +382,81 @@ public sealed partial class BypassViewModel : ObservableObject
         }
 
         IsInstalled = _bypass.IsInstalled;
+        RefreshHistory();
 
         // The previous choice survives a reinstall where the strategy still exists, so updating
-        // does not silently move the user onto a different one.
-        Selected = previous is null
+        // does not silently move the user onto a different one. With nothing chosen, the search
+        // picks up where it left off rather than at the top of the list.
+        Selected =
+            (previous is null
+                ? null
+                : Strategies.FirstOrDefault(s => string.Equals(s.Id, previous, StringComparison.Ordinal)))
+            ?? Suggested();
+    }
+
+    /// <summary>Which strategy the record says to try next, if any.</summary>
+    private BypassStrategyViewModel? Suggested()
+    {
+        var published = Strategies.Select(s => s.Id).ToArray();
+        var next = BypassAttemptRules.NextToTry(published, _history.Attempts);
+
+        return next is null
             ? null
-            : Strategies.FirstOrDefault(s => string.Equals(s.Id, previous, StringComparison.Ordinal));
+            : Strategies.FirstOrDefault(s => string.Equals(s.Id, next, StringComparison.Ordinal));
+    }
+
+    /// <summary>Puts what this machine has learned onto the rows.</summary>
+    private void RefreshHistory()
+    {
+        var attempts = _history.Attempts;
+
+        foreach (var row in Strategies)
+        {
+            var latest = BypassAttemptRules.Latest(attempts, row.Id);
+
+            row.HasFailed = latest?.Outcome == BypassOutcome.Failed;
+            row.OutcomeText = latest is null
+                ? _text.Get("Bypass_Outcome_Untried")
+                : string.Format(
+                    CultureInfo.CurrentCulture,
+                    _text.Get(latest.Outcome switch
+                    {
+                        BypassOutcome.Worked => "Bypass_Outcome_Worked",
+                        BypassOutcome.Failed => "Bypass_Outcome_Failed",
+                        _ => "Bypass_Outcome_Started",
+                    }),
+                    latest.WhenUtc.ToLocalTime().ToString("d MMMM", CultureInfo.CurrentCulture));
+        }
+
+        ExhaustedNote =
+            Strategies.Count > 0 && BypassAttemptRules.NextToTry(
+                Strategies.Select(s => s.Id).ToArray(),
+                attempts) is null
+                    ? _text.Get("Bypass_Exhausted")
+                    : string.Empty;
+    }
+
+    /// <summary>The person says it worked. The search is over until it stops working.</summary>
+    public void Worked() => Settle(BypassOutcome.Worked);
+
+    /// <summary>
+    /// The person says it did not. The strategy is struck off and the next one is put up.
+    /// </summary>
+    public void DidNotWork()
+    {
+        Settle(BypassOutcome.Failed);
+        Selected = Suggested();
+        OnPropertyChanged(nameof(CanStart));
+    }
+
+    private void Settle(BypassOutcome outcome)
+    {
+        IsAskingVerdict = false;
+
+        if (Selected is { } strategy)
+        {
+            _history.Settle(strategy.Id, outcome);
+            RefreshHistory();
+        }
     }
 }

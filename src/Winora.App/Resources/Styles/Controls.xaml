@@ -217,6 +217,18 @@
       The version at the foot of the pane. Deliberately the quietest text in the window: it is there
       to be found when looked for, not to be read on the way past.
     -->
+    <!--
+      A bypass strategy's name. Monospaced on purpose: these are the release's own file names, kept
+      byte for byte, and their whole job is to be matched against a line in a forum thread that
+      says "try ALT3". Set in the body face they read as a label somebody should understand; set
+      like this they read as what they are.
+    -->
+    <Style x:Key="WinoraStrategyId" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
     <Style x:Key="WinoraPaneVersion" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />

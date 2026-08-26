@@ -131,6 +131,14 @@
   <data name="Bypass_Installed"><value>Релиз установлен.</value></data>
   <data name="Bypass_InstallFailed"><value>Установить не удалось. Возможно, антивирус удалил файлы во время распаковки.</value></data>
   <data name="Bypass_StopBeforeInstalling"><value>Сначала остановите обход: заменять файлы под работающим процессом нельзя.</value></data>
+  <data name="Bypass_Verdict_Question"><value>Заработало? Проверьте Discord или YouTube.</value></data>
+  <data name="Bypass_Verdict_Yes"><value>Да</value></data>
+  <data name="Bypass_Verdict_No"><value>Нет, следующая</value></data>
+  <data name="Bypass_Outcome_Untried"><value>не пробовали</value></data>
+  <data name="Bypass_Outcome_Started"><value>запускали {0}, без ответа</value></data>
+  <data name="Bypass_Outcome_Worked"><value>работала {0}</value></data>
+  <data name="Bypass_Outcome_Failed"><value>не помогла {0}</value></data>
+  <data name="Bypass_Exhausted"><value>Перепробованы все стратегии, и ни одна не помогла. Проверьте обновление списка кнопкой выше — в новых выпусках стратегии добавляются.</value></data>
   <data name="Bypass_StrategiesHeading"><value>Стратегии</value></data>
   <data name="Bypass_NotInstalled"><value>Релиз ещё не скачан. Нажмите «Проверить обновление», посмотрите, что за версия предлагается, и установите её — стратегии появятся здесь.</value></data>
   <data name="Placeholder_InDevelopment_Title"><value>Раздел в разработке</value></data>

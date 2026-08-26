@@ -56,6 +56,27 @@
                                         IsEnabled="{x:Bind ViewModel.CanStop, Mode=OneWay}"
                                         Click="OnStopClick" />
                             </StackPanel>
+
+                            <!--
+                              The one question Winora cannot answer for itself. It can see that
+                              winws.exe is alive; whether Discord opened is not something any probe
+                              would tell it, because what counts as working is whatever the person
+                              came here to do. Asked once, and only after something was started.
+                            -->
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        Visibility="{x:Bind ctl:XamlConvert.Show(ViewModel.IsAskingVerdict), Mode=OneWay}">
+                                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                           VerticalAlignment="Center"
+                                           Margin="0"
+                                           Text="{x:Bind ViewModel.VerdictQuestion, Mode=OneWay}" />
+                                <Button Style="{StaticResource WinoraActionButton}"
+                                        Content="{x:Bind ViewModel.VerdictYes, Mode=OneWay}"
+                                        Click="OnWorkedClick" />
+                                <Button Style="{StaticResource WinoraActionButton}"
+                                        Content="{x:Bind ViewModel.VerdictNo, Mode=OneWay}"
+                                        Click="OnDidNotWorkClick" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -101,13 +122,25 @@
                                Visibility="{x:Bind ctl:XamlConvert.Hide(ViewModel.IsInstalled), Mode=OneWay}"
                                Text="{x:Bind ViewModel.NotInstalledMessage, Mode=OneWay}" />
 
+                    <!--
+                      Everything has been tried and none of it helped. Saying so is more use than
+                      leaving the list looking as though there were somewhere left to go.
+                    -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.IsExhausted, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Margin="0,10,0,0"
+                             Message="{x:Bind ViewModel.ExhaustedNote, Mode=OneWay}" />
+
+                    <!--
+                      One column, not a grid of tiles. Twelve equal tiles read as a menu somebody
+                      chooses from with knowledge, and nobody has that knowledge — which strategy
+                      works depends on the network in front of it. A list read top to bottom is what
+                      a search looks like, and each row now says what happened last time.
+                    -->
                     <ItemsRepeater ItemsSource="{x:Bind ViewModel.Strategies}">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="280"
-                                               MinItemHeight="52"
-                                               MinColumnSpacing="10"
-                                               MinRowSpacing="10"
-                                               ItemsStretch="Fill" />
+                            <StackLayout Spacing="6" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="vm:BypassStrategyViewModel">
@@ -115,17 +148,26 @@
                                         Tag="{x:Bind}"
                                         Click="OnStrategyClick"
                                         AutomationProperties.Name="{x:Bind Name, Mode=OneWay}">
-                                    <Grid ColumnSpacing="10">
+                                    <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
+
+                                        <!-- The release's own file name, unchanged. -->
                                         <TextBlock Grid.Column="0"
-                                                   Style="{StaticResource WinoraRowTitle}"
+                                                   Style="{StaticResource WinoraStrategyId}"
                                                    VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"
                                                    Text="{x:Bind Name, Mode=OneWay}" />
-                                        <FontIcon Grid.Column="1"
+
+                                        <TextBlock Grid.Column="1"
+                                                   Style="{StaticResource WinoraRowDetail}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0"
+                                                   Text="{x:Bind OutcomeText, Mode=OneWay}" />
+
+                                        <FontIcon Grid.Column="2"
                                                   Glyph="&#xE73E;"
                                                   FontFamily="Segoe Fluent Icons"
                                                   FontSize="15"
