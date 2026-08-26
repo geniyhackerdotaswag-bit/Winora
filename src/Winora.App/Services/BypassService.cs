@@ -175,6 +175,7 @@ public sealed class BypassService : IBypassService
             BypassInstallOutcome.DownloadFailed => "Bypass_Install_DownloadFailed",
             BypassInstallOutcome.ArchiveUnreadable => "Bypass_Install_ArchiveUnreadable",
             BypassInstallOutcome.PayloadIncomplete => "Bypass_Install_Incomplete",
+            BypassInstallOutcome.DriverLoaded => "Bypass_Install_DriverLoaded",
             _ => "Bypass_Install_FolderLocked",
         };
     }

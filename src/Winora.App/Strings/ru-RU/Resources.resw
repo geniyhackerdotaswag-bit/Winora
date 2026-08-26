@@ -116,6 +116,7 @@
   <data name="Bypass_Install_DownloadFailed"><value>Не удалось скачать архив. Проверьте подключение. Прежняя установка не тронута.</value></data>
   <data name="Bypass_Install_ArchiveUnreadable"><value>Архив скачался, но распаковать его не удалось. Прежняя установка не тронута.</value></data>
   <data name="Bypass_Install_Incomplete"><value>После распаковки не хватает файлов — обычно их забирает антивирус: этот класс программ он помечает регулярно. Прежняя установка не тронута.</value></data>
+  <data name="Bypass_Install_DriverLoaded"><value>Драйвер из установленного релиза загружен, и его файл держит ядро Windows. Остановка обхода его не выгружает — нужна команда sc stop WinDivert с правами администратора или перезагрузка. Прежняя установка не тронута.</value></data>
   <data name="Bypass_Install_FolderLocked"><value>Не удалось заменить папку с программой. Чаще всего её файлы заняты — остановите обход и попробуйте снова.</value></data>
   <data name="Bypass_Install_NothingOffered"><value>Нечего устанавливать: сначала проверьте обновление.</value></data>
   <data name="Bypass_StopBeforeInstalling"><value>Сначала остановите обход: заменять файлы под работающим процессом нельзя.</value></data>

@@ -35,6 +35,9 @@ public enum BypassInstallOutcome
 
     /// <summary>The files are ready but the folder could not be replaced.</summary>
     FolderLocked,
+
+    /// <summary>A driver from the installed release is loaded, and the kernel holds its file.</summary>
+    DriverLoaded,
 }
 
 /// <param name="InstalledTag">The tag currently unpacked, or empty when nothing is.</param>
@@ -60,6 +63,9 @@ public interface IBypassReleaseInstaller
     Task<BypassReleaseCheck> CheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Downloads and unpacks a release, replacing whatever is there.</summary>
+    /// <summary>The driver file that blocked the last install, or empty.</summary>
+    string LockedDriverName { get; }
+
     Task<BypassInstallOutcome> InstallAsync(
         BypassRelease release,
         IProgress<double>? progress,
@@ -204,6 +210,16 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
                 return BypassInstallOutcome.PayloadIncomplete;
             }
 
+            // Asked before the folder is touched. A loaded driver cannot be moved aside, and the
+            // general advice for a locked folder — stop the bypass and try again — is wrong for it:
+            // stopping winws.exe does not unload WinDivert, so somebody following that advice
+            // repeats the same failure indefinitely.
+            if (LoadedDriver(_root) is { } driver)
+            {
+                _lastLockedDriver = driver;
+                return BypassInstallOutcome.DriverLoaded;
+            }
+
             try
             {
                 Replace(payload, _root);
@@ -234,6 +250,69 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
         {
             TryDelete(archive);
             TryDeleteDirectory(staging);
+        }
+    }
+
+    /// <summary>The driver file that stopped the last install, for the message to name.</summary>
+    private string _lastLockedDriver = string.Empty;
+
+    /// <inheritdoc />
+    public string LockedDriverName => _lastLockedDriver;
+
+    /// <summary>
+    /// The name of a driver file under <paramref name="folder"/> the kernel is holding, or null.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Asked by trying to open each one for exclusive write, rather than by consulting the service
+    /// list. A driver is only a problem here when its file cannot be moved, and that is exactly
+    /// what this asks — no guessing from a service name that may or may not refer to this copy.
+    /// </para>
+    /// <para>
+    /// Restricted to .sys files. Any other locked file is an ordinary lock, and the general advice
+    /// for those — stop what is running and try again — is the right one.
+    /// </para>
+    /// </remarks>
+    public static string? LoadedDriver(string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder))
+            {
+                return null;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(folder, "*.sys", SearchOption.AllDirectories))
+            {
+                if (IsLocked(file))
+                {
+                    return Path.GetFileName(file);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Unreadable is not the same as locked, and claiming a driver holds the folder when
+            // this could not look would be the guess this whole class of message exists to stop.
+        }
+
+        return null;
+    }
+
+    private static bool IsLocked(string file)
+    {
+        try
+        {
+            using var handle = File.Open(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
         }
     }
 
