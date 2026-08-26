@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Winora.App.Controls;
+using Winora.App.Navigation;
+using Winora.App.Services;
 using Winora.App.ViewModels;
 
 namespace Winora.App.Views;
@@ -13,13 +15,6 @@ public sealed partial class DashboardPage : Page
     {
         ViewModel = App.Services.GetRequiredService<DashboardViewModel>();
         InitializeComponent();
-
-        // Its own instance, parsed from the catalog. The pane draws the same mark, and a geometry
-        // cannot be shared between the two; see IconGeometry for what that cost once.
-        if (FluentIconCatalog.TryGetPathData("discord", out var pathData))
-        {
-            CommunityGlyph.Data = IconGeometry.FromPathData(pathData);
-        }
     }
 
     public DashboardViewModel ViewModel { get; }
@@ -41,22 +36,33 @@ public sealed partial class DashboardPage : Page
         await ViewModel.RecoverAsync().ConfigureAwait(true);
 
     /// <summary>
-    /// Opens the project's Discord in the default browser.
+    /// Fills a realized tile in and listens to it.
     /// </summary>
     /// <remarks>
-    /// The address is a constant in the view model, never anything the app read from disk or the
-    /// registry, so this cannot be redirected by something the user installed.
+    /// The repeater recycles its elements, so a tile arriving here may already be carrying the
+    /// subscription and the contents of a different quick action. Removing the handler before
+    /// adding it is what keeps one tile from raising the event twice and navigating twice.
     /// </remarks>
-    private async void OnCommunityClick(object sender, RoutedEventArgs e)
+    private void OnQuickTilePrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
     {
-        try
+        if (args.Element is not QuickTile tile || tile.DataContext is not QuickAction action)
         {
-            await Windows.System.Launcher
-                .LaunchUriAsync(new Uri(DashboardViewModel.CommunityUrl));
+            return;
         }
-        catch (Exception)
+
+        tile.Show(action, App.Services.GetRequiredService<ILocalizationService>());
+        tile.Activated -= OnQuickTileActivated;
+        tile.Activated += OnQuickTileActivated;
+    }
+
+    private void OnQuickTileClearing(ItemsRepeater sender, ItemsRepeaterElementClearingEventArgs args)
+    {
+        if (args.Element is QuickTile tile)
         {
-            // No browser, or the launch was refused. Not worth interrupting the screen over.
+            tile.Activated -= OnQuickTileActivated;
         }
     }
+
+    private void OnQuickTileActivated(object? sender, string routeKey) =>
+        App.Services.GetRequiredService<INavigationService>().NavigateTo(routeKey);
 }

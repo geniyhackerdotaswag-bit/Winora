@@ -8,15 +8,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <!-- Two rows so the community button can sit in the bottom corner of the page, not after the
-         content: the page is otherwise empty and a button in the flow would float in the middle. -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
 
                 <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
@@ -48,6 +41,44 @@
                         <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
 
                         <!--
+                          The four things the program is opened in order to do. They wrap rather
+                          than shrink: no minimum size is set on the window, so it can be narrowed
+                          to anything, and four tiles pinned side by side would have survived that
+                          badly. UniformGridLayout moves one to the next row as soon as the width
+                          for it is not there.
+
+                          Two columns at most, so four tiles are a square and never three with a
+                          straggler underneath. Left free, the row count follows the window and
+                          lands on three at the default width, which reads as an accident rather
+                          than as an arrangement. Two columns still collapse to one when the window
+                          is narrowed past them; the cap is on how wide it may spread, not on how
+                          far it may shrink.
+
+                          Filled in the code-behind, one tile at a time, because what the view model
+                          holds are two keys per tile and neither a resource key nor a catalog key
+                          can be turned into something visible by markup.
+                        -->
+                        <ItemsRepeater x:Name="QuickActions"
+                                       Margin="{StaticResource WinoraStackGapL}"
+                                       ItemsSource="{x:Bind ViewModel.QuickActions, Mode=OneWay}"
+                                       ElementPrepared="OnQuickTilePrepared"
+                                       ElementClearing="OnQuickTileClearing">
+                            <ItemsRepeater.Layout>
+                                <UniformGridLayout MinItemWidth="240"
+                                                   MinItemHeight="76"
+                                                   MinColumnSpacing="12"
+                                                   MinRowSpacing="12"
+                                                   MaximumRowsOrColumns="2"
+                                                   ItemsStretch="Fill" />
+                            </ItemsRepeater.Layout>
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate>
+                                    <ctl:QuickTile />
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+
+                        <!--
                           The one thing this page still says, and only when it is true: an
                           unfinished change blocks every other screen, so a person who does not
                           see it here meets it as a click that refuses.
@@ -69,28 +100,5 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!--
-          Small, out of the way, and no text: the page has nothing else on it and a full card for
-          one link dominated it. The tooltip and the automation name carry the meaning, so the
-          button is not a mystery to a screen reader or to a pointer that pauses on it.
-        -->
-        <Button Grid.Row="1"
-                Style="{StaticResource WinoraCommunityButton}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="0,0,28,24"
-                ToolTipService.ToolTip="{x:Bind ViewModel.CommunityTooltip, Mode=OneWay}"
-                AutomationProperties.Name="{x:Bind ViewModel.CommunityTooltip, Mode=OneWay}"
-                Click="OnCommunityClick">
-            <Viewbox Width="22" Height="22">
-                <!--
-                  Data is set in code-behind from FluentIconCatalog, the one place the mark is
-                  written down. It cannot be a shared XAML resource: see IconGeometry.
-                -->
-                <Canvas Width="24" Height="24">
-                    <Path x:Name="CommunityGlyph" Fill="{ThemeResource WinoraCommunityGlyphBrush}" />
-                </Canvas>
-            </Viewbox>
-        </Button>
     </Grid>
 </Page>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Winora.App.Controls.QuickTile"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+      A Button, not a Border with a tap handler. The whole tile is the choice, so it has to take
+      focus, answer Space and Enter, and light up under the pointer — all of which Button already
+      does and none of which would have been written correctly by hand. WinoraSelectableTile is the
+      style the shortcut and icon pickers already use for exactly this.
+    -->
+    <Button x:Name="Surface"
+            Style="{StaticResource WinoraSelectableTile}"
+            Click="OnClicked">
+        <Grid ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!--
+              Filled from the catalog in code: the icon may be a font glyph or a vector path, and
+              which one it is belongs to the catalog rather than to this markup.
+            -->
+            <ContentPresenter x:Name="Mark"
+                              Grid.Column="0"
+                              VerticalAlignment="Center"
+                              AutomationProperties.AccessibilityView="Raw" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="TileName" Style="{StaticResource WinoraRowTitle}" />
+                <TextBlock x:Name="TileDetail" Style="{StaticResource WinoraRowDetail}" />
+            </StackPanel>
+        </Grid>
+    </Button>
+</UserControl>

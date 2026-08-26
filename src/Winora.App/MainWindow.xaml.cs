@@ -162,7 +162,7 @@ public sealed partial class MainWindow : Window
 
         if (route.IconGlyphKey is not null)
         {
-            var icon = IconFor(route.IconGlyphKey);
+            var icon = CatalogIcon.Create(route.IconGlyphKey);
 
             if (icon is not null &&
                 hueResourceKey is not null &&
@@ -178,44 +178,6 @@ public sealed partial class MainWindow : Window
         // Every icon-bearing control carries an automation name; an icon alone is not a label.
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, label);
         return item;
-    }
-
-    /// <summary>
-    /// Resolves one catalog key to an icon, of whichever kind the catalog holds it as.
-    /// </summary>
-    /// <remarks>
-    /// Returns null for a key the catalog does not know, and that is not a silent shrug: a route
-    /// naming an unknown key is caught by <c>IconCatalogTests</c> before it can ship. It shipped
-    /// once — the bypass route asked for "shield", which was never in the catalog, so the item sat
-    /// in the pane with a blank space where every neighbour had an icon and nothing failed.
-    /// </remarks>
-    private static IconElement? IconFor(string iconGlyphKey)
-    {
-        if (FluentIconCatalog.TryGetGlyph(iconGlyphKey, out var glyph))
-        {
-            return new FontIcon
-            {
-                Glyph = glyph,
-                FontFamily = new FontFamily("Segoe Fluent Icons"),
-                FontSize = 20,
-            };
-        }
-
-        if (FluentIconCatalog.TryGetPathData(iconGlyphKey, out var pathData))
-        {
-            // Not tolerated as a null return. The catalog claims to hold this icon, so a failed
-            // parse is a defect in the catalog, and swallowing it reproduces the exact bug this
-            // method's remarks describe: a blank space in the pane and nothing in any log.
-            var geometry = IconGeometry.FromPathData(pathData)
-                ?? throw new InvalidOperationException(
-                    $"Icon '{iconGlyphKey}' has path data the XAML parser rejected.");
-
-            // A PathIcon scales its data to the icon box, so the mark lands at the same optical
-            // size as the font glyphs beside it without a hand-tuned transform.
-            return new PathIcon { Data = geometry };
-        }
-
-        return null;
     }
 
     private void SelectPaneItem(string routeKey)
