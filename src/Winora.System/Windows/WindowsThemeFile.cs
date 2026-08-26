@@ -12,7 +12,15 @@ public enum WindowsThemeMode
 /// <summary>What a theme file says about mode and accent.</summary>
 /// <param name="Mode">The value shared by <c>SystemMode</c> and <c>AppMode</c>, or null when absent.</param>
 /// <param name="Accent">The accent as 0xRRGGBB, or null when the file does not set one.</param>
-public readonly record struct WindowsThemeSettings(WindowsThemeMode? Mode, int? Accent);
+/// <param name="IsAccentAutomatic">
+/// <c>AutoColorization=1</c>: Windows picks the accent from the wallpaper and ignores
+/// <c>ColorizationColor</c> entirely. Measured on 2026-08-27 — a file carrying both a colour and
+/// this flag applies the wallpaper's colour, not the one written down.
+/// </param>
+public readonly record struct WindowsThemeSettings(
+    WindowsThemeMode? Mode,
+    int? Accent,
+    bool IsAccentAutomatic = false);
 
 /// <summary>
 /// Edits a Windows <c>.theme</c> file in place, changing only what was asked for.
@@ -42,6 +50,10 @@ public static class WindowsThemeFile
     private static readonly byte[] SystemMode = "SystemMode="u8.ToArray();
     private static readonly byte[] AppMode = "AppMode="u8.ToArray();
     private static readonly byte[] Colorization = "ColorizationColor="u8.ToArray();
+    private static readonly byte[] AutoColorization = "AutoColorization="u8.ToArray();
+
+    private static readonly global::System.Globalization.CultureInfo Invariant =
+        global::System.Globalization.CultureInfo.InvariantCulture;
 
     /// <summary>Reads what a theme file says, without changing it.</summary>
     public static WindowsThemeSettings Read(ReadOnlySpan<byte> theme)
@@ -60,46 +72,88 @@ public static class WindowsThemeFile
             accent = parsed;
         }
 
-        return new WindowsThemeSettings(mode, accent);
+        var automatic = ValueOf(theme, AutoColorization) is { } flag &&
+            flag.Equals("1", StringComparison.Ordinal);
+
+        return new WindowsThemeSettings(mode, accent, automatic);
     }
 
     /// <summary>
-    /// Returns the file with the mode and accent replaced.
+    /// Returns the file with the wanted appearance written into it.
     /// </summary>
     /// <param name="theme">The file as read from disk.</param>
-    /// <param name="mode">The mode to write into both mode lines.</param>
-    /// <param name="accent">The accent as 0xRRGGBB, or null to leave whatever is there.</param>
+    /// <param name="wanted">The mode and accent to write. A null mode leaves both mode lines alone.</param>
     /// <remarks>
+    /// <para>
     /// A file with no <c>[VisualStyles]</c> line for one of these is returned without it: Winora
     /// does not add keys to a file Windows wrote, because a key in the wrong section is a theme
     /// Windows may refuse, and refusing is the one outcome this cannot detect afterwards.
+    /// </para>
+    /// <para>
+    /// Asking for an automatic accent writes the flag and leaves the colour alone, which is how an
+    /// undo puts back a machine that was picking its accent from the wallpaper. Without that, every
+    /// undo would silently leave the setting switched off — a change to something the person had
+    /// chosen, made by an action whose whole purpose was to change nothing.
+    /// </para>
     /// </remarks>
-    public static byte[] With(ReadOnlySpan<byte> theme, WindowsThemeMode mode, int? accent)
+    public static byte[] With(ReadOnlySpan<byte> theme, WindowsThemeSettings wanted)
     {
-        var text = mode == WindowsThemeMode.Dark ? "Dark"u8.ToArray() : "Light"u8.ToArray();
+        var result = theme.ToArray();
 
-        var result = Replace(theme, SystemMode, text);
-        result = Replace(result, AppMode, text);
-
-        if (accent is { } colour)
+        if (wanted.Mode is { } mode)
         {
-            var written = Encoding.ASCII.GetBytes(
-                "0X" + (colour & 0xFFFFFF).ToString("X6", global::System.Globalization.CultureInfo.InvariantCulture));
+            var text = mode == WindowsThemeMode.Dark ? "Dark"u8.ToArray() : "Light"u8.ToArray();
+
+            result = Replace(result, SystemMode, text);
+            result = Replace(result, AppMode, text);
+        }
+
+        if (wanted.IsAccentAutomatic)
+        {
+            return Replace(result, AutoColorization, "1"u8.ToArray());
+        }
+
+        if (wanted.Accent is { } colour)
+        {
+            // The alpha byte carries the glass opacity and belongs to the user, not to this change.
+            // Writing six digits over an eight-digit value would zero it, which is a different
+            // desktop from the one they had — and one nothing here asked to change.
+            var rgb = (uint)(colour & 0xFFFFFF);
+            var written = Encoding.ASCII.GetBytes(AlphaOf(theme) is { } alpha
+                ? "0X" + (((uint)alpha << 24) | rgb).ToString("X8", Invariant)
+                : "0X" + rgb.ToString("X6", Invariant));
 
             result = Replace(result, Colorization, written);
+
+            // Without this the colour is written and then ignored: with AutoColorization=1 Windows
+            // takes the accent from the wallpaper. The value was 1 on the owner's own machine, so
+            // leaving it alone would have made the feature do nothing for the person who asked for it.
+            result = Replace(result, AutoColorization, "0"u8.ToArray());
         }
 
         return result;
     }
 
     /// <summary>
-    /// Turns the accent Explorer stores into the one a theme file wants.
+    /// Turns the accent Windows stores into the one a theme file wants.
     /// </summary>
     /// <remarks>
-    /// <c>AccentColorMenu</c> is <c>0xAABBGGRR</c> and a theme's <c>ColorizationColor</c> is
-    /// <c>0xRRGGBB</c> — the same colour with its bytes the other way round. Measured rather than
-    /// assumed: on 2026-08-27 the owner's machine held <c>AccentColorMenu=0xFF56231F</c> beside
-    /// <c>ColorizationColor=0X1F2356</c>.
+    /// <para>
+    /// The value to read and write back is <c>HKCU\Software\Microsoft\Windows\DWM\AccentColor</c>,
+    /// which is <c>0xAABBGGRR</c>, against a theme's <c>ColorizationColor</c> in <c>0xAARRGGBB</c> —
+    /// the same colour with its three colour bytes the other way round.
+    /// </para>
+    /// <para>
+    /// Not <c>AccentColorMenu</c>. That one is a shade Windows derives, and on the owner's machine it
+    /// did not match the base accent even before anything was changed. An earlier note in this file
+    /// claimed it was the pair to use, on a single reading where the two happened to agree.
+    /// </para>
+    /// <para>
+    /// Settled by experiment on 2026-08-27 rather than by reading bytes and guessing: a theme
+    /// carrying <c>ColorizationColor=0XC410FF10</c> produced <c>AccentColor=0xFF10FF10</c>, and
+    /// <c>DwmGetColorizationColor</c> — documented to return <c>0xAARRGGBB</c> — confirmed the
+    /// direction on the colour that was already there.
+    /// </para>
     /// </remarks>
     public static int AccentFromExplorer(uint accentColorMenu)
     {
@@ -118,6 +172,26 @@ public static class WindowsThemeFile
         var b = (uint)(rrggbb & 0xFF);
 
         return 0xFF000000u | (b << 16) | (g << 8) | r;
+    }
+
+    /// <summary>The alpha byte of the existing colour, or null when it carries none.</summary>
+    private static byte? AlphaOf(ReadOnlySpan<byte> theme)
+    {
+        if (ValueOf(theme, Colorization) is not { } text)
+        {
+            return null;
+        }
+
+        var digits = text.Trim();
+        if (digits.StartsWith("0X", StringComparison.OrdinalIgnoreCase))
+        {
+            digits = digits[2..];
+        }
+
+        return digits.Length == 8 &&
+            uint.TryParse(digits, global::System.Globalization.NumberStyles.HexNumber, Invariant, out var raw)
+                ? (byte)(raw >> 24)
+                : null;
     }
 
     private static byte[] Replace(ReadOnlySpan<byte> theme, byte[] key, byte[] value)
@@ -191,6 +265,14 @@ public static class WindowsThemeFile
         return -1;
     }
 
+    /// <summary>
+    /// Reads a theme colour as 0xRRGGBB, dropping the alpha byte.
+    /// </summary>
+    /// <remarks>
+    /// Parsed unsigned. An eight-digit value such as <c>0XC4533222</c> — which is what Windows
+    /// actually writes — does not fit a signed int, and parsing it as one yielded a negative
+    /// number that then compared unequal to the very colour it came from.
+    /// </remarks>
     private static bool TryParseColour(string text, out int value)
     {
         value = 0;
@@ -201,10 +283,16 @@ public static class WindowsThemeFile
             trimmed = trimmed[2..];
         }
 
-        return int.TryParse(
+        if (!uint.TryParse(
             trimmed,
             global::System.Globalization.NumberStyles.HexNumber,
-            global::System.Globalization.CultureInfo.InvariantCulture,
-            out value);
+            Invariant,
+            out var raw))
+        {
+            return false;
+        }
+
+        value = (int)(raw & 0xFFFFFF);
+        return true;
     }
 }

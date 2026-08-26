@@ -191,6 +191,15 @@ public static class ServiceRegistration
                 provider.GetRequiredService<IUserShellPreferenceAccess>()));
         }
 
+        services.AddSingleton<IWindowsThemeState, WindowsThemeState>();
+        services.AddSingleton<IThemeLauncher, ShellThemeLauncher>();
+        services.AddSingleton<IOperation>(provider => new WindowsThemeOperation(
+            provider.GetRequiredService<IWindowsThemeState>(),
+            new WindowsThemeApplier(
+                provider.GetRequiredService<IWindowsThemeState>(),
+                provider.GetRequiredService<IThemeLauncher>(),
+                WindowsThemeState.UserThemesFolder)));
+
         // Resolves both the fixed operations above and, through factories, domains whose targets are
         // discovered at runtime. Startup reconciliation runs in a fresh process with only the id
         // from the durable journal, so resolution must not depend on this session's instances.
