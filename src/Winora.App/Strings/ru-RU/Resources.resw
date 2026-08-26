@@ -546,6 +546,7 @@
   <data name="Profile_PictureUnreadable"><value>Файл не удалось прочитать: он исчез, занят другой программой или повреждён.</value></data>
   <data name="Profile_PictureNotStored"><value>Картинку не удалось сохранить в профиль. Остальное работает.</value></data>
   <data name="Reg_WindowTitle"><value>Регистрация нового пользователя</value></data>
+  <data name="Reg_Close"><value>Закрыть</value></data>
   <data name="Reg_Step1Badge"><value>Шаг 1 из 3: Знакомство</value></data>
   <data name="Reg_Step2Badge"><value>Шаг 2 из 3: Контакты</value></data>
   <data name="Reg_Step3Badge"><value>Шаг 3 из 3: Безопасность</value></data>

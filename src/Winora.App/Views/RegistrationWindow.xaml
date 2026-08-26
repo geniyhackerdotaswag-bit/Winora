@@ -8,7 +8,14 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="#070709">
+    <!--
+      Transparent, not merely dark. The window is now sized to the card, so its four corners
+      overhang the card's rounded Border by a few pixels at each corner — a square window painted
+      any solid colour behind a rounded card shows as dark triangles there. Transparent, backed by
+      the composition change in the code-behind that lets the compositor treat those pixels as
+      see-through rather than opaque, leaves nothing to see there at all.
+    -->
+    <Grid Background="Transparent">
         <Grid.Resources>
             <!--
               The fields, stripped.
@@ -45,31 +52,50 @@
         </Grid.Resources>
 
         <!--
-          The window draws its own caption, so this strip is what is left to drag it by. It is
-          transparent and sits above the card, over background nobody was going to click anyway.
+          The window draws its own caption, so this strip is what is left to drag it by. It matches
+          the card's own header in height and width, but stops short of the close button's column —
+          a control inside the element passed to SetTitleBar sits under the system's non-client hit
+          test and never receives a click, so the drag region must end where the button begins
+          rather than cover it and rely on some other passthrough.
         -->
-        <Border x:Name="DragStrip" Height="44" VerticalAlignment="Top" Background="Transparent" />
+        <Border x:Name="DragStrip"
+                Width="470"
+                Height="44"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Background="Transparent" />
 
         <!--
           Centred while it fits, scrollable when it does not.
 
-          A ScrollViewer aligned Center rather than Stretch takes the height of what is inside it, so
-          on an ordinary screen it is simply the card, in the middle, and no scrollbar appears. The
-          case it exists for is the one where the card is taller than the window — a large text scale
-          or a small display — where without it the third step's "Готово" button would be off the
-          bottom edge with no way to reach it, and registration could not be finished at all.
+          The window is now sized to the card (see Resize in the code-behind), so on an ordinary
+          screen the card exactly fills the ScrollViewer and centring has nothing to do. The case
+          this still exists for is the one where the card is taller than the window regardless — a
+          large text scale or a small display — where without it the third step's "Готово" button
+          would be off the bottom edge with no way to reach it, and registration could not be
+          finished at all.
         -->
         <ScrollViewer VerticalAlignment="Center"
-                      Padding="0,8,0,8"
                       HorizontalScrollMode="Disabled"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
 
             <!--
-              The card, bounded. The reference keeps it narrow on purpose: a registration form stretched
+              The card, bounded, and now the whole of the window rather than something floating
+              inside it. The reference keeps it narrow on purpose: a registration form stretched
               across a wide monitor reads as a web page, not as a program.
+
+              MinHeight rather than a fixed Height: the four steps are not the same height — the
+              password step, with its requirement checklist, is the tallest — and resizing the
+              window on every step change was rejected in favour of sizing once for the tallest one.
+              The floor is set to that step's height so the shortest step still fills the window
+              (more of the card's own background, not a gap of whatever is behind it) while a step
+              taller still than expected — a large text scale on top of the password step — grows
+              the card further and falls back to the ScrollViewer above rather than clipping.
             -->
-            <Border Width="520"
+            <Border x:Name="Card"
+                    Width="520"
+                    MinHeight="720"
                     HorizontalAlignment="Center"
                     Background="#0A0A0C"
                     BorderBrush="#1F1F23"
@@ -82,18 +108,43 @@
                             BorderBrush="#1F1F23"
                             BorderThickness="0,0,0,1"
                             CornerRadius="16,16,0,0"
-                            Padding="20,12,20,12">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                            <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                      FontFamily="Segoe Fluent Icons"
-                                      FontSize="14"
-                                      Foreground="#9A9AA2"
-                                      Glyph="&#xE8FA;" />
-                            <TextBlock x:Name="CardTitle"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="#C9C9D1" />
-                        </StackPanel>
+                            Height="44">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Spacing="8">
+                                <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="14"
+                                          Foreground="#9A9AA2"
+                                          Glyph="&#xE8FA;" />
+                                <TextBlock x:Name="CardTitle"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#C9C9D1" />
+                            </StackPanel>
+
+                            <!--
+                              The only way to close this window now that the system caption buttons
+                              are gone: the spec says closing it ends the program. Sitting outside
+                              the strip named to SetTitleBar in the code-behind (see DragStrip
+                              above), which is what lets the click reach the button instead of being
+                              read as a drag.
+                            -->
+                            <Button x:Name="CloseButton"
+                                    Style="{StaticResource WinoraRegistrationCloseButton}"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,10,0"
+                                    Click="OnCloseClicked"
+                                    AutomationProperties.Name="{x:Bind Localized('Reg_Close')}">
+                                <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="10"
+                                          Glyph="&#xE8BB;" />
+                            </Button>
+                        </Grid>
                     </Border>
 
                     <StackPanel Padding="32,26,32,30" Spacing="22">

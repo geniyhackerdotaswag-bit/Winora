@@ -580,6 +580,70 @@
     </Style>
 
     <!--
+      The card's own close button, standing in for the system caption button the borderless
+      window no longer has. A template of its own rather than the theme's Button states, for the
+      same reason WinoraRegistrationButton has one: this card's palette is fixed regardless of the
+      user's scheme, and the default Button reads its pointer-over and pressed backgrounds from
+      theme resources that would fight it.
+    -->
+    <Style x:Key="WinoraRegistrationCloseButton" TargetType="Button">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#9A9AA2" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="PressRoot"
+                          Background="{TemplateBinding Background}"
+                          CornerRadius="7">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="Normal" GeneratedDuration="0:0:0.16" />
+                                    <VisualTransition To="PointerOver" GeneratedDuration="0:0:0.10" />
+                                </VisualStateGroup.Transitions>
+
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Background" Value="#1B1B21" />
+                                        <Setter Target="Glyph.Foreground" Value="#F4F4F6" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Background" Value="#26262C" />
+                                        <Setter Target="Glyph.Foreground" Value="#F4F4F6" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="PressRoot.Opacity" Value="0.4" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <ContentPresenter x:Name="Glyph"
+                                          Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
       The cabinet's form language.
 
       The registration card and the personal cabinet are meant to read as one product, so the

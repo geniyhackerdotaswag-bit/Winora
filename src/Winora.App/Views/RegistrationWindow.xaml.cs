@@ -1,4 +1,5 @@
 using global::System.ComponentModel;
+using global::System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
@@ -63,9 +64,18 @@ public sealed partial class RegistrationWindow : Window
         // navigation on this screen, so the only thing the strip has to do is be draggable.
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragStrip);
-        PaintCaptionButtons();
 
-        Resize(720, 820);
+        // The owner's markup on the reference screenshot crossed out everything but the card
+        // itself: no dark margin, no system border, no caption buttons. RemoveSystemChrome takes
+        // the border and title bar away; MakeBackdropTransparent stops the now-square window from
+        // painting a solid colour behind the card's rounded corners.
+        RemoveSystemChrome();
+        MakeBackdropTransparent();
+
+        // 520 is the card's own Width; 720 is Card's MinHeight in the markup, sized for the
+        // password step. See the remark on Card in RegistrationWindow.xaml for why a fixed height
+        // was chosen over resizing the window on every step change.
+        Resize(520, 720);
 
         Model.PropertyChanged += OnModelChanged;
         Model.Completed += OnModelCompleted;
@@ -291,6 +301,12 @@ public sealed partial class RegistrationWindow : Window
         Model.Email = (at >= 0 ? typed[..at] : typed) + domain;
     }
 
+    /// <summary>
+    /// Closes the only window there is. The specification is explicit that this ends the program,
+    /// and with the system caption buttons gone this is now the one control that can do it.
+    /// </summary>
+    private void OnCloseClicked(object sender, RoutedEventArgs args) => Close();
+
     /// <summary>Sizes the window and puts it in the middle of the screen it opened on.</summary>
     /// <remarks>
     /// Centred by hand because this is the first thing the program ever shows: a welcome that opens
@@ -313,26 +329,75 @@ public sealed partial class RegistrationWindow : Window
     }
 
     /// <summary>
-    /// The minimise and close glyphs.
+    /// Takes away the system border and title bar, caption buttons included.
     /// </summary>
     /// <remarks>
-    /// They belong to the window rather than to the visual tree, so no resource in the markup
-    /// reaches them. Left alone on a machine set to the light system theme they would be drawn dark
-    /// on this card's near-black background and simply disappear.
+    /// The card draws its own header and now carries its own close button, so nothing the system
+    /// would draw here is wanted. The method this window used to colour the minimise and close
+    /// glyphs is gone with them; there is nothing left of that kind to colour.
     /// </remarks>
-    private void PaintCaptionButtons()
+    private void RemoveSystemChrome()
     {
-        var titleBar = AppWindow.TitleBar;
-        titleBar.ButtonBackgroundColor = Colors.Transparent;
-        titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-        titleBar.ButtonForegroundColor = ColorHelper.FromArgb(0xFF, 0xC9, 0xC9, 0xD1);
-        titleBar.ButtonInactiveForegroundColor = ColorHelper.FromArgb(0xFF, 0x6E, 0x6E, 0x78);
-        titleBar.ButtonHoverBackgroundColor = ColorHelper.FromArgb(0xFF, 0x1B, 0x1B, 0x21);
-        titleBar.ButtonHoverForegroundColor = ColorHelper.FromArgb(0xFF, 0xF4, 0xF4, 0xF6);
-        titleBar.ButtonPressedBackgroundColor = ColorHelper.FromArgb(0xFF, 0x26, 0x26, 0x2C);
-        titleBar.ButtonPressedForegroundColor = ColorHelper.FromArgb(0xFF, 0xF4, 0xF4, 0xF6);
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.SetBorderAndTitleBar(false, false);
+
+            // The card does not reflow for a different size, so a window the user could stretch or
+            // maximise is a window that could show it stretched or maximised.
+            presenter.IsResizable = false;
+            presenter.IsMaximizable = false;
+        }
+    }
+
+    /// <summary>
+    /// Lets the compositor treat this window's own background as see-through rather than opaque.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Setting the root Grid's Background to Transparent in the markup is not enough on its own: an
+    /// unpackaged Win32 window's swap chain is opaque by default regardless of what XAML paints
+    /// into it, so a merely-transparent-looking Grid would still show as solid black at the four
+    /// corners the card's CornerRadius does not cover. Extending the DWM frame across the whole
+    /// client area — the "sheet of glass" from the Win32 desktop composition API — is what actually
+    /// makes the alpha in those pixels count, and it does so at the HWND level, independent of
+    /// WinUI. Microsoft Learn: https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmextendframeintoclientarea
+    /// </para>
+    /// <para>
+    /// Failure is silent and harmless, exactly as in <c>MainWindow.ApplyWindowIcon</c>: a window
+    /// that stays opaque still works, and this runs in the constructor of the one window that
+    /// exists before a profile does, where a throw would take the whole app down before it ever
+    /// appeared.
+    /// </para>
+    /// </remarks>
+    private void MakeBackdropTransparent()
+    {
+        try
+        {
+            var handle = global::WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var glass = new Margins(-1, -1, -1, -1);
+            _ = DwmExtendFrameIntoClientArea(handle, ref glass);
+        }
+        catch (Exception)
+        {
+            // Nothing to report and nothing a person could do about it.
+        }
     }
 
     private static SolidColorBrush Solid(byte red, byte green, byte blue) =>
         new(ColorHelper.FromArgb(0xFF, red, green, blue));
+
+    /// <summary>The four margins DWM wants for <see cref="DwmExtendFrameIntoClientArea"/>.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margins(int left, int right, int top, int bottom)
+    {
+        public int Left = left;
+        public int Right = right;
+        public int Top = top;
+        public int Bottom = bottom;
+    }
+
+    // DllImport rather than LibraryImport: see StartupFailureNotice for why this project reaches
+    // for it over the source generator for one narrow interop call.
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(nint hwnd, ref Margins margins);
 }

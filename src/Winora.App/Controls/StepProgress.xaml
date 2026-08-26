@@ -20,8 +20,9 @@
 
         <!--
           Fixed 32px columns for the circles so the line between them starts and ends exactly at
-          their edges. The labels underneath are wider than that and simply overhang, centred; a
-          Grid does not clip, and the gaps either side are far wider than any of the three words.
+          their edges. The labels underneath are wider than that and overhang, centred — but a Grid
+          arranges a child to its own cell and clips there, so "Пароль" was losing its edges to a
+          32px slot it never fit in. See the negative margins on Label1 and Label3 below.
         -->
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="32" />
@@ -102,10 +103,18 @@
                       Visibility="Collapsed" />
         </Grid>
 
+        <!--
+          Label1 and Label3 sit under the outer circles, whose own columns are only 32px wide — just
+          right for "Почта" in the middle star column, too narrow for "Пароль" here. WinUI arranges
+          a child to its cell and clips there, so the word was losing its edges to that 32px slot
+          (the left stroke of "П" was the visible casualty). The negative margin lets the TextBlock's
+          own arranged box spread beyond the cell while Center/Center keep it at the same midpoint,
+          so the circle above and the line either side never move.
+        -->
         <TextBlock x:Name="Label1"
                    Grid.Row="1"
                    Grid.Column="0"
-                   Margin="0,8,0,0"
+                   Margin="-20,8,-20,0"
                    FontSize="11"
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
@@ -121,7 +130,7 @@
         <TextBlock x:Name="Label3"
                    Grid.Row="1"
                    Grid.Column="4"
-                   Margin="0,8,0,0"
+                   Margin="-20,8,-20,0"
                    FontSize="11"
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
