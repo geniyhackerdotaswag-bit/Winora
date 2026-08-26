@@ -14,7 +14,7 @@ public sealed class RegistrationViewModelTests
     {
         public ProfileView? Current { get; set; }
 
-        public string SuggestedName { get; init; } = "brawl";
+        public string SuggestedName { get; init; } = "user";
 
         public IReadOnlyList<string> Palette { get; } = ["#7C6BF5"];
 
@@ -58,7 +58,7 @@ public sealed class RegistrationViewModelTests
         var vm = Build(new FakeProfileService());
 
         Assert.Equal(RegistrationStep.Name, vm.Step);
-        Assert.Equal("brawl", vm.Name);
+        Assert.Equal("user", vm.Name);
     }
 
     [Theory]

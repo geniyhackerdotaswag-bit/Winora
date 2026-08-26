@@ -529,6 +529,7 @@
   <data name="Update_Checking"><value>Проверяем обновления…</value></data>
   <data name="Update_Available"><value>Доступна версия {0}, {1:F0} МБ</value></data>
   <data name="Update_UpToDate"><value>У вас последняя версия</value></data>
+  <data name="Update_Unreachable"><value>Не удалось проверить обновления. Программа не изменена.</value></data>
   <data name="Update_Action_Install"><value>Обновить</value></data>
   <data name="Update_Action_Open"><value>Открыть страницу</value></data>
   <data name="Update_Downloading"><value>Скачиваем…</value></data>

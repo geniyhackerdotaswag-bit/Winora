@@ -59,6 +59,16 @@ public interface IAppUpdateService
     /// <summary>Clears away what a previous update left behind. Called once at startup.</summary>
     void RemoveLeftovers();
 
+    /// <summary>
+    /// Whether the last <see cref="CheckAsync"/> managed to reach the feed at all.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the answer, because "we asked and there is nothing newer" and "we could not
+    /// ask" are different facts and only one of them may be reported as being up to date. True
+    /// before the first check: nothing has failed yet.
+    /// </remarks>
+    bool Reached { get; }
+
     /// <summary>Checks for a release newer than <paramref name="currentVersion"/>.</summary>
     Task<AppUpdateReleaseView?> CheckAsync(string currentVersion, CancellationToken cancellationToken = default);
 
@@ -100,6 +110,9 @@ public sealed class AppUpdateService : IAppUpdateService
 
     public bool IsInstalled => _location.IsInstalled;
 
+    /// <inheritdoc />
+    public bool Reached { get; private set; } = true;
+
     public void RemoveLeftovers() => _updater.RemoveLeftovers();
 
     public async Task<AppUpdateReleaseView?> CheckAsync(
@@ -112,20 +125,21 @@ public sealed class AppUpdateService : IAppUpdateService
             return null;
         }
 
-        AppRelease? latest;
+        AppReleaseLookup lookup;
         try
         {
-            latest = await _feed.LatestAsync(cancellationToken).ConfigureAwait(false);
+            lookup = await _feed.LatestAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {
-            // Not knowing and there being nothing new look the same from where the person sits, and
-            // a check that failed is not something they can act on. The feed's own timeout arrives
-            // here as a cancellation, so this cannot be narrowed to "network errors" by type.
-            latest = null;
+            // The feed's own timeout arrives here as a cancellation, so this cannot be narrowed to
+            // network errors by type. Whatever it was, the feed was not asked.
+            lookup = AppReleaseLookup.Unreachable;
         }
 
-        var check = new AppUpdateCheck(current, latest);
+        Reached = lookup.Reached;
+
+        var check = new AppUpdateCheck(current, lookup.Release);
         _offered = check.UpdateAvailable ? check.Latest : null;
 
         return _offered is null

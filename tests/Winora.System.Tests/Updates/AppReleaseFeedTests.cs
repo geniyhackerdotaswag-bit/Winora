@@ -45,8 +45,10 @@ public sealed class AppReleaseFeedTests
     [Fact]
     public async Task The_newest_release_is_read()
     {
-        var release = await Feed(HttpStatusCode.OK, Body("v0.4.0")).LatestAsync();
+        var lookup = await Feed(HttpStatusCode.OK, Body("v0.4.0")).LatestAsync();
 
+        Assert.True(lookup.Reached);
+        var release = lookup.Release;
         Assert.NotNull(release);
         Assert.Equal(new Version(0, 4, 0), release.Version);
         Assert.Equal("v0.4.0", release.Tag);
@@ -74,7 +76,10 @@ public sealed class AppReleaseFeedTests
             }
             """;
 
-        Assert.Null(await Feed(HttpStatusCode.OK, body).LatestAsync());
+        var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
+
+        Assert.True(lookup.Reached);
+        Assert.Null(lookup.Release);
     }
 
     [Fact]
@@ -91,24 +96,50 @@ public sealed class AppReleaseFeedTests
             }
             """;
 
-        Assert.Null(await Feed(HttpStatusCode.OK, body).LatestAsync());
+        var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
+
+        Assert.True(lookup.Reached);
+        Assert.Null(lookup.Release);
     }
 
+    /// <summary>
+    /// The feed could not be asked, which is not the same as it having nothing to offer.
+    /// </summary>
+    /// <remarks>
+    /// A repository that is not public answers 404 to every check, for ever. Folded in with "no new
+    /// version" — as these were until 2026-08-26 — the program tells everybody who presses the
+    /// button that they have the latest version, having never once managed to ask.
+    /// </remarks>
     [Theory]
     [InlineData(HttpStatusCode.Forbidden, "{\"message\":\"API rate limit exceeded\"}")]
     [InlineData(HttpStatusCode.NotFound, "{\"message\":\"Not Found\"}")]
     [InlineData(HttpStatusCode.OK, "not json at all")]
-    [InlineData(HttpStatusCode.OK, "{}")]
-    public async Task An_answer_we_cannot_read_is_nothing(HttpStatusCode status, string body)
+    public async Task An_answer_we_cannot_read_means_we_did_not_ask(HttpStatusCode status, string body)
     {
-        Assert.Null(await Feed(status, body).LatestAsync());
+        var lookup = await Feed(status, body).LatestAsync();
+
+        Assert.False(lookup.Reached);
+        Assert.Null(lookup.Release);
+    }
+
+    /// <summary>An answer we can read, holding nothing we can use.</summary>
+    [Fact]
+    public async Task An_empty_answer_is_an_answer()
+    {
+        var lookup = await Feed(HttpStatusCode.OK, "{}").LatestAsync();
+
+        Assert.True(lookup.Reached);
+        Assert.Null(lookup.Release);
     }
 
     /// <summary>A tag nobody can parse is not a version, and so not an update.</summary>
     [Fact]
     public async Task A_tag_that_is_not_a_version_is_nothing()
     {
-        Assert.Null(await Feed(HttpStatusCode.OK, Body("latest")).LatestAsync());
+        var lookup = await Feed(HttpStatusCode.OK, Body("latest")).LatestAsync();
+
+        Assert.True(lookup.Reached);
+        Assert.Null(lookup.Release);
     }
 
     /// <summary>

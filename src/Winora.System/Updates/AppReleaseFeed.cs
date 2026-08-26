@@ -3,11 +3,29 @@ using System.Text.Json.Serialization;
 
 namespace Winora.System.Updates;
 
+/// <summary>What a look at the release feed produced.</summary>
+/// <param name="Reached">
+/// False when the feed could not be asked at all — no network, a rate limit, a repository that is
+/// not public, a changed answer shape.
+/// </param>
+/// <param name="Release">
+/// The newest usable release, or null. Null with <paramref name="Reached"/> true means the feed
+/// answered and had nothing to offer, which is a different fact.
+/// </param>
+public readonly record struct AppReleaseLookup(bool Reached, AppRelease? Release)
+{
+    /// <summary>The feed could not be asked.</summary>
+    public static AppReleaseLookup Unreachable => new(false, null);
+
+    /// <summary>The feed answered. The release may still be null.</summary>
+    public static AppReleaseLookup Answered(AppRelease? release) => new(true, release);
+}
+
 /// <summary>Looks up the newest published Winora release.</summary>
 public interface IAppReleaseFeed
 {
-    /// <summary>The newest release, or null when there is not one we can act on.</summary>
-    Task<AppRelease?> LatestAsync(CancellationToken cancellationToken = default);
+    /// <summary>The newest release, and whether the feed could be reached at all.</summary>
+    Task<AppReleaseLookup> LatestAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -21,9 +39,13 @@ public interface IAppReleaseFeed
 /// than by text — see <see cref="AppUpdateCheck.UpdateAvailable" />.
 /// </para>
 /// <para>
-/// Returns null for everything that is not a complete, usable release. There is no error to report
-/// and nothing for the person to do about it: a check that failed is indistinguishable, from where
-/// they sit, from there being no new version, and inventing a difference would only add noise.
+/// Returns null for everything that is not a complete, usable release, and says separately whether
+/// the feed could be asked at all. Those were folded together until 2026-08-26, on the argument
+/// that a failed check and no new version look the same from where the person sits and that
+/// inventing a difference would only add noise. That holds for one dropped request. It does not
+/// hold for a failure that persists — a repository that is not public answers 404 every time, and
+/// the program then reports "you have the latest version" for ever, having never once managed to
+/// ask. Who is told about it is decided upstream: nobody, unless they pressed the button.
 /// </para>
 /// </remarks>
 public sealed class AppReleaseFeed : IAppReleaseFeed
@@ -61,7 +83,7 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
         return http;
     }
 
-    public async Task<AppRelease?> LatestAsync(CancellationToken cancellationToken = default)
+    public async Task<AppReleaseLookup> LatestAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -71,7 +93,7 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
 
             if (release is null || AppVersion.Parse(release.TagName) is not { } version)
             {
-                return null;
+                return AppReleaseLookup.Answered(null);
             }
 
             var program = Asset(release, ProgramAsset);
@@ -82,17 +104,17 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
             if (program?.DownloadUrl is not { Length: > 0 } programUrl ||
                 checksum?.DownloadUrl is not { Length: > 0 } checksumUrl)
             {
-                return null;
+                return AppReleaseLookup.Answered(null);
             }
 
-            return new AppRelease(
+            return AppReleaseLookup.Answered(new AppRelease(
                 version,
                 release.TagName ?? string.Empty,
                 release.Body ?? string.Empty,
                 programUrl,
                 checksumUrl,
                 program.Size,
-                release.PublishedAt);
+                release.PublishedAt));
         }
         catch (OperationCanceledException)
         {
@@ -100,9 +122,10 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
         }
         catch (Exception)
         {
-            // No network, a rate limit, or a changed feed shape. Null means "not known", which
-            // AppUpdateCheck deliberately does not turn into "an update is available".
-            return null;
+            // No network, a rate limit, a repository that is not public, or a changed answer shape.
+            // Not knowing is never turned into an update being available; it is now also not turned
+            // into there being none.
+            return AppReleaseLookup.Unreachable;
         }
     }
 

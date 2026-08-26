@@ -14,7 +14,7 @@ public sealed class ProfileViewModelTests
     {
         public ProfileView? Current { get; set; }
 
-        public string SuggestedName { get; init; } = "brawl";
+        public string SuggestedName { get; init; } = "user";
 
         public IReadOnlyList<string> Palette { get; } = ["#7C6BF5", "#3FA9F5", "#2FBF9E"];
 

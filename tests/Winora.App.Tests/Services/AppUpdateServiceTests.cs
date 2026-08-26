@@ -79,10 +79,10 @@ public sealed class AppUpdateServiceTests
         Assert.NotEqual(AppUpdateOutcomeView.NoUpdateOffered, outcome);
     }
 
-    private sealed class FakeFeed(AppRelease? release) : IAppReleaseFeed
+    private sealed class FakeFeed(AppRelease? release, bool reached = true) : IAppReleaseFeed
     {
-        public Task<AppRelease?> LatestAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(release);
+        public Task<AppReleaseLookup> LatestAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(reached ? AppReleaseLookup.Answered(release) : AppReleaseLookup.Unreachable);
     }
 
     private sealed class FakeUpdater : IAppUpdater

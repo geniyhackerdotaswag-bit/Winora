@@ -233,6 +233,43 @@ public sealed class UpdateViewModelTests
         Assert.Equal("Update_UpToDate", vm.Message);
     }
 
+    /// <summary>
+    /// Not having asked is not the same as having nothing to report.
+    /// </summary>
+    /// <remarks>
+    /// These were one case until 2026-08-26. With the repository closed the feed answers 404 to
+    /// every check, so the program told everybody who pressed the button that they had the latest
+    /// version, having never once managed to ask — the single lie it told about itself.
+    /// </remarks>
+    [Fact]
+    public async Task A_requested_check_that_could_not_ask_says_that_instead()
+    {
+        var update = new FakeUpdateService { NextCheck = null, Reached = false };
+        var vm = Build(update);
+
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsBannerVisible);
+        Assert.Equal("Update_Unreachable", vm.Message);
+        Assert.False(vm.IsActionVisible);
+    }
+
+    /// <summary>
+    /// The background check at startup stays silent either way: an unprompted "could not check" is
+    /// a complaint about a question nobody put.
+    /// </summary>
+    [Fact]
+    public async Task A_silent_check_that_could_not_ask_says_nothing()
+    {
+        var update = new FakeUpdateService { NextCheck = null, Reached = false };
+        var vm = Build(update);
+
+        await vm.StartupAsync();
+
+        Assert.False(vm.IsBannerVisible);
+        Assert.Equal(string.Empty, vm.Message);
+    }
+
     [Fact]
     public async Task Startup_clears_leftovers_before_checking()
     {
@@ -535,6 +572,9 @@ public sealed class UpdateViewModelTests
     private sealed class FakeUpdateService : IAppUpdateService
     {
         public bool IsInstalled { get; set; } = true;
+
+        /// <summary>Whether the last check managed to reach the feed. True unless a test says not.</summary>
+        public bool Reached { get; set; } = true;
 
         public AppUpdateReleaseView? NextCheck { get; set; }
 

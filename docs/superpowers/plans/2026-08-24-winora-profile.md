@@ -793,7 +793,7 @@ public sealed class ProfileViewModelTests
     {
         public ProfileView? Current { get; set; }
 
-        public string SuggestedName { get; init; } = "brawl";
+        public string SuggestedName { get; init; } = "user";
 
         public bool SaveSucceeds { get; init; } = true;
 

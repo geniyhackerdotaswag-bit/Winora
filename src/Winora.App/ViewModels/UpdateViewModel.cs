@@ -207,17 +207,23 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         try
         {
-            // Whether the check failed, found nothing, or found nothing newer are indistinguishable
-            // from here: IAppUpdateService.CheckAsync already folds all three into null, because a
-            // check that failed is not something the person can act on.
             _found = await _update.CheckAsync(_environment.Version).ConfigureAwait(true);
 
             if (_found is null)
             {
                 IsActionVisible = false;
 
-                // Only when they asked. An unprompted "you are up to date" is a notice about nothing.
-                Message = announceNothing ? _text.Get("Update_UpToDate") : string.Empty;
+                // Only when they asked. An unprompted "you are up to date" is a notice about
+                // nothing, and an unprompted "could not check" is worse — it is a complaint about
+                // a question nobody put.
+                //
+                // But somebody who pressed the button is owed the truth about which of the two it
+                // was. Saying "you have the latest version" without having managed to ask is the
+                // one lie this program tells about itself, and with the repository closed it told
+                // it on every single check.
+                Message = announceNothing
+                    ? _text.Get(_update.Reached ? "Update_UpToDate" : "Update_Unreachable")
+                    : string.Empty;
                 IsBannerVisible = announceNothing;
                 return;
             }
