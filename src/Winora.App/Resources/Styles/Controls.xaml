@@ -25,17 +25,6 @@
         <Setter Property="Foreground" Value="{ThemeResource WinoraTextPrimary}" />
     </Style>
 
-    <!--
-      The line beside the name. Its own style rather than WinoraPageSubtitle, which was built to
-      sit under a forty-point title in a band: that one caps its width and centres itself, which is
-      wrong next to a heading on a shared baseline.
-    -->
-    <Style x:Key="WinoraPageHeadingNote" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
-        <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-
     <Style x:Key="WinoraPageTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
         <Setter Property="FontSize" Value="46" />

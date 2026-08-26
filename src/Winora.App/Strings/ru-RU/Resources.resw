@@ -60,7 +60,6 @@
   </resheader>
 
   <data name="App_Title"><value>Winora</value></data>
-  <data name="App_Safety_Statement"><value>Каждое изменение показывается заранее, сохраняется в резервную копию, проверяется независимо и может быть отменено.</value></data>
 
   <data name="Nav_Dashboard"><value>Главная</value></data>
   <data name="Nav_Group_Personalization"><value>Персонализация</value></data>
@@ -69,20 +68,6 @@
   <data name="Nav_Sounds"><value>Звуки</value></data>
   <data name="Nav_Cursors"><value>Курсоры</value></data>
   <data name="Nav_Group_Maintenance"><value>Обслуживание</value></data>
-  <data name="Page_Sub_Appearance"><value>Цвета самой Winora. Windows это не меняет.</value></data>
-  <data name="Page_Sub_Backups"><value>Снимки записей Winora — страховка на случай, если журнал повредится.</value></data>
-  <data name="Page_Sub_Bypass"><value>Запуск zapret от Flowseal и подбор рабочей стратегии.</value></data>
-  <data name="Page_Sub_Changes"><value>Всё, что Winora изменила, и кнопка вернуть каждое.</value></data>
-  <data name="Page_Sub_Cleanup"><value>Где Windows держит временные файлы и сколько они занимают.</value></data>
-  <data name="Page_Sub_Cursors"><value>Наборы указателей мыши. Смена действует до выхода из системы.</value></data>
-  <data name="Page_Sub_Dashboard"><value>С чего начать и что Winora о вас уже знает.</value></data>
-  <data name="Page_Sub_Journal"><value>Что и когда делала сама программа, включая неудачи.</value></data>
-  <data name="Page_Sub_Performance"><value>Настройки быстродействия Windows.</value></data>
-  <data name="Page_Sub_Settings"><value>Как ведёт себя сама Winora и где она хранит записи.</value></data>
-  <data name="Page_Sub_Sounds"><value>Схемы системных звуков.</value></data>
-  <data name="Page_Sub_Startup"><value>Что запускается вместе с Windows и что из этого можно выключить.</value></data>
-  <data name="Page_Sub_Taskbar"><value>Расположение панели, её значки и меню «Пуск».</value></data>
-  <data name="Page_Sub_Themes"><value>Как Windows двигает окна, меню и списки.</value></data>
   <data name="Shell_CommunityAction"><value>Discord-сервер проекта</value></data>
   <data name="Shell_Version"><value>Winora {0}</value></data>
   <data name="Nav_Performance"><value>Производительность</value></data>
@@ -112,8 +97,6 @@
   <data name="Dashboard_Quick_Taskbar"><value>Расположение, значки и поведение</value></data>
   <data name="Dashboard_Quick_Bypass"><value>Доступ к Discord и YouTube</value></data>
   <data name="Result_RecoveryPending"><value>Есть незавершённое изменение. Сначала его нужно восстановить.</value></data>
-
-  <data name="Bypass_Subtitle"><value>Обход блокировок Discord и YouTube.</value></data>
   <data name="Bypass_Disclosure"><value>Работает на zapret-discord-youtube от Flowseal.</value></data>
   <data name="Bypass_State_Stopped"><value>Не запущен</value></data>
   <data name="Bypass_State_Running"><value>Работает</value></data>
@@ -143,8 +126,6 @@
   <data name="Bypass_NotInstalled"><value>Релиз ещё не скачан. Нажмите «Проверить обновление», посмотрите, что за версия предлагается, и установите её — стратегии появятся здесь.</value></data>
   <data name="Placeholder_InDevelopment_Title"><value>Раздел в разработке</value></data>
   <data name="Placeholder_InDevelopment_Body"><value>Этот раздел ещё не реализован. Он появится вместе с соответствующими операциями и будет работать по тому же контуру безопасности: предпросмотр, подтверждение, резервная копия, проверка и откат.</value></data>
-
-  <data name="Themes_Subtitle"><value>Внешний вид и отзывчивость интерфейса Windows.</value></data>
   <data name="Themes_ClientAreaAnimation"><value>Анимация внутри окон</value></data>
   <data name="Themes_UiEffects"><value>Эффекты интерфейса</value></data>
   <data name="Themes_MenuAnimation"><value>Анимация меню</value></data>
@@ -297,8 +278,6 @@
   <data name="Journal_Risk_Medium"><value>средний риск</value></data>
   <data name="Journal_Risk_High"><value>высокий риск</value></data>
   <data name="Backups_Subtitle"><value>Снимки собственных записей Winora.</value></data>
-  <data name="Backups_Purpose_Title"><value>Это копии записей Winora, а не настроек Windows</value></data>
-  <data name="Backups_Purpose"><value>Возможность отменить изменение держится на журнале, архиве планов и резервных копиях самой Winora. Если эти записи потерять или повредить, уже внесённые в Windows изменения станут необратимыми. Снимок страхует именно от этого. Восстановление снимка возвращает записи Winora к прежнему состоянию и ничего не меняет в самой Windows.</value></data>
   <data name="Backups_Create"><value>Создать снимок</value></data>
   <data name="Backups_Refresh"><value>Обновить</value></data>
   <data name="Backups_Restore"><value>Восстановить</value></data>
@@ -319,7 +298,6 @@
   <data name="Recovery_OneDone"><value>Операция восстановлена.</value></data>
   <data name="Recovery_AllDone"><value>Восстановлено операций: {0}. Приложение снова готово применять изменения.</value></data>
   <data name="Recovery_PartlyDone"><value>Восстановлено: {0}. Не удалось: {1}. Причина первой неудачи: {2}</value></data>
-  <data name="Changes_Subtitle"><value>Всё, что Winora меняла на этой машине, и возврат любого изменения.</value></data>
   <data name="Changes_Refresh"><value>Обновить</value></data>
   <data name="Changes_RollBack"><value>Вернуть</value></data>
   <data name="Changes_Was"><value>было: {0}</value></data>
@@ -486,19 +464,15 @@
   <data name="Settings_AppearanceHeading"><value>Оформление</value></data>
   <data name="Settings_AppearanceDescription"><value>Цвета самой Winora: фон и акцент. Windows это не меняет.</value></data>
   <data name="Nav_Appearance"><value>Оформление</value></data>
-  <data name="Appearance_Subtitle"><value>Цвета самой Winora. Windows это не меняет — за системное оформление отвечает соседний экран «Темы Windows».</value></data>
   <data name="Appearance_PresetsHeading"><value>Готовые схемы</value></data>
-  <data name="Appearance_PresetsNote"><value>Четыре акцента в тёмном и светлом варианте. Любая правка ниже переводит выбор в свою схему.</value></data>
   <data name="Appearance_CustomHeading"><value>Свои цвета</value></data>
   <data name="Appearance_Canvas"><value>Фон</value></data>
   <data name="Appearance_CanvasHint"><value>Окно, панель разделов и заголовок. От его яркости зависит, светлым будет текст или тёмным.</value></data>
   <data name="Appearance_Accent"><value>Акцент</value></data>
-  <data name="Appearance_AccentHint"><value>Заливка главной кнопки, включённого переключателя и ползунка, выделенный раздел, черта под заголовком.</value></data>
   <data name="Appearance_OnAccent"><value>Цвет на акценте</value></data>
   <data name="Appearance_OnAccentAuto"><value>Подобран автоматически: из чёрного и белого берётся тот, что контрастнее на акценте.</value></data>
   <data name="Appearance_OnAccentManual"><value>Задан вручную. Смена акцента вернёт автоподбор.</value></data>
   <data name="Appearance_DerivedHeading"><value>Что выведено из этих двух цветов</value></data>
-  <data name="Appearance_DerivedNote"><value>Эти значения следуют за фоном. Схема из двух решений не умеет стать нечитаемой, а из двенадцати — умеет.</value></data>
   <data name="Appearance_Derived_Sheet"><value>Лист</value></data>
   <data name="Appearance_Derived_Card"><value>Карточка</value></data>
   <data name="Appearance_Derived_CardHover"><value>Карточка при наведении</value></data>
@@ -509,7 +483,6 @@
   <data name="Appearance_Derived_TextMuted"><value>Приглушённый текст</value></data>
   <data name="Appearance_Derived_TextFaint"><value>Едва заметный текст</value></data>
   <data name="Appearance_MeasurementHeading"><value>Замер</value></data>
-  <data name="Appearance_MeasurementNote"><value>Та же арифметика, которой проверяется палитра при сборке. Замер идёт по наведённой карточке — самой светлой поверхности, какую тема способна выдать.</value></data>
   <data name="Appearance_Check_TextPrimary"><value>Основной текст в строке</value></data>
   <data name="Appearance_Check_TextMuted"><value>Приглушённый текст</value></data>
   <data name="Appearance_Check_TextFaint"><value>Едва заметная подпись</value></data>
@@ -577,7 +550,6 @@
   <data name="Profile_SaveFailed"><value>Не удалось сохранить профиль. Остальное работает.</value></data>
   <data name="Profile_MemberSince"><value>С нами с {0}</value></data>
   <data name="Profile_RecordedChanges"><value>Изменений записано: {0}</value></data>
-  <data name="Profile_Subtitle"><value>Кто вы для Winora и что она записала о сделанной работе.</value></data>
   <data name="Profile_DetailsHeading"><value>Данные профиля</value></data>
   <data name="Profile_NamePlaceholder"><value>Например: Александр</value></data>
   <data name="Profile_EmailPlaceholder"><value>name@example.com</value></data>

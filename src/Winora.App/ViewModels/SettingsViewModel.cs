@@ -37,12 +37,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string StoragePath { get; set; } = string.Empty;
 
-    /// <summary>
-    /// The same path with the user profile folded to its variable, which is the one on screen.
-    /// </summary>
-    [ObservableProperty]
-    public partial string StorageDisplayPath { get; set; } = string.Empty;
-
     [ObservableProperty]
     public partial string OpenFolderLabel { get; set; } = string.Empty;
 
@@ -70,7 +64,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         StorageHeading = _text.Get("Settings_StorageHeading");
         StorageNote = _text.Get("Settings_StorageNote");
         StoragePath = _environment.StorageRoot;
-        StorageDisplayPath = PathDisplay.Redact(_environment.StorageRoot);
         OpenFolderLabel = _text.Get("Settings_OpenFolder");
         AppearanceHeading = _text.Get("Settings_AppearanceHeading");
         AppearanceDescription = _text.Get("Settings_AppearanceDescription");

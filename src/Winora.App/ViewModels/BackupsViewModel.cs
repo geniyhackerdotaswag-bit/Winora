@@ -50,12 +50,6 @@ public sealed partial class BackupsViewModel : ObservableObject
     public partial string Subtitle { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string PurposeTitle { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Purpose { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string CreateLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -93,8 +87,6 @@ public sealed partial class BackupsViewModel : ObservableObject
     {
         Title = _text.Get("Nav_Backups");
         Subtitle = _text.Get("Backups_Subtitle");
-        PurposeTitle = _text.Get("Backups_Purpose_Title");
-        Purpose = _text.Get("Backups_Purpose");
         CreateLabel = _text.Get("Backups_Create");
         RefreshLabel = _text.Get("Backups_Refresh");
         EmptyMessage = _text.Get("Backups_Empty");

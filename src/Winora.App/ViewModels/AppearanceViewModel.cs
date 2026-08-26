@@ -101,13 +101,7 @@ public sealed partial class AppearanceViewModel : ObservableObject
     public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Subtitle { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string PresetsHeading { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string PresetsNote { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string CustomHeading { get; set; } = string.Empty;
@@ -122,9 +116,6 @@ public sealed partial class AppearanceViewModel : ObservableObject
     public partial string AccentLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string AccentHint { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string OnAccentLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -134,13 +125,7 @@ public sealed partial class AppearanceViewModel : ObservableObject
     public partial string DerivedHeading { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string DerivedNote { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string MeasurementHeading { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string MeasurementNote { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string ApplyLabel { get; set; } = string.Empty;
@@ -236,19 +221,14 @@ public sealed partial class AppearanceViewModel : ObservableObject
         cancellationToken.ThrowIfCancellationRequested();
 
         Title = _text.Get("Nav_Appearance");
-        Subtitle = _text.Get("Appearance_Subtitle");
         PresetsHeading = _text.Get("Appearance_PresetsHeading");
-        PresetsNote = _text.Get("Appearance_PresetsNote");
         CustomHeading = _text.Get("Appearance_CustomHeading");
         CanvasLabel = _text.Get("Appearance_Canvas");
         CanvasHint = _text.Get("Appearance_CanvasHint");
         AccentLabel = _text.Get("Appearance_Accent");
-        AccentHint = _text.Get("Appearance_AccentHint");
         OnAccentLabel = _text.Get("Appearance_OnAccent");
         DerivedHeading = _text.Get("Appearance_DerivedHeading");
-        DerivedNote = _text.Get("Appearance_DerivedNote");
         MeasurementHeading = _text.Get("Appearance_MeasurementHeading");
-        MeasurementNote = _text.Get("Appearance_MeasurementNote");
         ApplyLabel = _text.Get("Appearance_Apply");
         ResetLabel = _text.Get("Appearance_Reset");
         WindowsHeading = _text.Get("Appearance_WindowsHeading");

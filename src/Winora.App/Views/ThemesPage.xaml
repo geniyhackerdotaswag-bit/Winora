@@ -17,8 +17,7 @@
               the body below stays inside a capped column, so the colour belongs to the page rather
               than to a card sitting on it.
             -->
-            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}"
-                            SubtitleKey="Page_Sub_Themes" />
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}" />
 
         <Grid>
             <Grid.ColumnDefinitions>

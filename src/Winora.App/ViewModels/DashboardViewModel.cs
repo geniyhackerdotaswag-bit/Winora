@@ -52,9 +52,6 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string SafetyStatement { get; set; } = string.Empty;
-
     /// <summary>
     /// Shown when an earlier change never finished. Nothing can be applied until it is reconciled,
     /// so this is stated on the first screen rather than discovered on a failed click.
@@ -144,7 +141,6 @@ public sealed partial class DashboardViewModel : ObservableObject
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Dashboard");
-        SafetyStatement = _text.Get("App_Safety_Statement");
         RecoveryActionLabel = _text.Get("Dashboard_RecoveryAction");
         QuickActions = QuickActionRoutes
             .Select(_routes.Find)

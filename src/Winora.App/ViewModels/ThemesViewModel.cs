@@ -19,9 +19,6 @@ public sealed partial class ThemesViewModel : ObservableObject
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string Subtitle { get; set; } = string.Empty;
-
     /// <summary>Set when probing or applying failed, so nothing fails silently.</summary>
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
@@ -93,7 +90,6 @@ public sealed partial class ThemesViewModel : ObservableObject
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Themes");
-        Subtitle = _text.Get("Themes_Subtitle");
         StatusMessage = string.Empty;
 
         // Built into a list first, then put into Rows in one go.

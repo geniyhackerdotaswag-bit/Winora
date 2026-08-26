@@ -11,8 +11,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
 
-            <ctl:PageHeader Heading="{x:Bind ViewModel.Heading, Mode=OneWay}"
-                            Subtitle="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Heading, Mode=OneWay}" />
 
             <!--
               A column, not a field. Every other page caps its content at 1800 because every other

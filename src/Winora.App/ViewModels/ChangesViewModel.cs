@@ -66,9 +66,6 @@ public sealed partial class ChangesViewModel : ObservableObject
     public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Subtitle { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string RefreshLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -95,7 +92,6 @@ public sealed partial class ChangesViewModel : ObservableObject
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Changes");
-        Subtitle = _text.Get("Changes_Subtitle");
         RefreshLabel = _text.Get("Changes_Refresh");
         EmptyMessage = _text.Get("Changes_Empty");
 

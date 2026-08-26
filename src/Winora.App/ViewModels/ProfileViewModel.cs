@@ -171,8 +171,6 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     public string SaveLabel => _text.Get("Profile_Save");
 
-    public string Subtitle => _text.Get("Profile_Subtitle");
-
     /// <summary>The title in the header strip of the card the fields sit in.</summary>
     public string DetailsHeading => _text.Get("Profile_DetailsHeading");
 

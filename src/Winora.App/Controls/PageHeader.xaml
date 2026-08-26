@@ -22,25 +22,8 @@
     -->
     <Grid Padding="26,16,26,14"
           BorderBrush="{ThemeResource WinoraCardStroke}"
-          BorderThickness="0,0,0,1"
-          ColumnSpacing="14">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+          BorderThickness="0,0,0,1">
+        <TextBlock x:Name="HeadingText" Style="{StaticResource WinoraPageHeading}" />
 
-        <TextBlock x:Name="HeadingText"
-                   Grid.Column="0"
-                   Style="{StaticResource WinoraPageHeading}" />
-
-        <!--
-          On the same baseline as the name rather than under it: the two read as one sentence, and
-          stacking them would put back some of the height this control exists to give away.
-          Collapsed when there is nothing to say, so a screen without a subtitle gets no gap.
-        -->
-        <TextBlock x:Name="SubtitleText"
-                   Grid.Column="1"
-                   Style="{StaticResource WinoraPageHeadingNote}"
-                   VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

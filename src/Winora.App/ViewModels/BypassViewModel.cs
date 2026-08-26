@@ -61,13 +61,6 @@ public sealed partial class BypassViewModel : ObservableObject
     public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Subtitle { get; set; } = string.Empty;
-
-    /// <summary>Says plainly what this runs and with what rights.</summary>
-    [ObservableProperty]
-    public partial string Disclosure { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string StateText { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -196,8 +189,6 @@ public sealed partial class BypassViewModel : ObservableObject
         cancellationToken.ThrowIfCancellationRequested();
 
         Title = _text.Get("Nav_Bypass");
-        Subtitle = _text.Get("Bypass_Subtitle");
-        Disclosure = _text.Get("Bypass_Disclosure");
         StartLabel = _text.Get("Bypass_Start");
         StopLabel = _text.Get("Bypass_Stop");
         CheckLabel = _text.Get("Bypass_Check");

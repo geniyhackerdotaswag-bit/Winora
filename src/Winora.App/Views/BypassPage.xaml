@@ -12,8 +12,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
 
-            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}"
-                            SubtitleKey="Page_Sub_Bypass" />
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}" />
 
             <Grid>
                 <Grid.ColumnDefinitions>
