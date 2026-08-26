@@ -86,18 +86,41 @@ public sealed partial class ThemesViewModel : ObservableObject
         Title = _text.Get("Nav_Themes");
         Subtitle = _text.Get("Themes_Subtitle");
         StatusMessage = string.Empty;
-        Rows.Clear();
+
+        // Built into a list first, then put into Rows in one go.
+        //
+        // This used to clear Rows and then Add sixteen times with an await between each, one probe
+        // per setting. Every await is a point where the page can be navigated away from or
+        // navigated back to, and either leaves a live ObservableCollection being changed under a
+        // list that WinUI has already torn down or has begun rebuilding. It raised
+        // "System.Runtime.InteropServices.COMException (0x80004005)" out of OnCollectionChanged and
+        // took the whole application down with it — twenty-six times in this machine's diagnostics
+        // log before it was found, because a crash on navigation looks like the window simply
+        // closing.
+        //
+        // Filling the collection without an await in the middle removes the window entirely: two
+        // overlapping loads now finish one after the other, and the later one wins.
+        var built = new List<VisualEffectRowViewModel>(_operations.Count);
 
         foreach (var operation in _operations)
         {
             try
             {
-                Rows.Add(await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true));
+                built.Add(await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 StatusMessage = _text.Get("Themes_ProbeFailed");
             }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Rows.Clear();
+
+        foreach (var row in built)
+        {
+            Rows.Add(row);
         }
 
         ElevationNotice = Rows.Any(row =>
