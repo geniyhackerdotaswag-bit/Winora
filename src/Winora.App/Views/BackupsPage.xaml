@@ -12,24 +12,8 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
 
-            <Grid Background="{ThemeResource WinoraHeaderSystem}" Padding="32,28,32,26">
-                <FontIcon Glyph="&#xEA35;"
-                          FontFamily="Segoe Fluent Icons"
-                          FontSize="112"
-                          Opacity="0.06"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Center"
-                          Margin="0,0,48,0"
-                          IsHitTestVisible="False"
-                          AutomationProperties.AccessibilityView="Raw" />
-
-                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
-                    <TextBlock Style="{StaticResource WinoraPageTitle}"
-                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
-                    <Rectangle Style="{StaticResource WinoraRuleSystem}" />
-                </StackPanel>
-            </Grid>
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}"
+                            SubtitleKey="Page_Sub_Backups" />
 
             <Grid>
                 <Grid.ColumnDefinitions>

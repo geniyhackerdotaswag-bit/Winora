@@ -13,6 +13,29 @@
 
     <!-- Page header -->
 
+    <!--
+      The screen's name in the strip at the top. Twenty points, not forty: this sits beside the
+      subtitle on one line rather than towering over a tinted band, and the pane on the left has
+      already said which screen you are on.
+    -->
+    <Style x:Key="WinoraPageHeading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextPrimary}" />
+    </Style>
+
+    <!--
+      The line beside the name. Its own style rather than WinoraPageSubtitle, which was built to
+      sit under a forty-point title in a band: that one caps its width and centres itself, which is
+      wrong next to a heading on a shared baseline.
+    -->
+    <Style x:Key="WinoraPageHeadingNote" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
     <Style x:Key="WinoraPageTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI Variable Display" />
         <Setter Property="FontSize" Value="46" />
@@ -50,18 +73,6 @@
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}" />
         <Setter Property="Margin" Value="0,0,0,16" />
-    </Style>
-
-    <Style x:Key="WinoraRulePersonalization" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
-        <Setter Property="Fill" Value="{ThemeResource WinoraHuePersonalization}" />
-    </Style>
-
-    <Style x:Key="WinoraRuleMaintenance" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
-        <Setter Property="Fill" Value="{ThemeResource WinoraHueMaintenance}" />
-    </Style>
-
-    <Style x:Key="WinoraRuleSystem" TargetType="Rectangle" BasedOn="{StaticResource WinoraAccentRule}">
-        <Setter Property="Fill" Value="{ThemeResource WinoraHueSystem}" />
     </Style>
 
     <Style x:Key="WinoraSectionHeading" TargetType="TextBlock">

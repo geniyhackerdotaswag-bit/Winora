@@ -180,11 +180,9 @@ public sealed class ThemeBrushService : IThemeBrushService
         Set(dictionary, "SliderThumbBackgroundPointerOver", palette.AccentHover);
         Set(dictionary, "SliderThumbBackgroundPressed", palette.AccentPressed);
 
-        // One header band, deliberately identical on every page. Three different ones read as three
-        // different apps.
-        SetGradient(dictionary, "WinoraHeaderPersonalization", palette.Accent);
-        SetGradient(dictionary, "WinoraHeaderMaintenance", palette.Accent);
-        SetGradient(dictionary, "WinoraHeaderSystem", palette.Accent);
+        // The header band is gone: PageHeader replaced it on 2026-08-26 with a strip a third its
+        // height. The three gradient keys it needed went with it — they had already been made
+        // identical to one another, which was the first sign the band was decoration.
     }
 
     /// <summary>
@@ -233,16 +231,6 @@ public sealed class ThemeBrushService : IThemeBrushService
             // opaque now that the window is a flat canvas, and a stale 0.62 left on a brush would
             // quietly darken a colour the contrast report has already declared safe.
             brush.Opacity = opacity;
-        }
-    }
-
-    private static void SetGradient(ResourceDictionary dictionary, string key, ColorValue accent)
-    {
-        if (dictionary.TryGetValue(key, out var value) &&
-            value is LinearGradientBrush { GradientStops.Count: >= 2 } gradient)
-        {
-            gradient.GradientStops[0].Color = ToColor(accent, HeaderGradientAlpha);
-            gradient.GradientStops[^1].Color = ToColor(accent, 0x00);
         }
     }
 

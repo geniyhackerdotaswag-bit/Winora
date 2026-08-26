@@ -11,27 +11,8 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
 
-            <Grid Background="{ThemeResource WinoraHeaderSystem}" Padding="32,28,32,26">
-                <FontIcon Glyph="&#xE77B;"
-                          FontFamily="Segoe Fluent Icons"
-                          FontSize="112"
-                          Opacity="0.06"
-                          Foreground="{ThemeResource WinoraTextPrimary}"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Center"
-                          Margin="0,0,48,0"
-                          IsHitTestVisible="False"
-                          AutomationProperties.AccessibilityView="Raw" />
-
-                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
-                    <TextBlock Style="{StaticResource WinoraPageTitle}"
-                               Text="{x:Bind ViewModel.Heading, Mode=OneWay}" />
-                    <Rectangle Style="{StaticResource WinoraRuleSystem}" />
-                    <TextBlock Style="{StaticResource WinoraPageSubtitle}"
-                               Margin="0"
-                               Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
-                </StackPanel>
-            </Grid>
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Heading, Mode=OneWay}"
+                            Subtitle="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
 
             <!--
               A column, not a field. Every other page caps its content at 1800 because every other

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Winora.App.Controls.PageHeader"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+      One strip, on every screen.
+
+      What it replaces was 190 px tall: a tinted band, the page name at 40 points, a coloured rule
+      under it and a 112-point watermark of the section's own icon filling the right half. On an
+      860 px window that was a quarter of the height spent restating what the pane on the left has
+      already highlighted, before a single setting appeared. The watermark went with it for the
+      same reason — it repeated the icon of the item that is lit up two centimetres to its left.
+
+      The band carried the section hue, which is why there were three of these and nineteen copies
+      of the markup. Selection in the pane already says which section you are in, so the hue had
+      nothing left to tell anyone.
+    -->
+    <Grid Padding="26,16,26,14"
+          BorderBrush="{ThemeResource WinoraCardStroke}"
+          BorderThickness="0,0,0,1"
+          ColumnSpacing="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock x:Name="HeadingText"
+                   Grid.Column="0"
+                   Style="{StaticResource WinoraPageHeading}" />
+
+        <!--
+          On the same baseline as the name rather than under it: the two read as one sentence, and
+          stacking them would put back some of the height this control exists to give away.
+          Collapsed when there is nothing to say, so a screen without a subtitle gets no gap.
+        -->
+        <TextBlock x:Name="SubtitleText"
+                   Grid.Column="1"
+                   Style="{StaticResource WinoraPageHeadingNote}"
+                   VerticalAlignment="Bottom" />
+    </Grid>
+</UserControl>

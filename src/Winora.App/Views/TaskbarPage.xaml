@@ -17,29 +17,8 @@
               the body below stays inside a capped column, so the colour belongs to the page rather
               than to a card sitting on it.
             -->
-            <Grid Background="{ThemeResource WinoraHeaderPersonalization}" Padding="32,28,32,26">
-                <!--
-                  A watermark of the section's own icon, large and faint, filling the empty right
-                  half of the band. Purely decorative, so it is hidden from assistive technology
-                  rather than read out as an unlabelled image.
-                -->
-                <FontIcon Glyph="&#xE7C4;"
-                          FontFamily="Segoe Fluent Icons"
-                          FontSize="112"
-                          Opacity="0.06"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Center"
-                          Margin="0,0,48,0"
-                          IsHitTestVisible="False"
-                          AutomationProperties.AccessibilityView="Raw" />
-
-                <StackPanel MaxWidth="1800" HorizontalAlignment="Left">
-                    <TextBlock Style="{StaticResource WinoraPageTitle}"
-                               Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
-                    <Rectangle Style="{StaticResource WinoraRulePersonalization}" />
-                </StackPanel>
-            </Grid>
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}"
+                            SubtitleKey="Page_Sub_Taskbar" />
 
         <Grid>
             <Grid.ColumnDefinitions>
