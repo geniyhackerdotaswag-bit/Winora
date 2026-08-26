@@ -10,6 +10,33 @@ namespace Winora.System.Windows;
 /// <param name="SizeBytes">How large it is, so the screen can say before downloading.</param>
 public sealed record BypassRelease(string Tag, DateTimeOffset PublishedAtUtc, string DownloadUrl, long SizeBytes);
 
+/// <summary>How an install ended.</summary>
+/// <remarks>
+/// Every one of these used to be reported as "the antivirus probably deleted the files during
+/// unpacking". That is one plausible cause stated as the only cause, and on 2026-08-27 it was told
+/// to somebody whose real-time protection was switched off — while the disk had no free space at
+/// all. A guess in the shape of a fact is the one thing this program is not supposed to do.
+/// </remarks>
+public enum BypassInstallOutcome
+{
+    Installed,
+
+    /// <summary>The archive could not be fetched.</summary>
+    DownloadFailed,
+
+    /// <summary>There was not enough room to download or unpack it.</summary>
+    NoDiskSpace,
+
+    /// <summary>The archive arrived but could not be unpacked.</summary>
+    ArchiveUnreadable,
+
+    /// <summary>It unpacked, and what came out is not a usable release.</summary>
+    PayloadIncomplete,
+
+    /// <summary>The files are ready but the folder could not be replaced.</summary>
+    FolderLocked,
+}
+
 /// <param name="InstalledTag">The tag currently unpacked, or empty when nothing is.</param>
 /// <param name="Latest">The newest published release, or null when it could not be read.</param>
 public sealed record BypassReleaseCheck(string InstalledTag, BypassRelease? Latest)
@@ -33,7 +60,7 @@ public interface IBypassReleaseInstaller
     Task<BypassReleaseCheck> CheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Downloads and unpacks a release, replacing whatever is there.</summary>
-    Task<bool> InstallAsync(
+    Task<BypassInstallOutcome> InstallAsync(
         BypassRelease release,
         IProgress<double>? progress,
         CancellationToken cancellationToken = default);
@@ -135,7 +162,7 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
         }
     }
 
-    public async Task<bool> InstallAsync(
+    public async Task<BypassInstallOutcome> InstallAsync(
         BypassRelease release,
         IProgress<double>? progress,
         CancellationToken cancellationToken = default)
@@ -143,23 +170,48 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
         ArgumentNullException.ThrowIfNull(release);
 
         var archive = Path.Combine(Path.GetTempPath(), $"winora-zapret-{Guid.NewGuid():N}.zip");
+        var staging = Path.Combine(Path.GetTempPath(), $"winora-zapret-{Guid.NewGuid():N}");
 
         try
         {
-            await DownloadAsync(release, archive, progress, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await DownloadAsync(release, archive, progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return IsOutOfSpace(ex) ? BypassInstallOutcome.NoDiskSpace : BypassInstallOutcome.DownloadFailed;
+            }
 
             // Unpacked into a staging folder first. Extracting over a live install would leave a
             // half-replaced release behind if anything failed partway.
-            var staging = Path.Combine(Path.GetTempPath(), $"winora-zapret-{Guid.NewGuid():N}");
-            ZipFile.ExtractToDirectory(archive, staging);
-
-            var payload = LocateExecutableRoot(staging);
-            if (payload is null)
+            try
             {
-                return false;
+                ZipFile.ExtractToDirectory(archive, staging);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return IsOutOfSpace(ex) ? BypassInstallOutcome.NoDiskSpace : BypassInstallOutcome.ArchiveUnreadable;
             }
 
-            Replace(payload, _root);
+            var payload = LocateExecutableRoot(staging);
+
+            // Checked before anything is replaced, because what follows destroys the copy that
+            // works. An unpack that lost half its files — a full disk, an antivirus, a truncated
+            // download — must not be allowed to take the working install with it.
+            if (payload is null || !IsCompleteRelease(payload))
+            {
+                return BypassInstallOutcome.PayloadIncomplete;
+            }
+
+            try
+            {
+                Replace(payload, _root);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return IsOutOfSpace(ex) ? BypassInstallOutcome.NoDiskSpace : BypassInstallOutcome.FolderLocked;
+            }
 
             // Written last: the tag is what says "this is installed", so it must not exist unless
             // the files it describes are actually in place.
@@ -168,21 +220,54 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
                 release.Tag,
                 cancellationToken).ConfigureAwait(false);
 
-            return true;
+            return BypassInstallOutcome.Installed;
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return false;
+            return IsOutOfSpace(ex) ? BypassInstallOutcome.NoDiskSpace : BypassInstallOutcome.FolderLocked;
         }
         finally
         {
             TryDelete(archive);
+            TryDeleteDirectory(staging);
         }
     }
+
+    /// <summary>
+    /// Whether what came out of the archive is a release this can run.
+    /// </summary>
+    /// <remarks>
+    /// The executable alone is not enough: the tool is started by name from the strategy files and
+    /// needs its driver beside it. Checked here so a half-unpacked archive is refused while the
+    /// working copy is still on disk.
+    /// </remarks>
+    private static bool IsCompleteRelease(string payload)
+    {
+        try
+        {
+            return File.Exists(Path.Combine(payload, "bin", "winws.exe")) &&
+                Directory.EnumerateFiles(payload, "*.bat", SearchOption.TopDirectoryOnly).Any();
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether Windows was saying the disk is full.
+    /// </summary>
+    /// <remarks>
+    /// ERROR_DISK_FULL and ERROR_HANDLE_DISK_FULL. Worth telling apart from everything else because
+    /// it is the one cause the person can act on immediately, and because this program has a screen
+    /// that clears space.
+    /// </remarks>
+    private static bool IsOutOfSpace(Exception ex) =>
+        ex is IOException && (ex.HResult & 0xFFFF) is 0x27 or 0x70;
 
     private async Task DownloadAsync(
         BypassRelease release,
@@ -240,15 +325,61 @@ public sealed class BypassReleaseInstaller : IBypassReleaseInstaller
         }
     }
 
+    /// <summary>
+    /// Puts the new release where the old one was, keeping the old one until the new one is there.
+    /// </summary>
+    /// <remarks>
+    /// This used to delete the destination and then move — and a failure between those two lines
+    /// left the person with no bypass at all and a folder holding one stray file. Which is exactly
+    /// what the owner's machine looked like on 2026-08-27. The working copy now steps aside instead
+    /// of being destroyed, and comes back if the move does not finish.
+    /// </remarks>
     private static void Replace(string source, string destination)
     {
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+        var aside = destination + ".previous";
+        TryDeleteDirectory(aside);
+
+        var moved = false;
+
         if (Directory.Exists(destination))
         {
-            Directory.Delete(destination, recursive: true);
+            Directory.Move(destination, aside);
+            moved = true;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        Directory.Move(source, destination);
+        try
+        {
+            Directory.Move(source, destination);
+        }
+        catch (Exception)
+        {
+            if (moved)
+            {
+                TryDeleteDirectory(destination);
+                Directory.Move(aside, destination);
+            }
+
+            throw;
+        }
+
+        TryDeleteDirectory(aside);
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (Exception)
+        {
+            // A leftover folder is not worth failing an install that otherwise worked.
+        }
     }
 
     private static void TryDelete(string path)

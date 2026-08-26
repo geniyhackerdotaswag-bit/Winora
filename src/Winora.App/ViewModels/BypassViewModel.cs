@@ -341,11 +341,10 @@ public sealed partial class BypassViewModel : ObservableObject
         try
         {
             var progress = new Progress<double>(value => Progress = value * 100);
-            var installed = await _bypass.InstallAsync(progress).ConfigureAwait(true);
+            var reason = await _bypass.InstallAsync(progress).ConfigureAwait(true);
+            var installed = string.Equals(reason, "Bypass_Installed", StringComparison.Ordinal);
 
-            StatusMessage = installed
-                ? _text.Get("Bypass_Installed")
-                : _text.Get("Bypass_InstallFailed");
+            StatusMessage = _text.Get(reason);
 
             if (installed)
             {

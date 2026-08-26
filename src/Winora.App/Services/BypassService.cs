@@ -53,7 +53,7 @@ public interface IBypassService
 
     Task<BypassReleaseView?> CheckAsync(CancellationToken cancellationToken = default);
 
-    Task<bool> InstallAsync(IProgress<double>? progress, CancellationToken cancellationToken = default);
+    Task<string> InstallAsync(IProgress<double>? progress, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -147,15 +147,35 @@ public sealed class BypassService : IBypassService
     /// shown and agreed to, and this downloads an executable that will run with administrator
     /// rights — not something to do on an unseen version.
     /// </remarks>
-    public async Task<bool> InstallAsync(
+    /// <summary>
+    /// Installs the release the screen offered, and answers with the resource key of what to say.
+    /// </summary>
+    /// <remarks>
+    /// A key rather than a boolean, because the five ways this fails are five different things for
+    /// the person to do about it. They all used to arrive as false and be reported as "the antivirus
+    /// probably deleted the files during unpacking" — one plausible cause presented as the only one.
+    /// </remarks>
+    public async Task<string> InstallAsync(
         IProgress<double>? progress,
         CancellationToken cancellationToken = default)
     {
         if (_offered is not { } release)
         {
-            return false;
+            return "Bypass_Install_NothingOffered";
         }
 
-        return await _installer.InstallAsync(release, progress, cancellationToken).ConfigureAwait(false);
+        var outcome = await _installer
+            .InstallAsync(release, progress, cancellationToken)
+            .ConfigureAwait(false);
+
+        return outcome switch
+        {
+            BypassInstallOutcome.Installed => "Bypass_Installed",
+            BypassInstallOutcome.NoDiskSpace => "Bypass_Install_NoSpace",
+            BypassInstallOutcome.DownloadFailed => "Bypass_Install_DownloadFailed",
+            BypassInstallOutcome.ArchiveUnreadable => "Bypass_Install_ArchiveUnreadable",
+            BypassInstallOutcome.PayloadIncomplete => "Bypass_Install_Incomplete",
+            _ => "Bypass_Install_FolderLocked",
+        };
     }
 }
