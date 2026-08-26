@@ -92,6 +92,10 @@
   <data name="Recovery_Failed"><value>Откат не выполнился.</value></data>
   <data name="Dashboard_RecoveryPending"><value>Прошлое изменение не было завершено (незавершённых: {0}). Пока оно не восстановлено, применить новые изменения нельзя — это защита, а не сбой: Winora не начинает новое изменение поверх недоделанного.</value></data>
   <data name="Dashboard_CommunityAction"><value>Discord-сервер проекта</value></data>
+  <data name="Dashboard_Quick_Themes"><value>Оформление, обои и цвета целиком</value></data>
+  <data name="Dashboard_Quick_Cursors"><value>Указатели мыши и их вид</value></data>
+  <data name="Dashboard_Quick_Taskbar"><value>Расположение, значки и поведение</value></data>
+  <data name="Dashboard_Quick_Bypass"><value>Доступ к Discord и YouTube</value></data>
   <data name="Result_RecoveryPending"><value>Есть незавершённое изменение. Сначала его нужно восстановить.</value></data>
 
   <data name="Bypass_Subtitle"><value>Обход блокировок Discord и YouTube.</value></data>

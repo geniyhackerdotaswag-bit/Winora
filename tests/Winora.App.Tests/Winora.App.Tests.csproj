@@ -65,6 +65,13 @@
       and needs no service of its own beyond what is already linked above.
     -->
     <Compile Include="..\..\src\Winora.App\ViewModels\RegistrationViewModel.cs" LinkBase="Linked\ViewModels" />
+    <!--
+      DashboardViewModel touches no WinUI type either: IRecoveryState and ILocalizationService are
+      already linked above, and RouteRegistry is a plain record registry deliberately kept free of
+      page types so it can be validated without loading WinUI. QuickAction is a record it returns.
+    -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\QuickAction.cs" LinkBase="Linked\ViewModels" />
+    <Compile Include="..\..\src\Winora.App\ViewModels\DashboardViewModel.cs" LinkBase="Linked\ViewModels" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winora.Core\Winora.Core.csproj" />

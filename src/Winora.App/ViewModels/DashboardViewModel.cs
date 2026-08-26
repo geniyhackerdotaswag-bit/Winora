@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Winora.App.Navigation;
 using Winora.App.Services;
 
 namespace Winora.App.ViewModels;
@@ -37,8 +38,22 @@ public sealed partial class DashboardViewModel : ObservableObject
     /// </summary>
     public const string CommunityUrl = "https://discord.gg/bJCWdzx4D6";
 
+    /// <summary>What the dashboard offers, left to right.</summary>
+    /// <remarks>
+    /// Route keys, and nothing else. The name and the icon are read from the registry at load time
+    /// so that a section renamed once is renamed in both places — see <see cref="QuickAction"/>.
+    /// </remarks>
+    private static readonly string[] QuickActionRoutes =
+    [
+        RouteKeys.Themes,
+        RouteKeys.Cursors,
+        RouteKeys.Taskbar,
+        RouteKeys.Bypass,
+    ];
+
     private readonly IRecoveryState _recovery;
     private readonly ILocalizationService _text;
+    private readonly RouteRegistry _routes;
 
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
@@ -67,10 +82,28 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial string CommunityTooltip { get; set; } = string.Empty;
 
-    public DashboardViewModel(IRecoveryState recovery, ILocalizationService text)
+    /// <summary>Four tiles: the things the program is opened in order to do.</summary>
+    /// <remarks>
+    /// <para>
+    /// Read the remark on this class in full before putting a fifth here, or anything beside them.
+    /// The check this screen has failed three times is whether a thing is what a person arrived
+    /// wanting or what the app wanted to say. Tiles are navigation to the reason the program was
+    /// opened, and they pass it. Counters, a system summary and a list of recent changes did not,
+    /// and the list was removed the day after it was asked for.
+    /// </para>
+    /// <para>
+    /// Holds resource keys, not sentences. Resolving them needs the localizer, which the page has
+    /// and a tile template does not.
+    /// </para>
+    /// </remarks>
+    [ObservableProperty]
+    public partial IReadOnlyList<QuickAction> QuickActions { get; set; } = [];
+
+    public DashboardViewModel(IRecoveryState recovery, ILocalizationService text, RouteRegistry routes)
     {
         _recovery = recovery ?? throw new ArgumentNullException(nameof(recovery));
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _routes = routes ?? throw new ArgumentNullException(nameof(routes));
     }
 
     /// <summary>
@@ -107,12 +140,32 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// "themes" becomes "Dashboard_Quick_Themes".
+    /// </summary>
+    /// <remarks>
+    /// Derived rather than listed beside the route keys, so a tile cannot be added with its
+    /// description quietly left off. Route keys are lowercase Latin by rule, so the invariant
+    /// casing here cannot meet the Turkish dotless i.
+    /// </remarks>
+    private static string DescriptionKeyFor(string routeKey) =>
+        $"Dashboard_Quick_{char.ToUpperInvariant(routeKey[0])}{routeKey[1..]}";
+
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         Title = _text.Get("Nav_Dashboard");
         SafetyStatement = _text.Get("App_Safety_Statement");
         RecoveryActionLabel = _text.Get("Dashboard_RecoveryAction");
         CommunityTooltip = _text.Get("Dashboard_CommunityAction");
+
+        QuickActions = QuickActionRoutes
+            .Select(_routes.Find)
+            .Select(static route => new QuickAction(
+                route.Key,
+                route.TitleResourceKey,
+                route.IconGlyphKey!,
+                DescriptionKeyFor(route.Key)))
+            .ToArray();
 
         var pending = await _recovery.PendingCountAsync(cancellationToken).ConfigureAwait(true);
         RecoveryNotice = pending > 0
