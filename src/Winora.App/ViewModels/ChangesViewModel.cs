@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
+using Winora.Core.Changes;
 
 namespace Winora.App.ViewModels;
 
@@ -125,8 +126,10 @@ public sealed partial class ChangesViewModel : ObservableObject
             Records.Add(new ChangeRecordViewModel
             {
                 OperationId = record.OperationId,
-                Title = record.Title.Length > 0 ? record.Title : _text.Get("Changes_UnknownTitle"),
-                Summary = record.Summary,
+                Title = record.Title.Length > 0
+                    ? ChangeCaption.Readable(record.Title)
+                    : _text.Get("Changes_UnknownTitle"),
+                Summary = Was(record.Summary),
                 Outcome = _text.Get(record.OutcomeResourceKey),
                 When = record.OccurredAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
                 RollBackLabel = _text.Get("Changes_RollBack"),
@@ -135,6 +138,47 @@ public sealed partial class ChangesViewModel : ObservableObject
         }
 
         IsEmpty = Records.Count == 0;
+    }
+
+    /// <summary>
+    /// The state a change moved away from, said as a fact rather than as a pair of tokens.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The journal stores "enabled → disabled". Both halves are on the screen already: the row's
+    /// name says what was changed and the outcome says it was applied, so printing the arrow makes
+    /// a person work out the direction from two words in a language the program does not otherwise
+    /// speak. What is missing, and what "undo" actually needs, is what it will go back to.
+    /// </para>
+    /// <para>
+    /// Only the vocabulary this program writes is translated. A value it did not write — a number,
+    /// a path, a name — is shown as stored, because that value is the truth and a paraphrase of it
+    /// would be a guess on the one screen that must not guess.
+    /// </para>
+    /// </remarks>
+    private string Was(string summary)
+    {
+        var before = ChangeCaption.Before(summary);
+
+        if (before.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var known = before switch
+        {
+            "enabled" => "Changes_Value_Enabled",
+            "disabled" => "Changes_Value_Disabled",
+            "on" => "Changes_Value_On",
+            "off" => "Changes_Value_Off",
+            "unset" => "Changes_Value_Unset",
+            _ => null,
+        };
+
+        return string.Format(
+            CultureInfo.CurrentCulture,
+            _text.Get("Changes_Was"),
+            known is null ? before : _text.Get(known));
     }
 
     public async Task RollBackAsync(ChangeRecordViewModel record)

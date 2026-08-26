@@ -321,7 +321,13 @@
   <data name="Recovery_PartlyDone"><value>Восстановлено: {0}. Не удалось: {1}. Причина первой неудачи: {2}</value></data>
   <data name="Changes_Subtitle"><value>Всё, что Winora меняла на этой машине, и возврат любого изменения.</value></data>
   <data name="Changes_Refresh"><value>Обновить</value></data>
-  <data name="Changes_RollBack"><value>Отменить</value></data>
+  <data name="Changes_RollBack"><value>Вернуть</value></data>
+  <data name="Changes_Was"><value>было: {0}</value></data>
+  <data name="Changes_Value_Enabled"><value>включено</value></data>
+  <data name="Changes_Value_Disabled"><value>выключено</value></data>
+  <data name="Changes_Value_On"><value>включено</value></data>
+  <data name="Changes_Value_Off"><value>выключено</value></data>
+  <data name="Changes_Value_Unset"><value>по умолчанию</value></data>
   <data name="Changes_RolledBack"><value>Изменение отменено.</value></data>
   <data name="Changes_Empty"><value>Winora пока ничего не меняла. Здесь появится каждое применённое изменение — что именно менялось, когда и с каким итогом.</value></data>
   <data name="Changes_Unreadable"><value>Журнал операций прочитать не удалось. Это важнее, чем пустой список: на нём держится вся проверка и возврат изменений.</value></data>
