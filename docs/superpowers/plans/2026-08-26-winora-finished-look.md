@@ -61,7 +61,7 @@
 
 **Зачем.** Как только кнопка сообщества переедет в подвал панели (задача 5), логотип Discord начнёт означать в одной панели две разные вещи: ссылку на сервер и функцию, которая разблокирует в том числе YouTube. Discord остаётся у сообщества, где он буквален.
 
-- [ ] **Шаг 1: Убедиться, что существующий тест ловит выдуманный ключ**
+- [x] **Шаг 1: Убедиться, что существующий тест ловит выдуманный ключ**
 
 Временно поставить в `RouteRegistry.cs:37` значок `"globe"`, которого ещё нет в каталоге:
 
@@ -79,7 +79,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Это и есть красный тест задачи: ключ не выдуман, а именно проверяем.
 
-- [ ] **Шаг 2: Добавить глобус в каталог**
+- [x] **Шаг 2: Добавить глобус в каталог**
 
 В `FluentIconCatalog.Glyphs`, следом за `["startup"]`:
 
@@ -89,7 +89,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 `E774` — Globe из Segoe Fluent Icons.
 
-- [ ] **Шаг 3: Тест зеленеет**
+- [x] **Шаг 3: Тест зеленеет**
 
 ```bash
 dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "FullyQualifiedName~IconCatalogTests"
@@ -97,7 +97,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Ожидается: PASS.
 
-- [ ] **Шаг 4: Коммит**
+- [x] **Шаг 4: Коммит**
 
 ```bash
 git add src/Winora.App/Controls/FluentIconCatalog.cs src/Winora.App/Navigation/RouteRegistry.cs
@@ -116,7 +116,7 @@ git commit -m "Give the bypass route a globe and leave Discord to the community"
 - Consumes: `RoutePlacement.RouteOnly` — уже существует и уже так используется маршрутом `Appearance`.
 - Produces: `RouteKeys.Sounds` и `RouteKeys.Performance` находятся по ключу, но не появляются ни в одной коллекции панели.
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 В конец `RouteRegistryTests.cs`, внутрь класса:
 
@@ -138,7 +138,7 @@ git commit -m "Give the bypass route a globe and leave Discord to the community"
     }
 ```
 
-- [ ] **Шаг 2: Запустить, убедиться, что падает**
+- [x] **Шаг 2: Запустить, убедиться, что падает**
 
 ```bash
 dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "FullyQualifiedName~RouteRegistryTests"
@@ -146,7 +146,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Ожидается: FAIL — ожидалось `RouteOnly`, получено `Pane`, дважды.
 
-- [ ] **Шаг 3: Убрать оба маршрута из панели**
+- [x] **Шаг 3: Убрать оба маршрута из панели**
 
 В `RouteRegistry.Create()` заменить обе строки. Группа у `RouteOnly` не нужна и указывать её нельзя — она читается только для `Pane`:
 
@@ -160,7 +160,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Строку `Sounds` при этом надо перенести из группы «Персонализация», а `Performance` — из «Обслуживания», поставив обе рядом с `Appearance` в конце списка, к остальным `RouteOnly`.
 
-- [ ] **Шаг 4: Прогнать весь набор тестов**
+- [x] **Шаг 4: Прогнать весь набор тестов**
 
 ```bash
 dotnet test -c Release
@@ -168,7 +168,7 @@ dotnet test -c Release
 
 Ожидается: PASS целиком. Особое внимание — `IconCatalogTests.Every_pane_item_carries_an_icon`: маршруты ушли из панели, и этот тест их больше не увидит.
 
-- [ ] **Шаг 5: Коммит**
+- [x] **Шаг 5: Коммит**
 
 ```bash
 git add src/Winora.App/Navigation/RouteRegistry.cs tests/Winora.App.Tests/Navigation/RouteRegistryTests.cs
@@ -189,7 +189,7 @@ git commit -m "Take the two maintenance sections out of the pane"
 - Consumes: `RouteRegistry.Find(string)` → `RouteDescriptor` с полями `Key`, `TitleResourceKey`, `IconGlyphKey`.
 - Produces: `record QuickAction(string RouteKey, string Title, string IconGlyphKey, string Description)`; `DashboardViewModel.QuickActions` типа `IReadOnlyList<QuickAction>`, заполняется в `LoadAsync`. Конструктор `DashboardViewModel` получает третий параметр `RouteRegistry routes`.
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 Новый файл `tests/Winora.App.Tests/ViewModels/DashboardViewModelTests.cs`:
 
@@ -279,7 +279,7 @@ public sealed class DashboardViewModelTests
 Если фактические имена `IRecoveryState` и `RecoveryOutcomeView` отличаются — взять их из
 `src/Winora.App/Services/RecoveryState.cs` и подставить, ничего не выдумывая.
 
-- [ ] **Шаг 2: Запустить, убедиться, что не собирается**
+- [x] **Шаг 2: Запустить, убедиться, что не собирается**
 
 ```bash
 dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "FullyQualifiedName~DashboardViewModelTests"
@@ -287,7 +287,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Ожидается: FAIL сборки — `QuickAction` не существует, у `DashboardViewModel` нет `QuickActions` и нет конструктора с тремя параметрами.
 
-- [ ] **Шаг 3: Завести тип плитки**
+- [x] **Шаг 3: Завести тип плитки**
 
 Новый файл `src/Winora.App/ViewModels/QuickAction.cs`:
 
@@ -310,7 +310,7 @@ public sealed record QuickAction(
     string Description);
 ```
 
-- [ ] **Шаг 4: Добавить плитки в модель представления**
+- [x] **Шаг 4: Добавить плитки в модель представления**
 
 В `DashboardViewModel.cs` — четыре правки.
 
@@ -380,7 +380,7 @@ public sealed record QuickAction(
 Ключи маршрутов односложные и латинские (`themes`, `cursors`, `taskbar`, `bypass`), так что
 `ToUpperInvariant` здесь безопасен: турецкой «i» в них нет и быть не может.
 
-- [ ] **Шаг 5: Добавить четыре строки описаний**
+- [x] **Шаг 5: Добавить четыре строки описаний**
 
 В `Resources.resw`, рядом с остальными `Dashboard_*`:
 
@@ -391,13 +391,13 @@ public sealed record QuickAction(
   <data name="Dashboard_Quick_Bypass"><value>Доступ к Discord и YouTube</value></data>
 ```
 
-- [ ] **Шаг 6: Починить регистрацию службы**
+- [x] **Шаг 6: Починить регистрацию службы**
 
 `DashboardViewModel` получает `RouteRegistry` из контейнера. Проверить `ServiceRegistration.cs`:
 `RouteRegistry` уже регистрируется ради `ShellViewModel`, и тогда правка не нужна. Если нет —
 зарегистрировать одиночкой рядом с ним.
 
-- [ ] **Шаг 7: Тесты зеленеют**
+- [x] **Шаг 7: Тесты зеленеют**
 
 ```bash
 dotnet test -c Release
@@ -405,7 +405,7 @@ dotnet test -c Release
 
 Ожидается: PASS целиком, включая `ResourceKeyTests` — он увидит четыре новых ключа в `.resw`.
 
-- [ ] **Шаг 8: Коммит**
+- [x] **Шаг 8: Коммит**
 
 ```bash
 git add src/Winora.App/ViewModels/QuickAction.cs src/Winora.App/ViewModels/DashboardViewModel.cs src/Winora.App/Strings/ru-RU/Resources.resw tests/Winora.App.Tests/ViewModels/DashboardViewModelTests.cs
@@ -425,7 +425,7 @@ git commit -m "Give the dashboard four quick actions, named by the route registr
 - Consumes: `DashboardViewModel.QuickActions` из задачи 3.
 - Produces: экран, на котором есть что нажать. Кнопки сообщества на нём больше нет — она переезжает в задаче 5.
 
-- [ ] **Шаг 1: Стиль плитки**
+- [x] **Шаг 1: Стиль плитки**
 
 В `Controls.xaml`, к остальным стилям:
 
@@ -450,7 +450,7 @@ git commit -m "Give the dashboard four quick actions, named by the route registr
 Если ключей `WinoraCardBrush` / `WinoraCardStroke` в проекте нет — взять те, которыми пользуется
 карточка профиля в `ProfileCard.xaml`, и подставить их. Новых кистей не заводить.
 
-- [ ] **Шаг 2: Ряд плиток на странице**
+- [x] **Шаг 2: Ряд плиток на странице**
 
 В `DashboardPage.xaml`, сразу под `<ctl:ProfileCard … />` и перед `<InfoBar …>`:
 
@@ -496,7 +496,7 @@ git commit -m "Give the dashboard four quick actions, named by the route registr
 `WinoraQuickTileTitle` и `WinoraQuickTileCaption` завести рядом с `WinoraQuickTile`, взяв размеры
 у `WinoraMetric` и `WinoraMetricCaption`.
 
-- [ ] **Шаг 3: Заполнение и переход**
+- [x] **Шаг 3: Заполнение и переход**
 
 В `DashboardPage.xaml.cs`:
 
@@ -549,14 +549,14 @@ git commit -m "Give the dashboard four quick actions, named by the route registr
 свойствами и одним методом `Show(QuickAction)`, по образцу `ProfileCard.Show`. Это надёжнее и
 ближе к тому, как в этом проекте уже сделано.
 
-- [ ] **Шаг 4: Убрать кнопку сообщества со страницы**
+- [x] **Шаг 4: Убрать кнопку сообщества со страницы**
 
 Удалить из `DashboardPage.xaml` весь `<Button Grid.Row="1" Style="{StaticResource WinoraCommunityButton}" …>`
 вместе с `<Grid.RowDefinitions>` внешней сетки — она существовала только чтобы удержать эту
 кнопку в углу. Из `DashboardPage.xaml.cs` удалить `OnCommunityClick` и разбор `"discord"` из
 конструктора.
 
-- [ ] **Шаг 5: Собрать и посмотреть**
+- [x] **Шаг 5: Собрать и посмотреть**
 
 ```bash
 dotnet build src/Winora.App/Winora.App.csproj -c Release -p:Platform=x64
@@ -565,7 +565,7 @@ dotnet build src/Winora.App/Winora.App.csproj -c Release -p:Platform=x64
 Затем собрать переносимую сборку, поставить её и снять окно (см. Global Constraints). Убедиться
 глазами: четыре плитки, у каждой значок, название и описание; кнопки в углу нет.
 
-- [ ] **Шаг 6: Коммит**
+- [x] **Шаг 6: Коммит**
 
 ```bash
 git add src/Winora.App/Views/DashboardPage.xaml src/Winora.App/Views/DashboardPage.xaml.cs src/Winora.App/Resources/Styles/Controls.xaml
@@ -587,7 +587,7 @@ git commit -m "Draw the quick actions and take the corner button off the dashboa
 - Consumes: `IAppEnvironment.Version` (строка), `ILocalizationService.Get`.
 - Produces: `ShellViewModel.CommunityUrl` (константа), `ShellViewModel.CommunityTooltip`, `ShellViewModel.VersionLabel` — пустая строка, когда версия не читается.
 
-- [ ] **Шаг 1: Написать падающий тест**
+- [x] **Шаг 1: Написать падающий тест**
 
 Новый файл `tests/Winora.App.Tests/ViewModels/ShellViewModelTests.cs`:
 
@@ -648,7 +648,7 @@ public sealed class ShellViewModelTests
 Остальные члены `IAppEnvironment` (если их больше одного) добавить в заглушку, взяв сигнатуры из
 `src/Winora.App/Services/AppEnvironment.cs`.
 
-- [ ] **Шаг 2: Запустить, убедиться, что не собирается**
+- [x] **Шаг 2: Запустить, убедиться, что не собирается**
 
 ```bash
 dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "FullyQualifiedName~ShellViewModelTests"
@@ -656,7 +656,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 
 Ожидается: FAIL сборки — у `ShellViewModel` нет ни такого конструктора, ни `VersionLabel`.
 
-- [ ] **Шаг 3: Перенести сообщество и завести версию**
+- [x] **Шаг 3: Перенести сообщество и завести версию**
 
 В `ShellViewModel.cs` — конструктор получает ещё два параметра, и добавляются три члена:
 
@@ -699,7 +699,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 Из `DashboardViewModel` удалить константу `CommunityUrl`, свойство `CommunityTooltip` и строку
 `CommunityTooltip = _text.Get("Dashboard_CommunityAction");`.
 
-- [ ] **Шаг 4: Строки**
+- [x] **Шаг 4: Строки**
 
 В `Resources.resw` заменить `Dashboard_CommunityAction` на `Shell_CommunityAction` с тем же
 значением и добавить формат версии:
@@ -709,7 +709,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
   <data name="Shell_Version"><value>Winora {0}</value></data>
 ```
 
-- [ ] **Шаг 5: Разметка подвала**
+- [x] **Шаг 5: Разметка подвала**
 
 В `MainWindow.xaml`, внутрь `<NavigationView>` перед `<Border …>`:
 
@@ -746,7 +746,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
 доступными членами. Стиль `WinoraPaneVersion` завести в `Controls.xaml`: 11-12 пунктов, цвет
 `TextFillColorTertiaryBrush`.
 
-- [ ] **Шаг 6: Значок и переход в код-behind**
+- [x] **Шаг 6: Значок и переход в код-behind**
 
 В конструктор `MainWindow.xaml.cs`, после `InitializeComponent()`, перенести разбор пути и
 обработчик из `DashboardPage.xaml.cs` дословно:
@@ -777,7 +777,7 @@ dotnet test tests/Winora.App.Tests/Winora.App.Tests.csproj -c Release --filter "
     }
 ```
 
-- [ ] **Шаг 7: Тесты и сборка**
+- [x] **Шаг 7: Тесты и сборка**
 
 ```bash
 dotnet test -c Release
@@ -786,7 +786,7 @@ dotnet test -c Release
 Ожидается: PASS. `ResourceKeyTests` подтвердит, что `Dashboard_CommunityAction` больше никто не
 просит, а `Shell_CommunityAction` и `Shell_Version` существуют.
 
-- [ ] **Шаг 8: Коммит**
+- [x] **Шаг 8: Коммит**
 
 ```bash
 git add src/Winora.App tests/Winora.App.Tests/ViewModels/ShellViewModelTests.cs
@@ -808,7 +808,7 @@ git commit -m "Put the version and the community link in the pane footer"
 Тестами не проверяется: и фокус, и вертикальное расположение — свойства разметки, до которых
 тестовый прогон не доходит. Проверка — снимок живого окна.
 
-- [ ] **Шаг 1: Центрировать содержимое шага**
+- [x] **Шаг 1: Центрировать содержимое шага**
 
 В `RegistrationWindow.xaml` у `<Grid x:Name="StepHost">` поднять `MinHeight` с `320` до `548` и
 дописать замечание:
@@ -833,7 +833,7 @@ git commit -m "Put the version and the community link in the pane footer"
 центрируется только содержимое под ним. Если бы центрировался весь блок, индикатор ездил бы
 вверх-вниз при каждой смене шага.
 
-- [ ] **Шаг 2: Перевести фокус на поле шага**
+- [x] **Шаг 2: Перевести фокус на поле шага**
 
 В `RegistrationWindow.xaml.cs` — метод и два его вызова:
 
@@ -868,7 +868,7 @@ git commit -m "Put the version and the community link in the pane footer"
 Вызвать из `Loaded` окна (в конструкторе фокус ставить некуда — дерево ещё не построено) и из
 `OnModelChanged`, когда меняется свойство шага, после того как код-behind показал новую панель.
 
-- [ ] **Шаг 3: Собрать, поставить, посмотреть**
+- [x] **Шаг 3: Собрать, поставить, посмотреть**
 
 ```bash
 dotnet build src/Winora.App/Winora.App.csproj -c Release -p:Platform=x64
@@ -878,7 +878,7 @@ dotnet build src/Winora.App/Winora.App.csproj -c Release -p:Platform=x64
 запустить, снять окно, вернуть файл на место. Убедиться: содержимое первого шага стоит по центру,
 белой рамки на крестике нет, курсор мигает в поле имени.
 
-- [ ] **Шаг 4: Коммит**
+- [x] **Шаг 4: Коммит**
 
 ```bash
 git add src/Winora.App/Views/RegistrationWindow.xaml src/Winora.App/Views/RegistrationWindow.xaml.cs
@@ -889,7 +889,7 @@ git commit -m "Centre the registration step and put the focus in its field"
 
 ## Task 7: Проверка целиком
 
-- [ ] **Шаг 1: Весь набор тестов**
+- [x] **Шаг 1: Весь набор тестов**
 
 ```bash
 dotnet test -c Release
@@ -897,7 +897,7 @@ dotnet test -c Release
 
 Ожидается: PASS целиком, ни одного пропущенного.
 
-- [ ] **Шаг 2: Собрать и поставить**
+- [x] **Шаг 2: Собрать и поставить**
 
 ```bash
 dotnet publish src/Winora.App/Winora.App.csproj -c Release -p:WinoraPortable=true -p:Platform=x64 -o publish/final
@@ -908,13 +908,13 @@ dotnet publish src/Winora.App/Winora.App.csproj -c Release -p:WinoraPortable=tru
 `resources.pri` по имени работающего модуля, и переименованный `.exe` не открывается вовсе
 (`0xC000027B`). Имя задано `AssemblyName` в `Winora.App.csproj` и должно остаться `Winora`.
 
-- [ ] **Шаг 3: Снять и посмотреть**
+- [x] **Шаг 3: Снять и посмотреть**
 
 Снять главное окно и убедиться: четыре плитки; в панели нет «Звуков» и «Производительности»; в
 подвале панели версия и значок Discord; у «Обхода блокировок» глобус, и логотип Discord на экране
 ровно один.
 
-- [ ] **Шаг 4: Отметить план выполненным**
+- [x] **Шаг 4: Отметить план выполненным**
 
 Поставить галочки в этом файле и закоммитить его вместе с записью в леджер
 `.superpowers/sdd/2026-08-26-winora-finished-look/progress.md`, если он заведён.
@@ -941,3 +941,40 @@ dotnet publish src/Winora.App/Winora.App.csproj -c Release -p:WinoraPortable=tru
 **Известный риск.** Заполнение шаблона `ItemsRepeater` через `FindName` (задача 4, шаг 3) в WinUI
 работает не всегда. Запасной путь — пользовательский элемент `QuickTile` с методом `Show` — назван
 там же, в том же шаге, а не оставлен на догадку.
+
+---
+
+## Как это прошло
+
+Все семь задач выполнены. Четыре вещи разошлись с планом, и все четыре нашли тесты
+или экран, а не чтение плана:
+
+1. **`IconCatalogTests` объявил логотип Discord мёртвым** (задача 1). Его проверка «нет
+   значка, которого никто не просит» считала значок живым, только если его называет
+   маршрут, — и это держалось лишь потому, что обход носил логотип сообщества. Значок
+   рисует оболочка, у которой маршрута нет; проверка получила короткий список марок,
+   используемых вне реестра.
+
+2. **`NoDeadRouteTests` объявил мёртвыми оба закрытых раздела** (задача 2). Спецификация
+   обещала, что страницы «остаются достижимыми по ключу» — неправда: после выхода из
+   панели их не достигает ничто. Оформлено как парковка с датой, причиной и условием
+   снятия, плюс обязательство: припаркованное имя обязано оставаться настоящим ключом
+   маршрута.
+
+3. **`NavigationView.PaneFooter` — не подвал панели** (задача 5). Он рисуется *выше*
+   `FooterMenuItems`, и строка версии повисла между двумя группами ссылок. Ряд добавлен
+   последним элементом в `FooterMenuItems`.
+
+4. **Версия показывала хвост коммита** (задача 5): `AssemblyInformationalVersion` несёт
+   `+<commit>` при включённом SourceLink, и в панели было сорок знаков шестнадцатеричного
+   с многоточием.
+
+Плюс два места, где план оказался прав, что предупредил: заполнение шаблона
+`ItemsRepeater` через `FindName` не понадобилось — сразу взят запасной путь с отдельным
+элементом `QuickTile`; а фокус в окне регистрации потребовал трёх попыток, потому что
+на первой активации WinUI назначает фокус сам, уже после обработчиков активации.
+
+Отдельно, вне плана: показ окна регистрации 26 августа перезаписал профиль владельца —
+мастер стоял открытым, пока файл был убран в сторону. Аватар восстановлен из
+`State\media`, дата создания потеряна. Снимать это окно теперь можно только скриптом,
+который закрывает его сразу после кадра и держит резервную копию профиля.
