@@ -85,13 +85,33 @@ public sealed class IconCatalogTests
         }
     }
 
-    /// <summary>The catalog must not accumulate entries no route asks for.</summary>
+    /// <summary>
+    /// Marks drawn by something that is not a navigable screen, and so named by no
+    /// <see cref="RouteDescriptor"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One entry, and it earns its place. The community button opens the project's Discord in a
+    /// browser; it goes nowhere in the app, so it has no route, but the shell draws its mark all
+    /// the same. Until 2026-08-26 this list was unnecessary because the bypass route happened to
+    /// carry the same logo — which is exactly the confusion that was removed: one mark cannot mean
+    /// both "the Discord server" and "the feature that unblocks YouTube too".
+    /// </para>
+    /// <para>
+    /// Kept deliberately short. Every name here is an icon this test can no longer prove is alive,
+    /// so a second entry should have to argue for itself the way this one does.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] DrawnOutsideTheRegistry = ["discord"];
+
+    /// <summary>The catalog must not accumulate entries nothing uses.</summary>
     [Fact]
     public void The_catalog_holds_no_icon_that_nothing_uses()
     {
         var used = Registry.Routes
             .Select(static route => route.IconGlyphKey)
             .Where(static key => key is not null)
+            .Concat(DrawnOutsideTheRegistry)
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal([], FluentIconCatalog.Keys.Where(key => !used.Contains(key)).Order(StringComparer.Ordinal));

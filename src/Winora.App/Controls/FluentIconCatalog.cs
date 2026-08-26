@@ -31,6 +31,7 @@ public static class FluentIconCatalog
         ["speed"] = "",
         ["broom"] = "",
         ["startup"] = "",
+        ["globe"] = "",
         ["history"] = "",
         ["backup"] = "",
         ["journal"] = "",

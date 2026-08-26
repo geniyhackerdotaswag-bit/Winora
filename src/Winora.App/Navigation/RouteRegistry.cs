@@ -37,7 +37,7 @@ public sealed class RouteRegistry
         new(RouteKeys.Cleanup, "Nav_Cleanup", RoutePlacement.Pane, GroupMaintenance, "broom"),
 
         new(RouteKeys.Startup, "Nav_Startup", RoutePlacement.Pane, GroupSystem, "startup"),
-        new(RouteKeys.Bypass, "Nav_Bypass", RoutePlacement.Pane, GroupSystem, "discord"),
+        new(RouteKeys.Bypass, "Nav_Bypass", RoutePlacement.Pane, GroupSystem, "globe"),
         new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Pane, GroupSystem, "history"),
         new(RouteKeys.Backups, "Nav_Backups", RoutePlacement.Pane, GroupSystem, "backup"),
 
