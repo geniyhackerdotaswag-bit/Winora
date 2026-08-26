@@ -90,6 +90,18 @@ public sealed partial class RegistrationWindow : Window
         ShowStep(Model.Step, animate: false);
     }
 
+    /// <summary>
+    /// The first focus of the run, once there is a tree that can hold it.
+    /// </summary>
+    /// <remarks>
+    /// Tried from the constructor first, and from <c>Activated</c> after that. Neither holds:
+    /// nothing can take focus before the tree is built, and on the first activation the framework
+    /// assigns focus itself — to the close button, the first thing in the tab order — after the
+    /// activation handlers have run, so a focus set there is set and then taken away. Loaded fires
+    /// after layout and wins.
+    /// </remarks>
+    private void OnRootLoaded(object sender, RoutedEventArgs args) => FocusCurrentStep();
+
     /// <summary>Raised when the profile exists and the app may open.</summary>
     public event EventHandler? Completed;
 
@@ -223,6 +235,50 @@ public sealed partial class RegistrationWindow : Window
         {
             Slide(panels[(int)step]);
         }
+
+        FocusCurrentStep();
+    }
+
+    /// <summary>
+    /// Puts the caret in the field the current step is asking about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Without this the focus goes to the close button, which is simply the first thing in the tab
+    /// order, and Enter on a freshly opened window closes the program instead of moving to the next
+    /// step. This is the only window shown on a first run, so that is not a small slip: it is the
+    /// first thing a person does with Winora.
+    /// </para>
+    /// <para>
+    /// Queued rather than called outright, and at low priority — see the remark at the call.
+    /// </para>
+    /// <para>
+    /// The last step has no field. Focus is left where it is rather than forced onto the button
+    /// that opens the app — Enter there would be the same trap in a friendlier costume, one keypress
+    /// away from skipping a screen the person has not read.
+    /// </para>
+    /// </remarks>
+    private void FocusCurrentStep()
+    {
+        Control? field = Model.Step switch
+        {
+            RegistrationStep.Name => NameField,
+            RegistrationStep.Email => EmailField,
+            RegistrationStep.Password => PasswordField,
+            _ => null,
+        };
+
+        if (field is null)
+        {
+            return;
+        }
+
+        // Low, not the default: the panel became visible a line ago, and at normal priority this
+        // runs before the layout pass that gives it a size. Focusing a control with no size does
+        // nothing and reports success.
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => field.Focus(FocusState.Programmatic));
     }
 
     private void Slide(UIElement target)

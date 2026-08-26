@@ -15,7 +15,7 @@
       the composition change in the code-behind that lets the compositor treat those pixels as
       see-through rather than opaque, leaves nothing to see there at all.
     -->
-    <Grid Background="Transparent">
+    <Grid x:Name="Root" Background="Transparent" Loaded="OnRootLoaded">
         <Grid.Resources>
             <!--
               The fields, stripped.
@@ -150,11 +150,20 @@
                     <StackPanel Padding="32,26,32,30" Spacing="22">
                         <ctl:StepProgress x:Name="Steps" />
 
-                        <!-- One panel per step; the code-behind shows one and animates the swap. -->
-                        <Grid x:Name="StepHost" MinHeight="320">
+                        <!--
+                          One panel per step; the code-behind shows one and animates the swap.
+
+                          548 is what the card's 720 leaves below the title strip, the padding and
+                          the step indicator, so the shortest step fills the window instead of
+                          stopping a third of the way down and leaving a drop of card beneath it.
+                          The floor sits here rather than on the card so that a step taller than
+                          expected — a large text scale on top of the password step — still grows
+                          the card and falls back to the ScrollViewer above rather than clipping.
+                        -->
+                        <Grid x:Name="StepHost" MinHeight="548">
 
                             <!-- Step 1: the name. -->
-                            <StackPanel x:Name="StepName" Spacing="14" VerticalAlignment="Top">
+                            <StackPanel x:Name="StepName" Spacing="14" VerticalAlignment="Center">
                                 <Border Style="{StaticResource WinoraRegistrationBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
@@ -215,7 +224,7 @@
                             </StackPanel>
 
                             <!-- Step 2: the address. -->
-                            <StackPanel x:Name="StepEmail" Spacing="14" VerticalAlignment="Top" Visibility="Collapsed">
+                            <StackPanel x:Name="StepEmail" Spacing="14" VerticalAlignment="Center" Visibility="Collapsed">
                                 <Border Style="{StaticResource WinoraRegistrationBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
@@ -325,7 +334,7 @@
                             </StackPanel>
 
                             <!-- Step 3: the password, and the plain truth about what it is worth. -->
-                            <StackPanel x:Name="StepPassword" Spacing="14" VerticalAlignment="Top" Visibility="Collapsed">
+                            <StackPanel x:Name="StepPassword" Spacing="14" VerticalAlignment="Center" Visibility="Collapsed">
                                 <Border Style="{StaticResource WinoraRegistrationBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
@@ -488,7 +497,7 @@
                             </StackPanel>
 
                             <!-- Done: what was saved, and the way in. -->
-                            <StackPanel x:Name="StepDone" Spacing="16" VerticalAlignment="Top" Visibility="Collapsed">
+                            <StackPanel x:Name="StepDone" Spacing="16" VerticalAlignment="Center" Visibility="Collapsed">
                                 <Grid Width="76" Height="76" HorizontalAlignment="Center" Margin="0,10,0,0">
                                     <Border Background="#141418"
                                             BorderBrush="#26262C"
