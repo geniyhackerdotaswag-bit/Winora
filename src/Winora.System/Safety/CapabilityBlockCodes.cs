@@ -25,6 +25,19 @@ public static class CapabilityBlockCodes
     public const string TargetNotWritable = Prefix + "target-not-writable";
 
     /// <summary>
+    /// The setting depends on another one that is switched off.
+    /// </summary>
+    /// <remarks>
+    /// Split out of <see cref="TargetNotWritable"/> on 2026-08-26. Eleven visual effects report
+    /// this, and every one of them was reading "Настройку видно, но записать её этой учётной
+    /// записи нельзя" — which sent the owner, and then me, looking for administrator rights that
+    /// these settings have never needed. They are per-user and want no privilege at all; what
+    /// blocks them is the "Эффекты интерфейса" master switch being off, at which point Windows
+    /// ignores whatever they are set to.
+    /// </remarks>
+    public const string DependentSwitchOff = Prefix + "dependent-switch-off";
+
+    /// <summary>
     /// The plan needs administrator rights, but the interactive account has no administrator
     /// split token. Winora reports this before review and never raises UAC for it.
     /// </summary>
@@ -53,6 +66,7 @@ public static class CapabilityBlockCodes
         TargetRemote,
         TargetProtected,
         TargetNotWritable,
+        DependentSwitchOff,
         ElevationUnsupportedForCurrentAccount,
         ConditionalMutationUnavailable,
         VerificationUnavailable,

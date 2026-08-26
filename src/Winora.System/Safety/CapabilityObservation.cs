@@ -51,4 +51,14 @@ public sealed record CapabilityObservation(
     PrivilegeRequirement RequiredPrivilege,
     bool IsElevationSupportedForAccount,
     StateFingerprint CurrentFingerprint,
-    DisplayValue? CurrentValue = null);
+    DisplayValue? CurrentValue = null,
+
+    /// <param name="NotWritableCode">
+    /// The block code to report when <paramref name="IsWritable"/> is false, when the operation
+    /// knows something more useful than "not writable". Null takes the general answer.
+    /// </param>
+    /// <remarks>
+    /// Exists because the general answer was actively misleading in the one place it came up most.
+    /// See <c>CapabilityBlockCodes.DependentSwitchOff</c>.
+    /// </remarks>
+    string? NotWritableCode = null);

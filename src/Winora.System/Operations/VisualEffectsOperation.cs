@@ -311,11 +311,12 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
     {
         var reading = _access.Read(_setting);
         var isUsable = reading.IsActionAvailable && reading.IsReadable;
+        var masterPermits = IsMasterSwitchPermitting();
 
         return new CapabilityObservation(
             IsApiAvailable: reading.IsActionAvailable,
             IsTargetStateKnown: reading.IsReadable,
-            IsWritable: reading.IsActionAvailable && IsMasterSwitchPermitting(),
+            IsWritable: reading.IsActionAvailable && masterPermits,
             IsRemoteTarget: false,
             IsProtectedTarget: false,
             IsBackupAvailable: isUsable,
@@ -327,6 +328,12 @@ public sealed class VisualEffectsOperation : IOperation, IConditionalSystemMutat
             CurrentFingerprint: reading.IsReadable ? Fingerprint(reading.Value) : UnknownFingerprint,
             CurrentValue: reading.IsReadable
                 ? new DisplayValue(VisualEffectValues.Kind, VisualEffectValues.For(reading.Value))
+                : null,
+
+            // Only when the master switch is what stopped it. If the API itself is missing, the
+            // general answer is the true one and this must not overwrite it.
+            NotWritableCode: reading.IsActionAvailable && !masterPermits
+                ? CapabilityBlockCodes.DependentSwitchOff
                 : null);
     }
 

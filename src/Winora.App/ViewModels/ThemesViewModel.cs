@@ -51,10 +51,19 @@ public sealed partial class ThemesViewModel : ObservableObject
     /// The key of the one block an administrator could get past.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Deliberately this key alone. A row blocked because the account cannot elevate at all, or
     /// because the value sits on a network share, or because Windows protects it, is not fixed by
     /// restarting with rights — offering the button there would be a promise the restart cannot
     /// keep.
+    /// </para>
+    /// <para>
+    /// On 2026-08-26 no row on this screen reports it, and the notice is correspondingly never
+    /// shown. Eleven of them were reporting it, which is what put the banner here in the first
+    /// place — but those are per-user settings that need no privilege at all, and what actually
+    /// blocked them was the "Эффекты интерфейса" master switch being off. That now has its own
+    /// code. The check is kept because a genuine unwritable target would still want it.
+    /// </para>
     /// </remarks>
     /// <remarks>
     /// Written in the form the probe actually hands over — dots and hyphens. The underscored

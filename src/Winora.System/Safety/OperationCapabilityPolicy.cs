@@ -69,7 +69,9 @@ public static class OperationCapabilityPolicy
 
         if (!observation.IsWritable)
         {
-            return (SupportStatus.Unsupported, CapabilityBlockCodes.TargetNotWritable);
+            return (
+                SupportStatus.Unsupported,
+                observation.NotWritableCode ?? CapabilityBlockCodes.TargetNotWritable);
         }
 
         // 4. Rights. Reported before any UAC prompt is prepared.

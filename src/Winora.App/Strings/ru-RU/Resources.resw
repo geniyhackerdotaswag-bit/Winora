@@ -401,6 +401,7 @@
   <data name="winora_capability_target_state_unknown"><value>Текущее состояние прочитать не удалось, поэтому менять его небезопасно.</value></data>
   <data name="winora_capability_target_remote"><value>Настройка находится в сетевом расположении — Winora такие не меняет.</value></data>
   <data name="winora_capability_target_protected"><value>Это защищённая часть Windows, Winora её не трогает.</value></data>
+  <data name="winora_capability_dependent_switch_off"><value>Пока «Эффекты интерфейса» выключены, Windows не применяет эту настройку.</value></data>
   <data name="winora_capability_target_not_writable"><value>Настройку видно, но записать её этой учётной записи нельзя.</value></data>
   <data name="winora_capability_elevation_unsupported_for_current_account"><value>Нужны права администратора, а у этой учётной записи их нет.</value></data>
   <data name="winora_capability_conditional_mutation_unavailable"><value>Нет способа записать значение так, чтобы гарантированно не перезаписать чужое изменение.</value></data>
