@@ -72,6 +72,9 @@
     -->
     <Compile Include="..\..\src\Winora.App\ViewModels\QuickAction.cs" LinkBase="Linked\ViewModels" />
     <Compile Include="..\..\src\Winora.App\ViewModels\DashboardViewModel.cs" LinkBase="Linked\ViewModels" />
+    <!-- ShellViewModel is the pane structure and two strings; RouteRegistry and IAppEnvironment
+         are both linked above already. -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\ShellViewModel.cs" LinkBase="Linked\ViewModels" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winora.Core\Winora.Core.csproj" />

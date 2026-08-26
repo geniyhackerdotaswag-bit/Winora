@@ -17,11 +17,12 @@ namespace Winora.App.ViewModels;
 /// one. That answer is on the Changes screen, which exists for it.
 /// </para>
 /// <para>
-/// Two things survive both passes, and the reason is the same in each case — neither is the app
-/// talking about itself. The recovery warning appears only when an unfinished change is blocking
-/// every other screen, and without it a person meets that state as a click that refuses for no
-/// stated reason. The community button is one glyph in a corner and is the only route to the project
-/// from inside the app.
+/// One thing survived both passes, and it is not the app talking about itself: the recovery
+/// warning appears only when an unfinished change is blocking every other screen, and without it a
+/// person meets that state as a click that refuses for no stated reason. The community button
+/// survived them too and has since moved to the pane, where a link to the project belongs — it is a
+/// property of the shell, not of this page, and in one screen's corner it read as an element
+/// somebody forgot to remove.
 /// </para>
 /// <para>
 /// Before adding anything here again: the test this screen keeps failing is whether the thing is
@@ -31,13 +32,6 @@ namespace Winora.App.ViewModels;
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject
 {
-    /// <summary>
-    /// The project's Discord, supplied by the owner. A literal rather than a setting because there
-    /// is one, it does not vary per machine, and a link nothing can rewrite cannot be pointed
-    /// somewhere else by anything the app happens to read.
-    /// </summary>
-    public const string CommunityUrl = "https://discord.gg/bJCWdzx4D6";
-
     /// <summary>What the dashboard offers, left to right.</summary>
     /// <remarks>
     /// Route keys, and nothing else. The name and the icon are read from the registry at load time
@@ -77,10 +71,6 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsRecovering { get; set; }
-
-    /// <summary>Tooltip on the community button, which shows no text of its own.</summary>
-    [ObservableProperty]
-    public partial string CommunityTooltip { get; set; } = string.Empty;
 
     /// <summary>Four tiles: the things the program is opened in order to do.</summary>
     /// <remarks>
@@ -156,8 +146,6 @@ public sealed partial class DashboardViewModel : ObservableObject
         Title = _text.Get("Nav_Dashboard");
         SafetyStatement = _text.Get("App_Safety_Statement");
         RecoveryActionLabel = _text.Get("Dashboard_RecoveryAction");
-        CommunityTooltip = _text.Get("Dashboard_CommunityAction");
-
         QuickActions = QuickActionRoutes
             .Select(_routes.Find)
             .Select(static route => new QuickAction(

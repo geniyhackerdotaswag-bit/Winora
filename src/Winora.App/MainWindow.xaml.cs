@@ -21,6 +21,16 @@ public sealed partial class MainWindow : Window
     private readonly IThemeBrushService _theme;
     private readonly UpdateViewModel _update;
 
+    /// <summary>
+    /// The pane's own model, for the two lines at its foot.
+    /// </summary>
+    /// <remarks>
+    /// Exposed because <c>x:Bind</c> resolves against members of this class and cannot see a
+    /// private field. Everything else on this window is filled in code, which is why this is the
+    /// only one.
+    /// </remarks>
+    public ShellViewModel Shell => _shell;
+
     public MainWindow()
     {
         _shell = App.Services.GetRequiredService<ShellViewModel>();
@@ -43,6 +53,7 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
 
         ApplyWindowIcon();
+
 
         // Specification section 12: the content must never be clipped below this size.
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 860));
@@ -143,6 +154,71 @@ public sealed partial class MainWindow : Window
         {
             Navigation.FooterMenuItems.Add(CreateItem(route, hueResourceKey: null));
         }
+
+        Navigation.FooterMenuItems.Add(BuildPaneSignature());
+    }
+
+    /// <summary>
+    /// The last thing in the pane: which version this is, and the way to the project.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Appended to <c>FooterMenuItems</c> rather than set as <c>NavigationView.PaneFooter</c>,
+    /// which is the slot it looks like it belongs in. PaneFooter draws *above* the footer items,
+    /// so the version came out floating between the two groups of links, belonging to neither.
+    /// The collection takes any element, and one that is not a NavigationViewItem is drawn without
+    /// being made selectable — which is what these two want, since neither navigates anywhere.
+    /// </para>
+    /// <para>
+    /// Built here rather than in markup because it has to be added to a collection, and because the
+    /// values are read once: the pane is rebuilt whenever the shell reloads, and neither the
+    /// version nor the address changes while the window is open.
+    /// </para>
+    /// </remarks>
+    private FrameworkElement BuildPaneSignature()
+    {
+        var version = new TextBlock
+        {
+            Text = _shell.VersionLabel,
+            Style = (Style)Application.Current.Resources["WinoraPaneVersion"],
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(version, 0);
+
+        var community = new Button
+        {
+            Style = (Style)Application.Current.Resources["WinoraCommunityButton"],
+        };
+        community.Click += OnCommunityClick;
+        Grid.SetColumn(community, 1);
+
+        // No text of its own: the mark is the label, so the tooltip and the automation name are
+        // what carry the meaning to a pointer that pauses and to a screen reader.
+        ToolTipService.SetToolTip(community, _shell.CommunityTooltip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(community, _shell.CommunityTooltip);
+
+        // Its own instance, parsed from the catalog: a geometry cannot be shared between two icons,
+        // and IconGeometry records what that cost once.
+        if (FluentIconCatalog.TryGetPathData("discord", out var pathData))
+        {
+            var glyph = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Data = IconGeometry.FromPathData(pathData),
+                Fill = (Brush)Application.Current.Resources["WinoraCommunityGlyphBrush"],
+            };
+
+            var canvas = new Canvas { Width = 24, Height = 24 };
+            canvas.Children.Add(glyph);
+            community.Content = new Viewbox { Width = 20, Height = 20, Child = canvas };
+        }
+
+        var row = new Grid { Padding = new Thickness(16, 8, 10, 10), ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(version);
+        row.Children.Add(community);
+
+        return row;
     }
 
     /// <summary>
@@ -178,6 +254,23 @@ public sealed partial class MainWindow : Window
         // Every icon-bearing control carries an automation name; an icon alone is not a label.
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, label);
         return item;
+    }
+
+    /// <summary>Opens the project's Discord in the default browser.</summary>
+    /// <remarks>
+    /// The address is a constant on the view model, never anything the app read from disk or the
+    /// registry, so nothing a person installed can point this link somewhere else.
+    /// </remarks>
+    private async void OnCommunityClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(new Uri(ShellViewModel.CommunityUrl));
+        }
+        catch (Exception)
+        {
+            // No browser, or the launch was refused. Not worth interrupting the window over.
+        }
     }
 
     private void SelectPaneItem(string routeKey)

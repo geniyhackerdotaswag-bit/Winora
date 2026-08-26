@@ -175,6 +175,16 @@
       to the touch minimum rather than to its content, and it lifts on hover to read as clickable
       without a border shouting for attention on an otherwise empty page.
     -->
+    <!--
+      The version at the foot of the pane. Deliberately the quietest text in the window: it is there
+      to be found when looked for, not to be read on the way past.
+    -->
+    <Style x:Key="WinoraPaneVersion" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{ThemeResource WinoraTextMuted}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
     <Style x:Key="WinoraCommunityButton" TargetType="Button">
         <Setter Property="Width" Value="44" />
         <Setter Property="Height" Value="44" />
