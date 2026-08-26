@@ -74,10 +74,18 @@ public partial class App : Application
     {
         try
         {
-            // Winora runs elevated by the owner's decision. When it was started without rights it
-            // hands off to an elevated copy of itself and leaves without ever showing a window, so
-            // the user sees one app, not two. A declined prompt falls through and runs as-is.
-            if (Services.GetRequiredService<IElevationRelauncher>().TryRelaunchElevated())
+            // The packaged build hands off to an elevated copy of itself and leaves without ever
+            // showing a window, so the user sees one app rather than two. A declined prompt falls
+            // through and runs as-is.
+            //
+            // The portable build does not, and the check is here rather than inside the relauncher.
+            // Auto-elevating it was tried and taken back out: a file somebody downloaded and
+            // double-clicked demanding administrator before it has shown them anything is a
+            // different proposition from an installed program doing it. It asks when there is
+            // something to ask for instead — the animation screen's "Перезапустить" button, which
+            // calls the same relauncher and now works for this kind of build too.
+            if (Services.GetRequiredService<IDeploymentState>().IsPackaged &&
+                Services.GetRequiredService<IElevationRelauncher>().TryRelaunchElevated())
             {
                 Exit();
                 return;

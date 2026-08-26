@@ -72,7 +72,7 @@ public sealed class ElevationRelauncher : IElevationRelauncher
 
     public bool TryRelaunchElevated()
     {
-        if (_elevation.IsElevated || !_deployment.IsPackaged)
+        if (_elevation.IsElevated)
         {
             return false;
         }
@@ -83,6 +83,15 @@ public sealed class ElevationRelauncher : IElevationRelauncher
             return false;
         }
 #endif
+
+        // The portable build has no package to address, so the AppsFolder route below cannot reach
+        // it. Until 2026-08-26 this method simply refused for anything unpackaged — which is the
+        // only kind of build that ships. Startup never asked for rights, and the "Перезапустить"
+        // button added to the animation screen the same day called this and silently did nothing.
+        if (!_deployment.IsPackaged)
+        {
+            return TryRelaunchThisFile();
+        }
 
         if (_identity.TryGetApplicationUserModelId(out var aumid))
         {
@@ -107,6 +116,53 @@ public sealed class ElevationRelauncher : IElevationRelauncher
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Starts this same executable again, asking Windows for administrator rights.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Environment.ProcessPath</c> rather than the assembly location: a single-file build runs
+    /// its managed code out of a temporary extraction directory, and the assembly's path points
+    /// there rather than at the file the person double-clicked.
+    /// </para>
+    /// <para>
+    /// The working directory is set to the file's own folder. Started from a shortcut it would
+    /// otherwise inherit whatever the shell happened to be in, and an elevated process inherits
+    /// System32 — from where the app's relative paths mean something else entirely.
+    /// </para>
+    /// </remarks>
+    private static bool TryRelaunchThisFile()
+    {
+        var path = Environment.ProcessPath;
+
+        if (string.IsNullOrEmpty(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                WorkingDirectory = Path.GetDirectoryName(path) ?? string.Empty,
+
+                // UseShellExecute with runas is what raises the consent prompt. Without the shell
+                // there is no prompt and no elevation — the process just starts again as it was.
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+
+            return true;
+        }
+        catch (Exception)
+        {
+            // A declined prompt throws. Carrying on unelevated is the honest fallback: the per-user
+            // settings work, and the screens already say which ones need administrator.
+            return false;
+        }
     }
 
 #if DEBUG
