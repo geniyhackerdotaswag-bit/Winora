@@ -138,9 +138,15 @@ public sealed class RouteRegistryTests
 
             "applying",
             "change-review",
+
+            // Closed for maintenance on 2026-08-26 and parked here rather than deleted. A pane
+            // item that opens with "this section is closed" promises and does not deliver.
+            "performance",
+
             "recovery",
             "result-failure",
             "result-success",
+            "sounds",
         };
         var routeOnly = Registry.Routes
             .Where(static route => route.Placement == RoutePlacement.RouteOnly)
@@ -179,5 +185,22 @@ public sealed class RouteRegistryTests
         Assert.Equal(
             Registry.Routes.Select(static route => route.Key).OrderBy(static key => key, StringComparer.Ordinal),
             RouteKeys.All.OrderBy(static key => key, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Both sections are closed for maintenance, and a pane item that opens with "this section is
+    /// closed" is worse than no pane item: it promises and does not deliver.
+    /// </summary>
+    /// <remarks>
+    /// Still findable by key. They are closed, not deleted — the pages, their strings and their
+    /// tests are untouched, and returning one to the pane is a single word in the registry.
+    /// </remarks>
+    [Theory]
+    [InlineData(RouteKeys.Sounds)]
+    [InlineData(RouteKeys.Performance)]
+    public void A_section_closed_for_maintenance_is_not_offered_in_the_pane(string key)
+    {
+        Assert.True(Registry.TryFind(key, out var route));
+        Assert.Equal(RoutePlacement.RouteOnly, route!.Placement);
     }
 }

@@ -43,6 +43,27 @@ public sealed class NoDeadRouteTests
     }
 
     /// <summary>
+    /// Sections taken out of the pane on purpose, which nothing therefore reaches.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both were closed for technical work before 2026-08-26 and spent that time as pane items
+    /// whose only content was the sentence "this section is closed". The owner had them taken out
+    /// of the pane, which leaves them reachable by nothing — exactly the shape this test calls
+    /// dead. The distinction it is drawing is between configuration that accumulated because
+    /// nobody noticed and configuration parked on purpose, and only a written list can tell those
+    /// two apart.
+    /// </para>
+    /// <para>
+    /// The page, its strings and its tests stay whole, so returning a section to the pane is one
+    /// word in <c>RouteRegistry</c> and one line removed from here. A name that stays on this list
+    /// without either of those happening is the thing this test was written to catch, so it should
+    /// be read as a debt and not as an exemption.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] Parked = ["Sounds", "Performance"];
+
+    /// <summary>
     /// A route nothing navigates to is dead configuration, and it accumulates: two such routes were
     /// carried for weeks, each with a name, an icon and a resource string behind it.
     /// </summary>
@@ -72,7 +93,7 @@ public sealed class NoDeadRouteTests
             var isNavigatedTo = sources.Any(source =>
                 source.Contains($"RouteKeys.{name}", StringComparison.Ordinal));
 
-            if (!isShown && !isNavigatedTo)
+            if (!isShown && !isNavigatedTo && !Parked.Contains(name, StringComparer.Ordinal))
             {
                 orphans.Add(name);
             }
@@ -81,6 +102,22 @@ public sealed class NoDeadRouteTests
         Assert.True(
             orphans.Count == 0,
             "These routes are neither shown nor navigated to: " + string.Join(", ", orphans.Order(StringComparer.Ordinal)));
+    }
+
+    /// <summary>
+    /// Parking is a state a route can leave, so what is parked must still be a route.
+    /// </summary>
+    /// <remarks>
+    /// The exemption above buys silence from one test; it does not buy silence from all of them.
+    /// A parked name that no longer matches a route key is a list gone stale, and a stale list is
+    /// how the exemption would quietly widen to cover something nobody parked.
+    /// </remarks>
+    [Fact]
+    public void Every_parked_route_is_still_a_route()
+    {
+        var keys = RouteKeyNames().ToHashSet(StringComparer.Ordinal);
+
+        Assert.All(Parked, name => Assert.Contains(name, keys));
     }
 
     private static IEnumerable<string> RouteKeyNames() =>

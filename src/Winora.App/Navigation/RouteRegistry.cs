@@ -30,10 +30,8 @@ public sealed class RouteRegistry
         new(RouteKeys.Themes, "Nav_Themes", RoutePlacement.Pane, GroupPersonalization, "color"),
 
         new(RouteKeys.Taskbar, "Nav_Taskbar", RoutePlacement.Pane, GroupPersonalization, "taskbar"),
-        new(RouteKeys.Sounds, "Nav_Sounds", RoutePlacement.Pane, GroupPersonalization, "sound"),
         new(RouteKeys.Cursors, "Nav_Cursors", RoutePlacement.Pane, GroupPersonalization, "cursor"),
 
-        new(RouteKeys.Performance, "Nav_Performance", RoutePlacement.Pane, GroupMaintenance, "speed"),
         new(RouteKeys.Cleanup, "Nav_Cleanup", RoutePlacement.Pane, GroupMaintenance, "broom"),
 
         new(RouteKeys.Startup, "Nav_Startup", RoutePlacement.Pane, GroupSystem, "startup"),
@@ -49,6 +47,16 @@ public sealed class RouteRegistry
         // about the app; the personalization group is for screens that change Windows, and an item
         // there implied this one did too.
         new(RouteKeys.Appearance, "Nav_Appearance", RoutePlacement.RouteOnly, IconGlyphKey: "appearance"),
+
+        // Closed for maintenance, and so not offered. A pane item that opens with "this section is
+        // closed" is worse than no pane item: it promises and does not deliver, and three of those
+        // among fourteen were the loudest thing in the app saying it was unfinished.
+        //
+        // Closed, not deleted. The pages, their strings and their tests are untouched, and putting
+        // one back in the pane is this one word. The group is dropped with the placement because a
+        // group heading is read only for Pane, and a stale one here would outlive its meaning.
+        new(RouteKeys.Sounds, "Nav_Sounds", RoutePlacement.RouteOnly, IconGlyphKey: "sound"),
+        new(RouteKeys.Performance, "Nav_Performance", RoutePlacement.RouteOnly, IconGlyphKey: "speed"),
 
         new(RouteKeys.ChangeReview, "Nav_ChangeReview", RoutePlacement.RouteOnly),
         new(RouteKeys.Applying, "Nav_Applying", RoutePlacement.RouteOnly),
