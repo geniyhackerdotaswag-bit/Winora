@@ -187,6 +187,33 @@
       without a border shouting for attention on an otherwise empty page.
     -->
     <!--
+      The container for the version line, stripped bare.
+
+      NavigationView wraps anything put into FooterMenuItems in a NavigationViewItem, and that
+      brought the whole item chrome with it: a rounded fill, a hover state and a selection
+      highlight. The row looked like a button and invited a click that does nothing — the version
+      is a fact, and the only thing here that answers a press is the community mark beside it,
+      which is a Button in its own right and keeps its own chrome.
+
+      A template of one ContentPresenter is the whole of it. Turning the states off one property at
+      a time leaves whichever one is added to the default template next.
+    -->
+    <Style x:Key="WinoraPaneSignature" TargetType="NavigationViewItem">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="SelectsOnInvoked" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="NavigationViewItem">
+                    <ContentPresenter Content="{TemplateBinding Content}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
       The version at the foot of the pane. Deliberately the quietest text in the window: it is there
       to be found when looked for, not to be read on the way past.
     -->

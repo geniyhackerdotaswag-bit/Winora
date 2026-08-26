@@ -175,7 +175,7 @@ public sealed partial class MainWindow : Window
     /// version nor the address changes while the window is open.
     /// </para>
     /// </remarks>
-    private FrameworkElement BuildPaneSignature()
+    private NavigationViewItem BuildPaneSignature()
     {
         var version = new TextBlock
         {
@@ -218,7 +218,14 @@ public sealed partial class MainWindow : Window
         row.Children.Add(version);
         row.Children.Add(community);
 
-        return row;
+        // Wrapped by hand, because NavigationView wraps it anyway and the container it makes on its
+        // own arrives with the full item chrome — a rounded fill, a hover state and a selection
+        // highlight. That made the line look like a button offering a press that does nothing.
+        return new NavigationViewItem
+        {
+            Style = (Style)Application.Current.Resources["WinoraPaneSignature"],
+            Content = row,
+        };
     }
 
     /// <summary>
