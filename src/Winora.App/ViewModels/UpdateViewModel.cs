@@ -406,7 +406,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// </remarks>
     private static string SummarizeNotes(string notes)
     {
-        var trimmed = notes.Trim();
+        var trimmed = Prose(notes);
 
         if (trimmed.Length <= NotesMaxLength)
         {
@@ -418,4 +418,60 @@ public sealed partial class UpdateViewModel : ObservableObject
 
         return shortened.TrimEnd() + "…";
     }
+
+    /// <summary>
+    /// Reduces a release body to the one line of prose the strip can carry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The body is whatever GitHub holds: Markdown somebody wrote, or notes it generated. On the
+    /// first real release, 26 August 2026, the entire body was
+    /// <c>**Full Changelog**: https://…/commits/v0.4.0</c>, and the strip printed it as it stood —
+    /// asterisks, colon and URL. Nobody reads a link out of a notification, and the markup is an
+    /// artefact of where the text came from rather than anything anybody meant to say.
+    /// </para>
+    /// <para>
+    /// Only the first paragraph is taken. A release body is a document; this is a strip above a
+    /// window, and the first paragraph is where anybody writing notes puts the summary.
+    /// </para>
+    /// <para>
+    /// Deliberately not a Markdown parser. Stripping the four marks that actually turn up in
+    /// release notes is the whole job, and a parser would be a dependency and a class of bug over
+    /// text that is thrown away after a hundred and sixty characters.
+    /// </para>
+    /// </remarks>
+    private static string Prose(string notes)
+    {
+        var paragraph = notes
+            .ReplaceLineEndings("\n")
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(static block => !IsChangelogLink(block));
+
+        if (paragraph is null)
+        {
+            return string.Empty;
+        }
+
+        var lines = paragraph
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static line => !IsChangelogLink(line))
+            .Select(static line => line.TrimStart('#', '-', '*', '>', ' '));
+
+        return string.Join(' ', lines)
+            .Replace("**", string.Empty, StringComparison.Ordinal)
+            .Replace("__", string.Empty, StringComparison.Ordinal)
+            .Replace("`", string.Empty, StringComparison.Ordinal)
+            .Trim();
+    }
+
+    /// <summary>
+    /// The line GitHub appends to every generated body, which is a URL and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Matched on the address rather than on the words, so it is caught whatever language the
+    /// account's interface is set to.
+    /// </remarks>
+    private static bool IsChangelogLink(string line) =>
+        line.Contains("/commits/", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("/compare/", StringComparison.OrdinalIgnoreCase);
 }

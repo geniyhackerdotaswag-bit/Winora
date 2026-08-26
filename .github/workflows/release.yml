@@ -63,9 +63,24 @@ jobs:
           $hash = (Get-FileHash publish/Winora.exe -Algorithm SHA256).Hash
           "$hash  Winora.exe" | Out-File publish/Winora.exe.sha256 -Encoding ascii -NoNewline
 
+      # The tag's own message becomes the release notes. Without this the body was only the
+      # "Full Changelog" line GitHub generates, which is a URL — and the in-app update strip showed
+      # it verbatim to everybody who pressed check. Whatever was worth writing on the tag is what
+      # people should read.
+      - name: Take the notes from the tag
+        shell: bash
+        run: |
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          git tag -l --format='%(contents:body)' "${GITHUB_REF_NAME}" > notes.md
+          cat notes.md
+
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
             publish/Winora.exe
             publish/Winora.exe.sha256
+          body_path: notes.md
+
+          # Appended after the body, so the prose comes first and the generated list of commits
+          # follows it. The app takes the first paragraph and drops the changelog link.
           generate_release_notes: true

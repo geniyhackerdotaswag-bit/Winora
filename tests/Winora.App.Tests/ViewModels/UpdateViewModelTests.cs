@@ -430,6 +430,35 @@ public sealed class UpdateViewModelTests
     }
 
     /// <summary>
+    /// The strip is one line of prose, so what goes into it must be prose.
+    /// </summary>
+    /// <remarks>
+    /// Seen on the first real release, 26 August 2026: the whole body GitHub generated was
+    /// "**Full Changelog**: https://github.com/…/commits/v0.4.0", and the banner printed it
+    /// verbatim, asterisks and URL and all. Nobody reads a link out of a notification strip, and
+    /// the markup is an artefact of where the text came from rather than anything anybody wrote.
+    /// </remarks>
+    [Theory]
+    [InlineData("**Full Changelog**: https://github.com/a/b/commits/v0.4.0", "")]
+    [InlineData("Full Changelog: https://github.com/a/b/commits/v0.4.0", "")]
+    [InlineData("**Плитки на Главной**", "Плитки на Главной")]
+    [InlineData("`RouteRegistry` теперь один", "RouteRegistry теперь один")]
+    [InlineData("## Что нового\n\nПлитки на Главной", "Что нового")]
+    public async Task Release_notes_reach_the_strip_as_prose(string notes, string expected)
+    {
+        var update = new FakeUpdateService
+        {
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", notes, SizeBytes: 1),
+        };
+        var vm = Build(update);
+
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        var shown = vm.Message.Replace("Update_Available", string.Empty, StringComparison.Ordinal).Trim();
+        Assert.Equal(expected.Length == 0 ? string.Empty : ". " + expected, shown);
+    }
+
+    /// <summary>
     /// Review finding (Important 4): MainWindow used to write UpdateBar.Message and UpdateBar.IsOpen
     /// directly for the first-run install offer, bypassing the one source of truth Dismiss()
     /// established. These two methods are what it calls instead, and they must distinguish "the copy
