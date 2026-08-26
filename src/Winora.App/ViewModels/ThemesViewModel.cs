@@ -32,6 +32,39 @@ public sealed partial class ThemesViewModel : ObservableObject
 
     public ObservableCollection<VisualEffectRowViewModel> Rows { get; } = [];
 
+    /// <summary>
+    /// The one line above the list, when some of it is locked.
+    /// </summary>
+    /// <remarks>
+    /// Said once, not on every row. The wording is <c>Cleanup_NeedsAdministrator</c> — the sentence
+    /// the cleanup screen already uses — because two phrasings of one fact is one phrasing too
+    /// many, and this one is shorter than what the rows were printing.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string ElevationNotice { get; set; } = string.Empty;
+
+    public bool NeedsElevation => !string.IsNullOrEmpty(ElevationNotice);
+
+    partial void OnElevationNoticeChanged(string value) => OnPropertyChanged(nameof(NeedsElevation));
+
+    /// <summary>
+    /// The key of the one block an administrator could get past.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately this key alone. A row blocked because the account cannot elevate at all, or
+    /// because the value sits on a network share, or because Windows protects it, is not fixed by
+    /// restarting with rights — offering the button there would be a promise the restart cannot
+    /// keep.
+    /// </remarks>
+    /// <remarks>
+    /// Written in the form the probe actually hands over — dots and hyphens. The underscored
+    /// spelling is what the .resw file uses, and only <c>ILocalizationService.Get</c> converts
+    /// between the two; comparing against that spelling matched nothing and showed no notice at all
+    /// while eleven rows sat locked. <c>ThemesElevationCodeTests</c> pins this string to the
+    /// constant the system layer declares, which a view model may not reference itself.
+    /// </remarks>
+    private const string WritableByAdministrator = "winora.capability.target-not-writable";
+
     public ThemesViewModel(
         IEnumerable<IOperation> operations,
         IChangeExecutor executor,
@@ -66,6 +99,11 @@ public sealed partial class ThemesViewModel : ObservableObject
                 StatusMessage = _text.Get("Themes_ProbeFailed");
             }
         }
+
+        ElevationNotice = Rows.Any(row =>
+            string.Equals(row.BlockReasonKey, WritableByAdministrator, StringComparison.Ordinal))
+                ? _text.Get("Cleanup_NeedsAdministrator")
+                : string.Empty;
     }
 
     /// <summary>
@@ -138,13 +176,23 @@ public sealed partial class ThemesViewModel : ObservableObject
         {
             OperationId = operation.OperationId,
             Label = _text.Get(LabelKeyFor(operation.OperationId)),
+            Detail = _text.Get(DetailKeyFor(operation.OperationId)),
             BlockReason = capability.BlockReason is null ? string.Empty : _text.Get(capability.BlockReason),
+            BlockReasonKey = capability.BlockReason ?? string.Empty,
             ObservedValue = isOn,
             IsChangeable = isChangeable,
         };
         row.SetSwitchWithoutApplying(isOn);
         return row;
     }
+
+    /// <summary>The key for the line saying what a setting does.</summary>
+    /// <remarks>
+    /// Derived from the same id as the label rather than listed beside it, so a setting cannot be
+    /// registered with its description quietly left off.
+    /// </remarks>
+    private static string DetailKeyFor(string operationId) =>
+        LabelKeyFor(operationId).Replace("Themes_", "Themes_Detail_", StringComparison.Ordinal);
 
     /// <summary>
     /// Derives the resource key from the catalog id so a newly registered setting cannot silently

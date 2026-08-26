@@ -39,77 +39,94 @@
                          Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
                 <!--
-                  Tiles in as many columns as fit, not one long column. Sixteen settings in a single
-                  list meant scrolling past most of them to reach the rest; laid out this way the
-                  whole set is on screen at once on any window wide enough for two columns, and the
-                  layout collapses to one column on a narrow window without any breakpoint of ours.
+                  One line at the top instead of one on every row. What the rows used to carry was
+                  the core's reason code printed verbatim, eight identical copies of it down the
+                  screen, in the slot where a description of the setting belongs. The wording is the
+                  cleanup screen's own — two phrasings of one fact is one too many.
+
+                  Shown only when an administrator could actually write the settings in question.
+                  A row blocked because this account can never elevate, or because Windows protects
+                  the value, is not fixed by restarting, and a button there would promise what the
+                  restart cannot deliver.
+                -->
+                <InfoBar IsOpen="{x:Bind ViewModel.NeedsElevation, Mode=OneWay}"
+                         IsClosable="False"
+                         Severity="Warning"
+                         Margin="{StaticResource WinoraStackGapL}"
+                         Message="{x:Bind ViewModel.ElevationNotice, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <Button Content="{x:Bind Localized('Themes_RestartElevated')}"
+                                Click="OnRestartElevatedClick" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <!--
+                  Rows, not tiles. A tile spent 104 px on one name and one switch and needed two
+                  columns to fit sixteen of them; a row spends 42 and fits them in one column with
+                  room to spare. The order never changes: sorting the locked ones into their own
+                  group was tried on paper and dropped, because then the screen looks different
+                  depending on how the program was started, and a setting found yesterday is
+                  somewhere else today.
                 -->
                 <ItemsRepeater ItemsSource="{x:Bind ViewModel.Rows}">
                     <ItemsRepeater.Layout>
-                        <!--
-                          MinItemHeight matters here: this layout gives every tile the height of
-                          the first one, and the first setting has a one-line name and no block
-                          reason. Everything longer was being clipped mid-sentence — a wrapped name
-                          plus a reason needs room, and uniform tiles with some empty space read as
-                          deliberate where cut-off text reads as broken.
-                        -->
-                        <UniformGridLayout MinItemWidth="340"
-                                           MinItemHeight="104"
-                                           MinColumnSpacing="10"
-                                           MinRowSpacing="10"
-                                           ItemsStretch="Fill" />
+                        <StackLayout Spacing="0" />
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="vm:VisualEffectRowViewModel">
-                            <Border Style="{StaticResource WinoraTile}">
-                                <ctl:HoverRow>
-                                    <Grid Padding="10,12,14,12" ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                            <ctl:HoverRow>
+                                <Grid Padding="4,10,6,10" ColumnSpacing="14"
+                                      BorderBrush="{ThemeResource WinoraDividerBrush}"
+                                      BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                                        <!-- Lit when the setting is on, faint when off. -->
-                                        <Rectangle Grid.Column="0"
-                                                   Style="{StaticResource WinoraTileBar}"
-                                                   Opacity="{x:Bind ctl:XamlConvert.BarOpacity(SwitchValue), Mode=OneWay}" />
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                   TextWrapping="Wrap"
+                                                   Text="{x:Bind Label}" />
+                                        <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                   TextWrapping="Wrap"
+                                                   Text="{x:Bind Detail}" />
+                                    </StackPanel>
 
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
-                                                       TextWrapping="Wrap"
-                                                       Text="{x:Bind Label}" />
-                                            <!-- Shown only when the tile cannot be changed, never as decoration. -->
-                                            <TextBlock Style="{StaticResource WinoraRowWarning}"
-                                                       TextWrapping="Wrap"
-                                                       Text="{x:Bind BlockReason, Mode=OneWay}"
-                                                       Visibility="{x:Bind ctl:XamlConvert.Show(HasBlockReason), Mode=OneWay}" />
-                                        </StackPanel>
+                                    <Grid Grid.Column="1" VerticalAlignment="Center" MinWidth="44">
+                                        <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
+                                                      OnContent=""
+                                                      OffContent=""
+                                                      MinWidth="0"
+                                                      HorizontalAlignment="Right"
+                                                      Visibility="{x:Bind ctl:XamlConvert.Hide(HasBlockReason), Mode=OneWay}"
+                                                      IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                      Toggled="OnToggled"
+                                                      Tag="{x:Bind}"
+                                                      AutomationProperties.Name="{x:Bind Label}" />
 
                                         <!--
-                                          The switch stands down while the ring is up. They used to
-                                          share the cell and the ring sat on top of the knob.
+                                          The exact reason lives here and nowhere else on screen. It
+                                          is not thrown away and not replaced by a friendlier general
+                                          sentence: there are eleven of them and they mean different
+                                          things. It is wanted by whoever is working out why, and it
+                                          is noise to everybody else.
                                         -->
-                                        <Grid Grid.Column="2" VerticalAlignment="Center" MinWidth="44">
-                                            <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
-                                                          OnContent=""
-                                                          OffContent=""
-                                                          MinWidth="0"
-                                                          HorizontalAlignment="Right"
-                                                          Visibility="{x:Bind ctl:XamlConvert.Hide(IsBusy), Mode=OneWay}"
-                                                          IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
-                                                          Toggled="OnToggled"
-                                                          Tag="{x:Bind}"
-                                                          AutomationProperties.Name="{x:Bind Label}"
-                                                          AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
-                                            <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                                          Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
-                                                          Width="18" Height="18"
-                                                          HorizontalAlignment="Right" />
-                                        </Grid>
+                                        <FontIcon Glyph="&#xE72E;"
+                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontSize="14"
+                                                  HorizontalAlignment="Right"
+                                                  Foreground="{ThemeResource WinoraTextMuted}"
+                                                  Visibility="{x:Bind ctl:XamlConvert.Show(HasBlockReason), Mode=OneWay}"
+                                                  ToolTipService.ToolTip="{x:Bind BlockReason, Mode=OneWay}"
+                                                  AutomationProperties.Name="{x:Bind BlockReason, Mode=OneWay}" />
+
+                                        <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                      Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                      Width="18" Height="18"
+                                                      HorizontalAlignment="Right" />
                                     </Grid>
-                                </ctl:HoverRow>
-                            </Border>
+                                </Grid>
+                            </ctl:HoverRow>
                         </DataTemplate>
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>

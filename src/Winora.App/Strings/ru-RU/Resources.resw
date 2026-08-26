@@ -154,6 +154,23 @@
   <data name="Themes_FontSmoothing"><value>Сглаживание шрифтов</value></data>
   <data name="Themes_DragFullWindows"><value>Показывать содержимое окна при перетаскивании</value></data>
   <data name="Themes_PlanSummary"><value>Изменение документированной настройки визуальных эффектов через SystemParametersInfo с проверкой результата.</value></data>
+  <data name="Themes_Detail_ClientAreaAnimation"><value>Разворачивание и сворачивание окон.</value></data>
+  <data name="Themes_Detail_UiEffects"><value>Общий выключатель: гасит остальные эффекты разом.</value></data>
+  <data name="Themes_Detail_MenuAnimation"><value>Появление и скрытие выпадающих меню.</value></data>
+  <data name="Themes_Detail_ComboBoxAnimation"><value>Раскрытие полей выбора.</value></data>
+  <data name="Themes_Detail_ListBoxSmoothScrolling"><value>Прокрутка списков пикселями, а не строками.</value></data>
+  <data name="Themes_Detail_GradientCaptions"><value>Заливка полосы заголовка окна.</value></data>
+  <data name="Themes_Detail_HotTracking"><value>Отклик пунктов меню и списков на наведение.</value></data>
+  <data name="Themes_Detail_MenuFade"><value>Меню гаснет вместо мгновенного исчезновения.</value></data>
+  <data name="Themes_Detail_SelectionFade"><value>Выделение гаснет после снятия.</value></data>
+  <data name="Themes_Detail_TooltipAnimation"><value>Выезд подсказки вместо мгновенного появления.</value></data>
+  <data name="Themes_Detail_TooltipFade"><value>Подсказка гаснет вместо мгновенного исчезновения.</value></data>
+  <data name="Themes_Detail_CursorShadow"><value>Тень под указателем мыши.</value></data>
+  <data name="Themes_Detail_FlatMenu"><value>Меню без объёма, одним цветом.</value></data>
+  <data name="Themes_Detail_DropShadow"><value>Тени под окнами.</value></data>
+  <data name="Themes_Detail_FontSmoothing"><value>Сглаживание краёв букв.</value></data>
+  <data name="Themes_Detail_DragFullWindows"><value>При перетаскивании видно само окно, а не рамку.</value></data>
+  <data name="Themes_RestartElevated"><value>Перезапустить</value></data>
   <data name="Themes_ProbeFailed"><value>Не удалось прочитать состояние одной или нескольких настроек. Такие строки недоступны для изменения.</value></data>
 
   <data name="Taskbar_Subtitle"><value>Панель задач и меню «Пуск».</value></data>
