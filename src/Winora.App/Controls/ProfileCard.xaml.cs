@@ -68,11 +68,10 @@ public sealed partial class ProfileCard : UserControl
         SinceRow.Visibility = viewModel.MemberSince.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         AvatarInitial.Text = viewModel.Initial;
 
-        // One instance for both shapes: the halo is softened by the Ellipse's own opacity, not by
-        // a second brush carrying a different alpha.
+        // The disc under everything else. A picture, when there is one, covers it; remove the
+        // picture and the person's colour is there again without recomputing anything.
         var colour = Brush(viewModel.Colour);
         AvatarCircle.Fill = colour;
-        AvatarHalo.Fill = colour;
 
         ShowAvatarPicture(viewModel.AvatarImagePath);
         ShowBackgroundPicture(viewModel.BackgroundImagePath);

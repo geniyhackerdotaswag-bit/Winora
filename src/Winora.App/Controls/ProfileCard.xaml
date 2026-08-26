@@ -64,12 +64,11 @@
                       Height="96"
                       VerticalAlignment="Center">
                     <!--
-                      The person's colour twice over: a faint halo behind a solid disc. One brush
-                      serves both, because the softening is opacity on the shape rather than alpha
-                      in the colour.
+                      One disc, filling the whole space. There was a faint ring of the same colour
+                      behind it; the owner had it removed on 2026-08-26. A picture reads better
+                      without one, and the ring only ever repeated a colour already on screen.
                     -->
-                    <Ellipse x:Name="AvatarHalo" Opacity="0.16" />
-                    <Ellipse x:Name="AvatarCircle" Width="76" Height="76" />
+                    <Ellipse x:Name="AvatarCircle" />
 
                     <!--
                       The picture, when there is one, in the disc's place. An Ellipse filled with an
@@ -77,17 +76,13 @@
                       step, with no pixels touched and nothing to get wrong: the brush scales the
                       picture to cover the disc and centres what it cannot fit.
 
-                      The halo behind it stays. It is the person's palette colour, which a picture
-                      borrows the card for rather than replaces — and which comes straight back if
-                      the picture is removed.
+                      The palette colour is not thrown away when a picture is set — the disc
+                      beneath keeps it, and it comes straight back if the picture is removed.
                     -->
-                    <Ellipse x:Name="AvatarPicture"
-                             Width="76"
-                             Height="76"
-                             Visibility="Collapsed" />
+                    <Ellipse x:Name="AvatarPicture" Visibility="Collapsed" />
                     <TextBlock x:Name="AvatarInitial"
                                FontFamily="Segoe UI Variable Display"
-                               FontSize="34"
+                               FontSize="42"
                                FontWeight="SemiBold"
                                Foreground="White"
                                HorizontalAlignment="Center"
