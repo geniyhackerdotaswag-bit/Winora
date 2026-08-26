@@ -60,6 +60,23 @@
                 </InfoBar>
 
                 <!--
+                  Said once, above the rows it explains. The connection between the master switch
+                  and the eleven padlocks below it existed only inside each padlock's tooltip,
+                  which is to say only for somebody who already suspected it and hovered to check.
+                  From any distance the screen read as settings that do not work.
+                -->
+                <InfoBar IsOpen="{x:Bind ViewModel.NeedsMaster, Mode=OneWay}"
+                         IsClosable="False"
+                         Severity="Informational"
+                         Margin="{StaticResource WinoraStackGapL}"
+                         Message="{x:Bind ViewModel.MasterNotice, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <Button Content="{x:Bind ViewModel.MasterAction, Mode=OneWay}"
+                                Click="OnTurnOnEffectsClick" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <!--
                   Rows, not tiles. A tile spent 104 px on one name and one switch and needed two
                   columns to fit sixteen of them; a row spends 42 and fits them in one column with
                   room to spare. The order never changes: sorting the locked ones into their own

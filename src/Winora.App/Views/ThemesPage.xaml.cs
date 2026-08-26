@@ -43,6 +43,9 @@ public sealed partial class ThemesPage : Page
         }
     }
 
+    private async void OnTurnOnEffectsClick(object sender, RoutedEventArgs e) =>
+        await ViewModel.TurnOnEffectsAsync().ConfigureAwait(true);
+
     private async void OnToggled(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleSwitch { Tag: VisualEffectRowViewModel row } toggle)

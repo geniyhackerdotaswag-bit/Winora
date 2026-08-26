@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
@@ -40,6 +41,25 @@ public sealed partial class ThemesViewModel : ObservableObject
     [ObservableProperty]
     public partial string ElevationNotice { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Said once when the master switch is what has locked the rest.
+    /// </summary>
+    /// <remarks>
+    /// Eleven padlocks and the switch that governs them sat on one screen with nothing joining
+    /// them: the connection existed only in each padlock's tooltip, which is to say only for
+    /// somebody who already suspected it and hovered to check. From any distance it read as a
+    /// screen of settings that do not work.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string MasterNotice { get; set; } = string.Empty;
+
+    public bool NeedsMaster => !string.IsNullOrEmpty(MasterNotice);
+
+    partial void OnMasterNoticeChanged(string value) => OnPropertyChanged(nameof(NeedsMaster));
+
+    [ObservableProperty]
+    public partial string MasterAction { get; set; } = string.Empty;
+
     public bool NeedsElevation => !string.IsNullOrEmpty(ElevationNotice);
 
     partial void OnElevationNoticeChanged(string value) => OnPropertyChanged(nameof(NeedsElevation));
@@ -70,6 +90,12 @@ public sealed partial class ThemesViewModel : ObservableObject
     /// constant the system layer declares, which a view model may not reference itself.
     /// </remarks>
     private const string WritableByAdministrator = "winora.capability.target-not-writable";
+
+    /// <summary>The block that one switch on this very screen would clear.</summary>
+    private const string MasterSwitchOff = "winora.capability.dependent-switch-off";
+
+    /// <summary>The operation behind "Эффекты интерфейса".</summary>
+    private const string MasterSwitchId = "winora.visual-effects.ui-effects";
 
     public ThemesViewModel(
         IEnumerable<IOperation> operations,
@@ -128,16 +154,45 @@ public sealed partial class ThemesViewModel : ObservableObject
             Rows.Add(row);
         }
 
+        RefreshNotices();
+    }
+
+    /// <summary>Recomputes the two lines above the list from what the rows now say.</summary>
+    private void RefreshNotices()
+    {
         ElevationNotice = Rows.Any(row =>
             string.Equals(row.BlockReasonKey, WritableByAdministrator, StringComparison.Ordinal))
                 ? _text.Get("Cleanup_NeedsAdministrator")
                 : string.Empty;
+
+        var locked = Rows.Count(row =>
+            string.Equals(row.BlockReasonKey, MasterSwitchOff, StringComparison.Ordinal));
+
+        MasterAction = _text.Get("Themes_TurnOnEffects");
+        MasterNotice = locked > 0
+            ? string.Format(CultureInfo.CurrentCulture, _text.Get("Themes_MasterOff"), locked)
+            : string.Empty;
     }
 
-    /// <summary>
-    /// Applies the switch the user just moved. On any outcome other than success the row is put back
-    /// to what the system actually holds, so the switch can never show a state that was not applied.
-    /// </summary>
+    /// <summary>Turns the master switch on, which is the only thing standing in the way.</summary>
+    /// <remarks>
+    /// The same path a person would take by moving that switch themselves — the plan, the backup,
+    /// the verification and the journal entry are identical. This only saves them working out
+    /// which of the thirteen rows to move.
+    /// </remarks>
+    public async Task TurnOnEffectsAsync()
+    {
+        var master = Rows.FirstOrDefault(row =>
+            string.Equals(row.OperationId, MasterSwitchId, StringComparison.Ordinal));
+
+        if (master is null || master.SwitchValue)
+        {
+            return;
+        }
+
+        await ToggleAsync(master, true).ConfigureAwait(true);
+    }
+
     public async Task ToggleAsync(VisualEffectRowViewModel row, bool requested)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -168,6 +223,17 @@ public sealed partial class ThemesViewModel : ObservableObject
             }
 
             await RefreshAsync(row, operation).ConfigureAwait(true);
+
+            // One row on this screen decides what the others may do. Refreshing only the row that
+            // moved is right for the other twelve and wrong for this one.
+            if (string.Equals(row.OperationId, MasterSwitchId, StringComparison.Ordinal))
+            {
+                await RefreshAllAsync().ConfigureAwait(true);
+            }
+            else
+            {
+                RefreshNotices();
+            }
         }
         finally
         {
@@ -175,6 +241,14 @@ public sealed partial class ThemesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Re-reads one row from Windows: its value, and whether it can be changed at all.
+    /// </summary>
+    /// <remarks>
+    /// It used to carry the value alone. That is enough for the row somebody just moved and wrong
+    /// for every other one, which is how the screen came to show eleven padlocks and a notice
+    /// saying the master switch was off while the master switch sat there switched on.
+    /// </remarks>
     private async Task RefreshAsync(VisualEffectRowViewModel row, IOperation operation)
     {
         var capability = await operation
@@ -182,8 +256,49 @@ public sealed partial class ThemesViewModel : ObservableObject
             .ConfigureAwait(true);
 
         var isOn = string.Equals(capability.CurrentValue?.Text, "on", StringComparison.Ordinal);
+
+        row.IsChangeable =
+            capability.Support is SupportStatus.Supported or SupportStatus.SupportedWithElevation &&
+            capability.CurrentValue is not null;
+
+        row.BlockReason = capability.BlockReason is null ? string.Empty : _text.Get(capability.BlockReason);
+        row.BlockReasonKey = capability.BlockReason ?? string.Empty;
         row.ObservedValue = isOn;
         row.SetSwitchWithoutApplying(isOn);
+    }
+
+    /// <summary>
+    /// Re-reads every row, because one of them governs the rest.
+    /// </summary>
+    /// <remarks>
+    /// Moving "Эффекты интерфейса" changes what eleven other settings are able to do, and nothing
+    /// else in this screen re-reads them. Without this the list kept whatever it had been told at
+    /// load time: the switch went on, the padlocks stayed, and the line above them went on saying
+    /// the switch was off.
+    /// </remarks>
+    private async Task RefreshAllAsync()
+    {
+        foreach (var row in Rows)
+        {
+            var operation = _operations.FirstOrDefault(candidate =>
+                string.Equals(candidate.OperationId, row.OperationId, StringComparison.Ordinal));
+
+            if (operation is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                await RefreshAsync(row, operation).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                StatusMessage = _text.Get("Themes_ProbeFailed");
+            }
+        }
+
+        RefreshNotices();
     }
 
     private async Task<VisualEffectRowViewModel> BuildRowAsync(
