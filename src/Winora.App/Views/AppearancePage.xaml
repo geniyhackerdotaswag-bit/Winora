@@ -231,32 +231,49 @@
                     </Border>
 
                     <!--
-                      Matching Windows itself. A guided route and never a direct write: the values
-                      behind the Windows theme and accent are not documented for programmatic
-                      change, and the specification names theme registry tweaks as a non-goal. So
-                      Winora says what to choose and opens the official page.
+                      Matching Windows itself, through a Windows theme file: a copy of the one
+                      already in use with the mode and accent lines changed, so wallpaper, cursors
+                      and sounds carry over untouched. Only on a press, and the cost is stated above
+                      the button rather than discovered after it — the Settings window opens,
+                      because that is the only way Windows adopts a theme.
                     -->
                     <TextBlock Style="{StaticResource WinoraSectionHeading}"
                                Text="{x:Bind ViewModel.WindowsHeading, Mode=OneWay}" />
 
                     <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapXl}">
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       VerticalAlignment="Center"
-                                       Style="{StaticResource WinoraRowDetail}"
+                        <StackPanel Spacing="12">
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
                                        Margin="0"
                                        TextWrapping="Wrap"
                                        Text="{x:Bind ViewModel.WindowsDescription, Mode=OneWay}" />
-                            <Button Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource WinoraActionButton}"
-                                    Content="{x:Bind ViewModel.WindowsOpenLabel, Mode=OneWay}"
-                                    Click="OnOpenWindowsColorsClick" />
-                        </Grid>
+
+                            <!-- Said before the press, not after it. -->
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind ViewModel.WindowsCost, Mode=OneWay}" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Style="{StaticResource WinoraPrimaryButton}"
+                                        Content="{x:Bind ViewModel.WindowsApplyLabel, Mode=OneWay}"
+                                        IsEnabled="{x:Bind ViewModel.CanApplyToWindows, Mode=OneWay}"
+                                        Click="OnApplyToWindowsClick" />
+                                <Button Style="{StaticResource WinoraActionButton}"
+                                        Content="{x:Bind ViewModel.WindowsOpenLabel, Mode=OneWay}"
+                                        Click="OnOpenWindowsColorsClick" />
+                                <ProgressRing VerticalAlignment="Center"
+                                              Width="18"
+                                              Height="18"
+                                              IsActive="{x:Bind ViewModel.IsApplyingToWindows, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.IsApplyingToWindows, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.ShowWindowsResult, Mode=OneWay}"
+                                       Text="{x:Bind ViewModel.WindowsResult, Mode=OneWay}" />
+                        </StackPanel>
                     </Border>
 
                     <!-- What those two produced -->

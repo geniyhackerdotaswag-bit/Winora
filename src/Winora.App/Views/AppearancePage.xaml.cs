@@ -66,6 +66,25 @@ public sealed partial class AppearancePage : Page
         }
     }
 
+    /// <summary>
+    /// Carries the scheme on screen across to Windows.
+    /// </summary>
+    /// <remarks>
+    /// Only from here. Nothing on this page applies to Windows as a side effect of picking colours
+    /// for Winora — the system's appearance is the person's to change, on purpose.
+    /// </remarks>
+    private async void OnApplyToWindowsClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ViewModel.ApplyToWindowsAsync();
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.DiagnosticSink.Write("Appearance.ApplyToWindows", ex);
+        }
+    }
+
     private async void OnApplyClick(object sender, RoutedEventArgs e)
     {
         try

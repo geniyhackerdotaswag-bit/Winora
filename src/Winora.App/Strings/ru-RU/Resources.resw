@@ -513,7 +513,13 @@
   <data name="Appearance_Applied"><value>Схема применена и сохранена. Она останется после перезапуска.</value></data>
   <data name="Appearance_HighContrast"><value>В Windows включена высокая контрастность. Пока она включена, Winora использует системные цвета, а не эту схему: цвета высокой контрастности выбирает пользователь, и перекрашивать их приложение не вправе.</value></data>
   <data name="Appearance_WindowsHeading"><value>Оформление Windows</value></data>
-  <data name="Appearance_WindowsDescription"><value>Этой схеме соответствует {0} тема Windows. Winora её не переключает: значения тем в реестре Microsoft не документирует как изменяемые, а приложение меняет только то, на что есть документация. Кнопка откроет страницу «Цвета» в Параметрах — там это делается штатно и одним переключателем.</value></data>
+  <data name="Appearance_WindowsDescription"><value>Этой схеме соответствует {0} тема Windows. Winora перенесёт её целиком: режим и цвет акцента. Делается это файлом темы Windows — копией той, что уже стоит, с изменёнными строками цвета, поэтому обои, курсоры и звуки остаются вашими.</value></data>
+  <data name="Appearance_WindowsCost"><value>Откроется окно «Параметры»: другого способа применить тему у Windows нет. И Windows перестанет подбирать акцент по обоям — выбранный цвет и автоподбор вместе не работают. Отменить можно в журнале изменений.</value></data>
+  <data name="Appearance_WindowsApply"><value>Перенести схему в Windows</value></data>
+  <data name="Appearance_WindowsAlready"><value>У Windows уже такое оформление — менять нечего.</value></data>
+  <data name="Appearance_WindowsCategory"><value>Оформление</value></data>
+  <data name="Appearance_WindowsPlanTitle"><value>Оформление Windows по схеме Winora</value></data>
+  <data name="Appearance_WindowsPlanSummary"><value>Режим и цвет акцента Windows берутся из схемы Winora. Обои, курсоры и звуки не меняются.</value></data>
   <data name="Appearance_WindowsOpen"><value>Открыть «Цвета» в Параметрах</value></data>
   <data name="Appearance_Preset_White"><value>Белый</value></data>
   <data name="Appearance_Preset_Violet"><value>Фиолетовый</value></data>

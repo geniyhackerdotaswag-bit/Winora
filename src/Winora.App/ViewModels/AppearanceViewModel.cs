@@ -94,6 +94,7 @@ public sealed partial class AppearanceViewModel : ObservableObject
     private readonly IThemeBrushService _theme;
     private readonly IColorSchemeStore _store;
     private readonly ILocalizationService _text;
+    private readonly IWindowsThemeService _windows;
 
     private WinoraColorScheme _draft = ColorSchemePresets.Default;
 
@@ -180,6 +181,34 @@ public sealed partial class AppearanceViewModel : ObservableObject
     public partial string WindowsOpenLabel { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial string WindowsApplyLabel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What pressing the button will cost, said before it is pressed rather than after.
+    /// </summary>
+    /// <remarks>
+    /// Two things happen that nobody asked for and both are named here: the Windows Settings window
+    /// opens, because that is the only way Windows adopts a theme, and Windows stops choosing the
+    /// accent from the wallpaper, because a chosen colour and an automatic one cannot both apply.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string WindowsCost { get; set; } = string.Empty;
+
+    /// <summary>True while the change is being applied and confirmed.</summary>
+    [ObservableProperty]
+    public partial bool IsApplyingToWindows { get; set; }
+
+    /// <summary>False when the live system will not accept the change, with the reason beside it.</summary>
+    [ObservableProperty]
+    public partial bool CanApplyToWindows { get; set; }
+
+    [ObservableProperty]
+    public partial string WindowsResult { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool ShowWindowsResult { get; set; }
+
+    [ObservableProperty]
     public partial bool ShowSaved { get; set; }
 
     [ObservableProperty]
@@ -209,11 +238,13 @@ public sealed partial class AppearanceViewModel : ObservableObject
     public AppearanceViewModel(
         IThemeBrushService theme,
         IColorSchemeStore store,
-        ILocalizationService text)
+        ILocalizationService text,
+        IWindowsThemeService windows)
     {
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _windows = windows ?? throw new ArgumentNullException(nameof(windows));
     }
 
     public Task LoadAsync(CancellationToken cancellationToken = default)
@@ -233,6 +264,8 @@ public sealed partial class AppearanceViewModel : ObservableObject
         ResetLabel = _text.Get("Appearance_Reset");
         WindowsHeading = _text.Get("Appearance_WindowsHeading");
         WindowsOpenLabel = _text.Get("Appearance_WindowsOpen");
+        WindowsApplyLabel = _text.Get("Appearance_WindowsApply");
+        WindowsCost = _text.Get("Appearance_WindowsCost");
         SavedNotice = _text.Get("Appearance_Applied");
         SuppressedNotice = _text.Get("Appearance_HighContrast");
         IsSuppressed = _theme.IsSuppressed;
@@ -241,7 +274,53 @@ public sealed partial class AppearanceViewModel : ObservableObject
         _draft = _theme.CurrentScheme;
         Refresh();
 
-        return Task.CompletedTask;
+        return RefreshWindowsAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Asks the live system whether it would accept the change, before the button is offered.
+    /// </summary>
+    private async Task RefreshWindowsAsync(CancellationToken cancellationToken)
+    {
+        CanApplyToWindows = await _windows.CanApplyAsync(cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Carries the saved scheme across to Windows: mode from its lightness, accent from its accent.
+    /// </summary>
+    /// <remarks>
+    /// Only on a press. Changing the appearance of the whole system as a side effect of picking
+    /// colours for one application is exactly the high-handedness this program is built against.
+    /// </remarks>
+    public async Task ApplyToWindowsAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsApplyingToWindows)
+        {
+            return;
+        }
+
+        IsApplyingToWindows = true;
+        ShowWindowsResult = false;
+
+        try
+        {
+            // The scheme on screen, not the saved one: these are the colours the person is looking
+            // at, and a button that sent a different pair would be lying about what it does.
+            var palette = SchemeDerivation.Derive(_draft);
+            var accent = ((uint)AccentColor.R << 16) | ((uint)AccentColor.G << 8) | AccentColor.B;
+
+            var outcome = await _windows.ApplyAsync(palette.IsDark, accent, cancellationToken)
+                .ConfigureAwait(true);
+
+            WindowsResult = outcome.Message;
+            ShowWindowsResult = true;
+        }
+        finally
+        {
+            IsApplyingToWindows = false;
+        }
+
+        await RefreshWindowsAsync(cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>Picks a ready-made scheme, discarding any manual overrides along with it.</summary>
