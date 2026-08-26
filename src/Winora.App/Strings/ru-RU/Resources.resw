@@ -531,6 +531,8 @@
   <data name="Profile_EmailPlaceholder"><value>name@example.com</value></data>
   <data name="Profile_ChangesCaption"><value>Изменений записано</value></data>
   <data name="Profile_DaysCaption"><value>Дней с Winora</value></data>
+  <data name="Profile_DaysToday"><value>Сегодня</value></data>
+  <data name="Profile_DaysCaptionFirst"><value>Первый день с Winora</value></data>
   <data name="Profile_PicturesHeading"><value>Картинки</value></data>
   <data name="Profile_AvatarPicture"><value>Аватар</value></data>
   <data name="Profile_AvatarLimits"><value>PNG, JPEG или WebP, до 4 МБ, не меньше 128 × 128 точек. Картинка обрежется в квадрат по центру и покажется кругом.</value></data>

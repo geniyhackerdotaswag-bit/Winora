@@ -93,6 +93,12 @@ public sealed class ProfileViewModelTests
         {
             "Profile_MemberSince" => "с {0}",
             "Profile_RecordedChanges" => "записано {0}",
+
+            // Spelled out rather than echoed, so the assertions below read as the words that end
+            // up on the card instead of as resource keys.
+            "Profile_DaysToday" => "Сегодня",
+            "Profile_DaysCaption" => "Дней с Winora",
+            "Profile_DaysCaptionFirst" => "Первый день с Winora",
             _ => resourceKey,
         };
     }
@@ -131,6 +137,48 @@ public sealed class ProfileViewModelTests
         Assert.Equal("#2FBF9E", vm.Colour);
         Assert.Equal("А", vm.Initial);
         Assert.Contains("2026", vm.MemberSince);
+    }
+
+    /// <summary>A nought would be true and would read as a field nobody filled in.</summary>
+    [Fact]
+    public void On_the_first_day_the_figure_is_a_word()
+    {
+        var vm = ProfileCreated(DateTimeOffset.Now.AddHours(-3));
+
+        Assert.Equal("Сегодня", vm.DaysWithWinora);
+        Assert.Equal("Первый день с Winora", vm.DaysCaption);
+    }
+
+    [Fact]
+    public void After_the_first_day_the_figure_is_the_count()
+    {
+        var vm = ProfileCreated(DateTimeOffset.Now.AddDays(-5));
+
+        Assert.Equal("5", vm.DaysWithWinora);
+        Assert.Equal("Дней с Winora", vm.DaysCaption);
+    }
+
+    /// <summary>
+    /// A profile carried over from a machine whose clock ran ahead is dated in the future.
+    /// </summary>
+    [Fact]
+    public void A_creation_date_in_the_future_reads_as_the_first_day()
+    {
+        var vm = ProfileCreated(DateTimeOffset.Now.AddDays(9));
+
+        Assert.Equal("Сегодня", vm.DaysWithWinora);
+        Assert.Equal("Первый день с Winora", vm.DaysCaption);
+    }
+
+    private static ProfileViewModel ProfileCreated(DateTimeOffset created)
+    {
+        var vm = Build(new FakeProfileService
+        {
+            Current = new ProfileView("Аня", string.Empty, 2, created, "#2FBF9E", "А"),
+        });
+
+        vm.Load();
+        return vm;
     }
 
     /// <summary>The button follows the rules, so a bad name cannot be saved by pressing harder.</summary>

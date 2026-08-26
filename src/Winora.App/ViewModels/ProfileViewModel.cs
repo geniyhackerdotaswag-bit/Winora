@@ -67,7 +67,7 @@ public sealed partial class ProfileViewModel : ObservableObject
     public partial string RecordedChangesValue { get; set; } = string.Empty;
 
     /// <summary>
-    /// Whole days since the profile was created, as a bare number.
+    /// Whole days since the profile was created — a bare number, or a word on the first day.
     /// </summary>
     /// <remarks>
     /// Derived from the stored creation date rather than counted anywhere, so it costs nothing and
@@ -76,6 +76,16 @@ public sealed partial class ProfileViewModel : ObservableObject
     /// </remarks>
     [ObservableProperty]
     public partial string DaysWithWinora { get; set; } = string.Empty;
+
+    /// <summary>What the figure above means, in words.</summary>
+    /// <remarks>
+    /// Set beside <see cref="DaysWithWinora"/> rather than read from one fixed resource, because on
+    /// the first day the figure is a word and the two have to agree. Both are written in the same
+    /// place so they cannot drift apart: a caption that outlived the number it explains is the kind
+    /// of thing nobody notices until it is on somebody else's screen.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string DaysCaption { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
@@ -172,8 +182,6 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     public string ChangesCaption => _text.Get("Profile_ChangesCaption");
 
-    public string DaysCaption => _text.Get("Profile_DaysCaption");
-
     /// <summary>The palette, so the picker does not have to know how colours are chosen.</summary>
     public IReadOnlyList<string> Palette => _profile.Palette;
 
@@ -207,11 +215,21 @@ public sealed partial class ProfileViewModel : ObservableObject
 
         // Floored at zero. A profile file carried over from a machine whose clock ran ahead would
         // otherwise put a negative number on the card, which is worse than an unremarkable nought.
-        var days = current is null ? 0 : (DateTimeOffset.Now - current.CreatedUtc).Days;
+        var elapsed = current is null ? 0 : (DateTimeOffset.Now - current.CreatedUtc).Days;
+        var days = elapsed < 0 ? 0 : elapsed;
 
+        // A nought is true and still reads as a field that failed to fill in, which is the one
+        // thing this card exists to stop. The first day says so in words instead, and the caption
+        // moves with it: "Сегодня" under "Дней с Winora" would not be a sentence.
         DaysWithWinora = current is null
             ? string.Empty
-            : (days < 0 ? 0 : days).ToString(CultureInfo.CurrentCulture);
+            : days == 0
+                ? _text.Get("Profile_DaysToday")
+                : days.ToString(CultureInfo.CurrentCulture);
+
+        DaysCaption = days == 0
+            ? _text.Get("Profile_DaysCaptionFirst")
+            : _text.Get("Profile_DaysCaption");
     }
 
     public async Task LoadStatisticsAsync()
