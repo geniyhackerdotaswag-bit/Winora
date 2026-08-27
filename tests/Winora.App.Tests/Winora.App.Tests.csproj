@@ -72,6 +72,13 @@
     -->
     <Compile Include="..\..\src\Winora.App\ViewModels\QuickAction.cs" LinkBase="Linked\ViewModels" />
     <Compile Include="..\..\src\Winora.App\ViewModels\DashboardViewModel.cs" LinkBase="Linked\ViewModels" />
+    <!--
+      JournalViewModel and the reader behind it touch no WinUI type: ObservableObject, the App-layer
+      ILocalizationService, and the Core journal contracts. Linked so the one thing this screen is
+      for — showing what happened without showing what it happened to — can be asserted directly.
+    -->
+    <Compile Include="..\..\src\Winora.App\ViewModels\JournalViewModel.cs" LinkBase="Linked\ViewModels" />
+
     <!-- ShellViewModel is the pane structure and two strings; RouteRegistry and IAppEnvironment
          are both linked above already. -->
     <Compile Include="..\..\src\Winora.App\ViewModels\ShellViewModel.cs" LinkBase="Linked\ViewModels" />

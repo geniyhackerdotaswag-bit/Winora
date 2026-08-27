@@ -63,6 +63,10 @@
                                                                Opacity="0.7"
                                                                Visibility="{x:Bind ctl:XamlConvert.Show(NeededAdministrator), Mode=OneWay}"
                                                                Text="{x:Bind AdministratorLabel, Mode=OneWay}" />
+                                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                               Margin="0"
+                                                               Visibility="{x:Bind HasAffected, Mode=OneWay}"
+                                                               Text="{x:Bind Affected, Mode=OneWay}" />
                                                 </StackPanel>
                                             </StackPanel>
 

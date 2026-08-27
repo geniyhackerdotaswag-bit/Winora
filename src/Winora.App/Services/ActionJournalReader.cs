@@ -8,12 +8,22 @@ namespace Winora.App.Services;
 /// <param name="StatusResourceKey">How it ended.</param>
 /// <param name="RiskResourceKey">The risk the plan carried.</param>
 /// <param name="NeededAdministrator">True when the change required administrator rights.</param>
+/// <param name="AffectedItemCount">
+/// How many things the entry touched, or null when the operation does not count in things.
+/// </param>
+/// <remarks>
+/// The count breaks none of this screen's promise. It is not a path, a value or a name: it is how
+/// many. Without it four cleanup entries written minutes apart read identically — including the one
+/// that removed nothing at all, which said "выполнена" beside three others that removed 264, 15 and
+/// 2. A log where a change and a no-op look the same is a log nobody can use.
+/// </remarks>
 public sealed record ActionRecordView(
     DateTimeOffset TimestampUtc,
     string CategoryResourceKey,
     string StatusResourceKey,
     string RiskResourceKey,
-    bool NeededAdministrator);
+    bool NeededAdministrator,
+    int? AffectedItemCount = null);
 
 /// <summary>The sanitized audit trail, for the presentation layer.</summary>
 public interface IActionJournalReader
@@ -44,7 +54,8 @@ public sealed class ActionJournalReader : IActionJournalReader
                 "Journal_Category_" + entry.Category,
                 "Journal_Status_" + entry.Status,
                 "Journal_Risk_" + entry.Risk,
-                entry.Privilege == ActionJournalPrivilege.Administrator))
+                entry.Privilege == ActionJournalPrivilege.Administrator,
+                entry.AffectedItemCount))
             .ToArray();
     }
 }

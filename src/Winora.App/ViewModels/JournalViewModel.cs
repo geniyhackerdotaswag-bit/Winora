@@ -25,6 +25,20 @@ public sealed partial class ActionRecordViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string AdministratorLabel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// How many things the entry touched, already in words, or empty when it counts in nothing.
+    /// </summary>
+    /// <remarks>
+    /// A count is neither a path nor a value nor a name, so it keeps this screen safe to share
+    /// while telling the one thing the rest of the row cannot: whether anything happened. Four
+    /// cleanup entries minutes apart read identically here, and one of them had removed nothing.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string Affected { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasAffected { get; set; }
 }
 
 /// <summary>
@@ -109,9 +123,26 @@ public sealed partial class JournalViewModel : ObservableObject
                 When = entry.TimestampUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
                 NeededAdministrator = entry.NeededAdministrator,
                 AdministratorLabel = _text.Get("Journal_Administrator"),
+                Affected = Affected(entry.AffectedItemCount),
+                HasAffected = entry.AffectedItemCount is not null,
             });
         }
 
         IsEmpty = Records.Count == 0;
     }
+
+    /// <summary>
+    /// The count in words, with nothing said when there is no count to give.
+    /// </summary>
+    /// <remarks>
+    /// Zero gets its own sentence rather than "0 объектов". An entry that touched nothing is the
+    /// one this exists to make visible, and reading it as a number beside three others invites the
+    /// eye straight past it.
+    /// </remarks>
+    private string Affected(int? count) => count switch
+    {
+        null => string.Empty,
+        0 => _text.Get("Journal_AffectedNone"),
+        _ => string.Format(CultureInfo.CurrentCulture, _text.Get("Journal_Affected"), count),
+    };
 }

@@ -258,6 +258,8 @@
   <data name="Settings_StorageNote"><value>Здесь лежат журнал, архив планов и резервные копии — всё, на чём держится возможность отменить изменение. Папка намеренно вынесена за пределы хранилища пакета, чтобы переживать удаление приложения.</value></data>
   <data name="Settings_OpenFolder"><value>Открыть папку</value></data>
   <data name="Journal_Subtitle"><value>Обезличенная запись того, что делала Winora.</value></data>
+  <data name="Journal_Affected"><value>затронуто объектов: {0}</value></data>
+  <data name="Journal_AffectedNone"><value>ничего не затронуто</value></data>
   <data name="Journal_PrivacyNote"><value>Здесь нет ни путей, ни значений, ни имён — только область, итог, уровень риска и требовались ли права администратора. Так сделано намеренно: этот журнал должен оставаться безопасным, чтобы им можно было поделиться, когда что-то пошло не так. Чтобы увидеть и отменить конкретное изменение, откройте раздел «Изменения».</value></data>
   <data name="Journal_Refresh"><value>Обновить</value></data>
   <data name="Journal_Administrator"><value>требовались права администратора</value></data>
