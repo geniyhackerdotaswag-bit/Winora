@@ -245,4 +245,82 @@ public sealed class AppUpdaterTests : IDisposable
             HttpRequestMessage request, CancellationToken cancellationToken) =>
             throw new TaskCanceledException("the request timed out");
     }
+
+    /// <summary>
+    /// An update that will not fit is refused before anything is downloaded.
+    /// </summary>
+    /// <remarks>
+    /// Before, not after, and that is the whole point. A build that arrives and cannot unpack dies
+    /// before its own code runs — no window, no message, nothing in Winora's own log — so this is
+    /// the last moment at which the answer can still reach a person. Measured on the owner's
+    /// machine on 2026-08-27, where the only trace was one line in the Windows event log.
+    /// </remarks>
+    [Fact]
+    public async Task An_update_that_will_not_fit_is_refused_before_anything_is_downloaded()
+    {
+        var handler = new CountingHandler(Program(2048));
+
+        var updater = new AppUpdater(
+            new HereLocation(_target),
+            new HttpClient(handler),
+            _ => 0);
+
+        Assert.Equal(UpdateOutcome.NoDiskSpace, await updater.UpdateAsync(Release(2048), null));
+        Assert.Equal(0, handler.Requests);
+        Assert.Equal("the program that is running", File.ReadAllText(_target));
+    }
+
+    /// <summary>Room for the file alone is not room for the update.</summary>
+    /// <remarks>
+    /// The trap: the download succeeds, the swap succeeds, and the program never opens again. What
+    /// Windows unpacks from a single-file build is over twice the size of the file itself.
+    /// </remarks>
+    [Fact]
+    public async Task Room_for_only_the_download_is_still_refused()
+    {
+        var updater = new AppUpdater(
+            new HereLocation(_target),
+            new HttpClient(new CountingHandler(Program(2048))),
+            _ => 4096);
+
+        Assert.Equal(UpdateOutcome.NoDiskSpace, await updater.UpdateAsync(Release(2048), null));
+    }
+
+    /// <summary>
+    /// A drive that cannot be measured does not block the update.
+    /// </summary>
+    /// <remarks>
+    /// Not knowing how much room there is is not the same as knowing there is none. Refusing over a
+    /// question that could not be asked would strand people on old versions for no reason at all.
+    /// </remarks>
+    [Fact]
+    public async Task A_drive_that_cannot_be_measured_does_not_stop_the_update()
+    {
+        var program = Program(2048);
+
+        var updater = new AppUpdater(
+            new HereLocation(_target),
+            new HttpClient(new TwoFileHandler(program, Convert.ToHexString(SHA256.HashData(program)))),
+            _ => null);
+
+        Assert.Equal(UpdateOutcome.Installed, await updater.UpdateAsync(Release(program.Length), null));
+    }
+
+    /// <summary>Serves a program and counts whether it was ever asked for anything.</summary>
+    private sealed class CountingHandler(byte[] program) : HttpMessageHandler
+    {
+        public int Requests { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Requests++;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(program),
+            });
+        }
+    }
 }

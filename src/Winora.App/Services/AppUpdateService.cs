@@ -6,11 +6,21 @@ namespace Winora.App.Services;
 /// <param name="Tag">The tag as written, for linking to the release page.</param>
 /// <param name="Notes">What the release says about itself. May be empty.</param>
 /// <param name="SizeBytes">How large the download is, so the strip can say before it starts.</param>
+/// <param name="RequiredBytes">
+/// Room the whole update needs: the download, the copy Windows unpacks from it, and a margin. Held
+/// here so the screen can name the figure without a ViewModel reaching into Winora.System for the
+/// arithmetic.
+/// </param>
 /// <remarks>
-/// <see cref="Notes"/> and <see cref="SizeBytes"/> default so the many tests that do not care about
-/// them can keep constructing this with just a version and a tag.
+/// Everything after <see cref="Tag"/> defaults so the many tests that do not care about these can
+/// keep constructing this with just a version and a tag.
 /// </remarks>
-public sealed record AppUpdateReleaseView(string Version, string Tag, string Notes = "", long SizeBytes = 0);
+public sealed record AppUpdateReleaseView(
+    string Version,
+    string Tag,
+    string Notes = "",
+    long SizeBytes = 0,
+    long RequiredBytes = 0);
 
 /// <summary>How an update attempt ended, for the presentation layer.</summary>
 public enum AppUpdateOutcomeView
@@ -29,6 +39,9 @@ public enum AppUpdateOutcomeView
 
     /// <summary>This copy is not the installed one, so it is not ours to replace.</summary>
     NotInstalled,
+
+    /// <summary>There is not enough room for the download and the copy unpacked from it.</summary>
+    NoDiskSpace,
 
     /// <summary>
     /// The program was moved aside and could not be put back. It is beside its own path under the
@@ -148,7 +161,8 @@ public sealed class AppUpdateService : IAppUpdateService
                 _offered.Version.ToString(3),
                 _offered.Tag,
                 _offered.Notes,
-                _offered.SizeBytes);
+                _offered.SizeBytes,
+                UpdateDiskSpace.NeededFor(_offered.SizeBytes));
     }
 
     /// <remarks>
@@ -175,6 +189,7 @@ public sealed class AppUpdateService : IAppUpdateService
             UpdateOutcome.Displaced => AppUpdateOutcomeView.Displaced,
             UpdateOutcome.SwapFailed => AppUpdateOutcomeView.SwapFailed,
             UpdateOutcome.NotInstalled => AppUpdateOutcomeView.NotInstalled,
+            UpdateOutcome.NoDiskSpace => AppUpdateOutcomeView.NoDiskSpace,
             _ => AppUpdateOutcomeView.SwapFailed,
         };
     }

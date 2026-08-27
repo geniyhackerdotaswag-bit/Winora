@@ -21,6 +21,17 @@ public enum UpdateOutcome
     NotInstalled,
 
     /// <summary>
+    /// There is not enough room for the download and the copy Windows unpacks from it.
+    /// </summary>
+    /// <remarks>
+    /// Refused before anything is downloaded, because there is no later point at which it could be
+    /// reported. A build that arrives and cannot unpack dies before its own code runs: no window,
+    /// no message, no log of its own. From the outside the program stops opening and nothing says
+    /// why.
+    /// </remarks>
+    NoDiskSpace,
+
+    /// <summary>
     /// The program was moved aside and could not be put back. It is beside its own path under
     /// <see cref="AppFileSwap.OldSuffix" />.
     /// </summary>
@@ -69,6 +80,7 @@ public sealed class AppUpdater : IAppUpdater
 {
     private readonly IAppInstallLocation _location;
     private readonly HttpClient _http;
+    private readonly Func<string, long?> _freeBytes;
 
     public AppUpdater(IAppInstallLocation location)
         : this(location, CreateClient())
@@ -76,9 +88,39 @@ public sealed class AppUpdater : IAppUpdater
     }
 
     public AppUpdater(IAppInstallLocation location, HttpClient http)
+        : this(location, http, FreeBytesOn)
+    {
+    }
+
+    /// <param name="freeBytes">
+    /// Room on the drive holding a given folder, or null when it cannot be read. Injected so the
+    /// refusal can be proved without filling a real disk.
+    /// </param>
+    public AppUpdater(IAppInstallLocation location, HttpClient http, Func<string, long?> freeBytes)
     {
         _location = location ?? throw new ArgumentNullException(nameof(location));
         _http = http ?? throw new ArgumentNullException(nameof(http));
+        _freeBytes = freeBytes ?? throw new ArgumentNullException(nameof(freeBytes));
+    }
+
+    /// <summary>
+    /// Free bytes on the drive a folder sits on, or null when the question cannot be answered.
+    /// </summary>
+    /// <remarks>
+    /// Null goes on with the update rather than refusing it. Not knowing how much room there is
+    /// is not the same as knowing there is none, and refusing an update over a question that could
+    /// not be asked would strand people on old versions for no reason.
+    /// </remarks>
+    private static long? FreeBytesOn(string folder)
+    {
+        try
+        {
+            return new DriveInfo(Path.GetPathRoot(Path.GetFullPath(folder))!).AvailableFreeSpace;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static HttpClient CreateClient()
@@ -101,6 +143,15 @@ public sealed class AppUpdater : IAppUpdater
         }
 
         var target = _location.InstalledExecutablePath;
+
+        // Asked before the download, not after: this is the only moment at which the answer can
+        // still reach a person. See UpdateOutcome.NoDiskSpace.
+        if (_freeBytes(_location.InstalledDirectory) is { } free &&
+            !UpdateDiskSpace.For(release.SizeBytes, free).Fits)
+        {
+            return UpdateOutcome.NoDiskSpace;
+        }
+
         var fresh = target + AppFileSwap.FreshSuffix;
 
         // Held rather than returned directly, because the finally block below needs to know how
@@ -167,9 +218,21 @@ public sealed class AppUpdater : IAppUpdater
         }
     }
 
-    public void RemoveLeftovers() => AppFileSwap.RemoveLeftovers(
-        _location.InstalledDirectory,
-        Path.GetFileName(_location.InstalledExecutablePath));
+    /// <remarks>
+    /// Two kinds of leftover, both from updating. The <c>.old</c> and <c>.new</c> files beside the
+    /// program, and the unpacked copies of replaced versions in the temporary folder — those are
+    /// far larger, and .NET leaves every one of them behind for good.
+    /// </remarks>
+    public void RemoveLeftovers()
+    {
+        var executable = Path.GetFileName(_location.InstalledExecutablePath);
+
+        AppFileSwap.RemoveLeftovers(_location.InstalledDirectory, executable);
+
+        ExtractionCache.RemoveReplaced(
+            Path.GetFileNameWithoutExtension(executable),
+            AppContext.BaseDirectory);
+    }
 
     /// <remarks>
     /// The caller ends this process afterwards. Started without a shell so the new program inherits

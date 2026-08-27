@@ -544,6 +544,7 @@
   <data name="Update_Restarting"><value>Обновлено. Перезапускаем…</value></data>
   <data name="Update_Failed_Download"><value>Не удалось скачать. Программа не изменена.</value></data>
   <data name="Update_Failed_Verification"><value>Файл скачался повреждённым. Программа не изменена.</value></data>
+  <data name="Update_Failed_DiskSpace"><value>На диске мало места: обновлению нужно около {0:F0} МБ. Скачивание не начиналось, всё осталось как было. Освободите место — в этом поможет раздел «Очистка» — и попробуйте снова.</value></data>
   <data name="Update_Failed_Swap"><value>Не удалось обновить, всё осталось как было.</value></data>
   <data name="Update_Failed_Displaced"><value>Обновление не удалось, и программа сдвинута со своего места. Рядом лежит файл Winora.exe.old — переименуйте его обратно в Winora.exe.</value></data>
   <data name="Update_Failed_Restart"><value>Обновлено. Закройте окно и откройте Winora заново.</value></data>

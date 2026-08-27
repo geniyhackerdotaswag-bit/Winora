@@ -337,6 +337,25 @@ public sealed partial class UpdateViewModel : ObservableObject
                     Fail("Update_Failed_NoOffer");
                     break;
 
+                case AppUpdateOutcomeView.NoDiskSpace:
+                    // Named in megabytes rather than left as "not enough room". The number is the
+                    // whole of what somebody can act on, and this refusal happens before the
+                    // download precisely so that there is still something able to say it.
+                    //
+                    // The button stays a retry rather than turning into "open the page", which is
+                    // what every other failure here does. Nothing was downloaded and nothing was
+                    // touched, so pressing again after clearing some room is both safe and exactly
+                    // the right thing to do — and downloading the same file by hand would need the
+                    // same room this just said was missing.
+                    Message = string.Format(
+                        CultureInfo.CurrentCulture,
+                        _text.Get("Update_Failed_DiskSpace"),
+                        (_found?.RequiredBytes ?? 0) / (1024d * 1024d));
+
+                    IsFailure = true;
+                    IsActionVisible = true;
+                    break;
+
                 case AppUpdateOutcomeView.SwapFailed:
                 case AppUpdateOutcomeView.NotInstalled:
                 default:
