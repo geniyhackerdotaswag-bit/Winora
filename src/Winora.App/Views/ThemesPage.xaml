@@ -108,7 +108,21 @@
                                                    Text="{x:Bind Detail}" />
                                     </StackPanel>
 
-                                    <Grid Grid.Column="1" VerticalAlignment="Center" MinWidth="44">
+                                    <!--
+                                      The ring gets a column of its own rather than sharing the
+                                      switch's. Both were aligned right in the same cell, so while a
+                                      change was being applied the ring sat on top of the switch's
+                                      knob. The column is reserved whether or not the ring is
+                                      showing, because a switch that jumps sideways the moment it is
+                                      pressed is worse than one sitting slightly further left.
+                                    -->
+                                    <Grid Grid.Column="1" VerticalAlignment="Center" ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="18" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Grid Grid.Column="0" MinWidth="44">
                                         <ToggleSwitch IsOn="{x:Bind SwitchValue, Mode=TwoWay}"
                                                       OnContent=""
                                                       OffContent=""
@@ -136,10 +150,12 @@
                                                   ToolTipService.ToolTip="{x:Bind BlockReason, Mode=OneWay}"
                                                   AutomationProperties.Name="{x:Bind BlockReason, Mode=OneWay}" />
 
-                                        <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                        </Grid>
+
+                                        <ProgressRing Grid.Column="1"
+                                                      IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                                       Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
-                                                      Width="18" Height="18"
-                                                      HorizontalAlignment="Right" />
+                                                      Width="18" Height="18" />
                                     </Grid>
                                 </Grid>
                             </ctl:HoverRow>

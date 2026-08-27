@@ -123,7 +123,6 @@
   <data name="Bypass_Verdict_Question"><value>Заработало? Проверьте Discord или YouTube.</value></data>
   <data name="Bypass_Verdict_Yes"><value>Да</value></data>
   <data name="Bypass_Verdict_No"><value>Нет, следующая</value></data>
-  <data name="Bypass_Outcome_Untried"><value>не пробовали</value></data>
   <data name="Bypass_Outcome_Started"><value>запускали {0}, без ответа</value></data>
   <data name="Bypass_Outcome_Worked"><value>работала {0}</value></data>
   <data name="Bypass_Outcome_Failed"><value>не помогла {0}</value></data>

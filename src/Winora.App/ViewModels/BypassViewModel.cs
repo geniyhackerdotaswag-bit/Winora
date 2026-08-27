@@ -419,8 +419,11 @@ public sealed partial class BypassViewModel : ObservableObject
             var latest = BypassAttemptRules.Latest(attempts, row.Id);
 
             row.HasFailed = latest?.Outcome == BypassOutcome.Failed;
+            // Nothing said about a strategy nobody has tried. A column of thirteen identical
+            // "не пробовали" is a wall of text that carries one bit of information — the absence of
+            // the other captions already carries it.
             row.OutcomeText = latest is null
-                ? _text.Get("Bypass_Outcome_Untried")
+                ? string.Empty
                 : string.Format(
                     CultureInfo.CurrentCulture,
                     _text.Get(latest.Outcome switch
