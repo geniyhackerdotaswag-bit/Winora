@@ -38,6 +38,13 @@
           measured arithmetic rather than a look at it. Both layers use the palette rather than a
           fixed black, because this card is only ever shown after a scheme has been chosen.
 
+          The sheet is a gradient rather than one flat value, and that came from the owner: a flat
+          0.86 across the whole card kept the text readable and left the picture barely there. All
+          the text sits in the left third; the right half holds nothing at all. So the sheet keeps
+          its measured 0.86 out to 0.55 — past the longest line the card draws — and thins to 0.20
+          by the right edge, where there is nothing to protect. The transparency now lives in the
+          brush's stops rather than in this Border's Opacity, so one layer can be two strengths.
+
           The radius is 13 rather than the card's 14: the card carries a one-pixel border, so its
           child sits one pixel inside it, and 14 would overhang the curve by exactly that pixel.
         -->
@@ -45,9 +52,8 @@
                 CornerRadius="13"
                 Visibility="Collapsed" />
         <Border x:Name="BackdropScrim"
-                Background="{ThemeResource WinoraCardFill}"
+                Background="{ThemeResource WinoraCardScrim}"
                 CornerRadius="13"
-                Opacity="0.86"
                 Visibility="Collapsed" />
 
         <StackPanel Margin="24">

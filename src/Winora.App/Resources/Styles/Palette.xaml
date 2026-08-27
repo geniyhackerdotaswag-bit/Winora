@@ -38,6 +38,23 @@
             <SolidColorBrush x:Key="WinoraContentSurfaceStroke" Color="#29292B" />
             <SolidColorBrush x:Key="WinoraCardFill" Color="#1E1E21" />
             <SolidColorBrush x:Key="WinoraCardFillHover" Color="#28272A" />
+            <!--
+                The sheet over a profile card's picture, and the reason it is a gradient.
+
+                A flat sheet at 0.86 kept the text readable and left the picture barely visible —
+                which is the complaint that produced this. The text lives in the left third of the
+                card and nothing lives in the right half, so the sheet holds full strength across
+                everything that has to be read and thins out over the part that is only picture.
+
+                The plateau reaches 0.55, well past the longest line the card draws, so the
+                contrast the flat sheet guaranteed still holds exactly where it was measured.
+            -->
+            <LinearGradientBrush x:Key="WinoraCardScrim" StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0.00" Color="#EB1E1E21" />
+                <GradientStop Offset="0.55" Color="#DB1E1E21" />
+                <GradientStop Offset="1.00" Color="#331E1E21" />
+            </LinearGradientBrush>
+
             <SolidColorBrush x:Key="WinoraCardStroke" Color="#242427" />
             <SolidColorBrush x:Key="WinoraDividerBrush" Color="#242427" />
             <SolidColorBrush x:Key="WinoraStrokeBrush" Color="#464648" />
@@ -120,6 +137,23 @@
             <SolidColorBrush x:Key="WinoraContentSurfaceStroke" Color="#D7D7D9" />
             <SolidColorBrush x:Key="WinoraCardFill" Color="#E2E2E4" />
             <SolidColorBrush x:Key="WinoraCardFillHover" Color="#D9D9DB" />
+            <!--
+                The sheet over a profile card's picture, and the reason it is a gradient.
+
+                A flat sheet at 0.86 kept the text readable and left the picture barely visible —
+                which is the complaint that produced this. The text lives in the left third of the
+                card and nothing lives in the right half, so the sheet holds full strength across
+                everything that has to be read and thins out over the part that is only picture.
+
+                The plateau reaches 0.55, well past the longest line the card draws, so the
+                contrast the flat sheet guaranteed still holds exactly where it was measured.
+            -->
+            <LinearGradientBrush x:Key="WinoraCardScrim" StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0.00" Color="#EBE2E2E4" />
+                <GradientStop Offset="0.55" Color="#DBE2E2E4" />
+                <GradientStop Offset="1.00" Color="#33E2E2E4" />
+            </LinearGradientBrush>
+
             <SolidColorBrush x:Key="WinoraCardStroke" Color="#DCDCDE" />
             <SolidColorBrush x:Key="WinoraDividerBrush" Color="#DCDCDE" />
             <SolidColorBrush x:Key="WinoraStrokeBrush" Color="#BCBCBE" />

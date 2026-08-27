@@ -129,6 +129,7 @@ public sealed class ThemeBrushService : IThemeBrushService
         Set(dictionary, "WinoraContentSurfaceStroke", palette.SheetStroke);
         Set(dictionary, "WinoraCardFill", palette.Card);
         Set(dictionary, "WinoraCardFillHover", palette.CardHover);
+        Set(dictionary, "WinoraCardScrim", palette.Card);
         Set(dictionary, "WinoraCardStroke", palette.Divider);
         Set(dictionary, "WinoraDividerBrush", palette.Divider);
         Set(dictionary, "WinoraStrokeBrush", palette.Stroke);
@@ -223,7 +224,21 @@ public sealed class ThemeBrushService : IThemeBrushService
         ColorValue colour,
         double opacity = 1.0)
     {
-        if (dictionary.TryGetValue(key, out var value) && value is SolidColorBrush brush)
+        if (dictionary.TryGetValue(key, out var value) && value is LinearGradientBrush gradient)
+        {
+            // Only the colour is rewritten; each stop keeps the transparency the dictionary gave
+            // it. That is what the gradient is for — the sheet over a profile card's picture holds
+            // full strength where the text is and thins out where there is nothing to read — and
+            // recolouring it flat would put the scheme's colour back over the whole picture.
+            foreach (var stop in gradient.GradientStops)
+            {
+                stop.Color = ToColor(colour, stop.Color.A);
+            }
+
+            return;
+        }
+
+        if (dictionary.TryGetValue(key, out value) && value is SolidColorBrush brush)
         {
             brush.Color = ToColor(colour);
 
