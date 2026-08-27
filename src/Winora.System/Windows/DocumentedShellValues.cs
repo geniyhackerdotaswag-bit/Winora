@@ -15,6 +15,16 @@ namespace Winora.System.Windows;
 /// </param>
 /// <param name="Restart">What the user must do for the change to become visible.</param>
 /// <param name="Documentation">The Microsoft Learn page describing this setting.</param>
+/// <param name="Domain">
+///     Which screen the setting belongs to, and the middle segment of its operation identifier.
+/// </param>
+/// <remarks>
+///     The domain is part of the identifier rather than a label beside it, because each screen finds
+///     its own rows by asking for a prefix. It defaults to <c>shell</c> so that every identifier
+///     already written to a journal or a saved plan still resolves to the same operation — those are
+///     durable records, and an id that quietly changed meaning would leave an old entry pointing at
+///     nothing.
+/// </remarks>
 public sealed record DocumentedShellValue(
     string ValueName,
     string Slug,
@@ -22,11 +32,12 @@ public sealed record DocumentedShellValue(
     int DefaultValue,
     RegistryValueKind DocumentedKind,
     RestartRequirement Restart,
-    Uri Documentation)
+    Uri Documentation,
+    string Domain = "shell")
 {
-    public string OperationId => $"winora.shell.{Slug}";
+    public string OperationId => $"winora.{Domain}.{Slug}";
 
-    public string StepId => $"shell-{Slug}";
+    public string StepId => $"{Domain}-{Slug}";
 }
 
 /// <summary>
@@ -47,6 +58,27 @@ public static class DocumentedShellValues
     private static readonly Uri Reference =
         new("https://learn.microsoft.com/en-us/windows/apps/develop/settings/settings-windows-11");
 
+    /// <summary>
+    /// Where Microsoft documents the two File Explorer values, and their registry paths.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The open specification for Group Policy preferences. It names both values, both full paths
+    /// and what each controls, which is more than the settings page above does for them.
+    /// </para>
+    /// <para>
+    /// Its wording is not what decided the numbers. <c>hideFileExt</c> is described there as
+    /// "Displays known file extensions. MUST be 1 to enable" — which reads as the opposite of what
+    /// a value called <em>Hide</em>FileExt does. The mapping was settled by asking the shell itself
+    /// through the documented <c>SHGetSettings</c> on 2026-08-27: with <c>HideFileExt=0</c> it
+    /// reported <c>fShowExtensions</c> true, and with <c>Hidden=2</c> it reported
+    /// <c>fShowAllObjects</c> false. Documented paths, measured meanings.
+    /// </para>
+    /// </remarks>
+    private static readonly Uri ExplorerReference = new(
+        "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-gppref/" +
+        "3c837e92-016e-4148-86e5-b4f0381a757f");
+
     public static IReadOnlyList<DocumentedShellValue> All { get; } =
     [
         new("TaskbarAl", "taskbar-alignment", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
@@ -59,6 +91,21 @@ public static class DocumentedShellValues
         new("Start_Layout", "start-layout", [0, 1], 0, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
         new("Start_TrackDocs", "start-recent-files", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
         new("Start_IrisRecommendations", "start-recommendations", [0, 1], 1, RegistryValueKind.DWord, RestartRequirement.Explorer, Reference),
+
+        // File Explorer. Two values, and deliberately only two.
+        //
+        // ShowSuperHidden is documented on the same page and is not here: showing protected
+        // operating system files is a way to delete something Windows depends on, and Microsoft's
+        // own dialog puts a warning in front of it. Offering that switch beside "show file
+        // extensions" would put a loaded choice next to a harmless one and call them the same kind
+        // of thing.
+        //
+        // Extensions first, because a hidden extension is how a file named photo.jpg.exe passes for
+        // a photograph — and Windows hides them by default.
+        new("HideFileExt", "file-extensions", [0, 1], 1, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("Hidden", "hidden-files", [1, 2], 2, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
     ];
 
     public static bool TryFind(string valueName, out DocumentedShellValue entry)

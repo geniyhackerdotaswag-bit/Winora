@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.ExplorerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <!--
+              Full-bleed header band in the section hue. It runs the whole width of the sheet while
+              the body below stays inside a capped column, so the colour belongs to the page rather
+              than to a card sitting on it.
+            -->
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}" />
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!--
+                  A star column with a cap: the content fills the width up to a comfortable measure
+                  and then stops, staying at the left edge instead of drifting into the middle.
+                -->
+                <ColumnDefinition Width="*" MaxWidth="1800" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Padding="32,20,32,32">
+
+
+                <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                         IsClosable="False"
+                         Severity="Warning"
+                         Margin="{StaticResource WinoraStackGapL}"
+                         Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                <!--
+                  Said once, above the rows: a hidden extension is the whole reason this screen is
+                  worth opening, and nobody arrives already knowing it.
+                -->
+                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                           Margin="2,0,0,16"
+                           TextWrapping="Wrap"
+                           Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+
+                <Border Style="{StaticResource WinoraGroup}">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ShellPreferenceRowViewModel">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <ctl:HoverRow Grid.Row="0">
+                                        <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource WinoraRowTitle}" Text="{x:Bind Label}" />
+                                                <TextBlock Style="{StaticResource WinoraRowWarning}"
+                                                           Text="{x:Bind BlockReason, Mode=OneWay}"
+                                                           Visibility="{x:Bind ctl:XamlConvert.Show(HasBlockReason), Mode=OneWay}" />
+                                            </StackPanel>
+
+                                            <!-- The list stands down while the ring is up. -->
+                                            <Grid Grid.Column="1" VerticalAlignment="Center" MinWidth="210">
+                                                <ComboBox HorizontalAlignment="Stretch"
+                                                          Visibility="{x:Bind ctl:XamlConvert.Hide(IsBusy), Mode=OneWay}"
+                                                          ItemsSource="{x:Bind Choices}"
+                                                          DisplayMemberPath="Label"
+                                                          SelectedItem="{x:Bind SelectedChoice, Mode=TwoWay}"
+                                                          IsEnabled="{x:Bind IsChangeable, Mode=OneWay}"
+                                                          SelectionChanged="OnSelectionChanged"
+                                                          Tag="{x:Bind}"
+                                                          AutomationProperties.Name="{x:Bind Label}"
+                                                          AutomationProperties.HelpText="{x:Bind BlockReason, Mode=OneWay}" />
+                                                <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
+                                                              Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
+                                                              Width="18" Height="18"
+                                                              HorizontalAlignment="Right"
+                                                              Margin="0,0,10,0" />
+                                            </Grid>
+                                        </Grid>
+                                    </ctl:HoverRow>
+
+                                    <Rectangle Grid.Row="1" Style="{StaticResource WinoraRowDivider}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <!-- Stated once for the whole page rather than repeated under every row. -->
+                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                           Margin="2,0,0,0"
+                           Text="{x:Bind ViewModel.RestartNote, Mode=OneWay}" />
+
+            </StackPanel>
+        </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

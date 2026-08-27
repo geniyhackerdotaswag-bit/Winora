@@ -460,6 +460,36 @@ public sealed class UpdateViewModelTests
     }
 
     /// <summary>
+    /// A short first sentence is taken rather than a long fragment.
+    /// </summary>
+    /// <remarks>
+    /// The real notes of v0.4.9, seen on the strip while the module below was being built. The
+    /// first sentence ends at fifty-seven characters, which an earlier floor of half the limit
+    /// threw out — leaving a hundred and sixty characters ending "…включая ту, что не…". The whole
+    /// short thought is worth more than the long fragment.
+    /// </remarks>
+    [Fact]
+    public async Task A_short_whole_first_sentence_beats_a_long_fragment()
+    {
+        var notes =
+            "Журнал действий показывает, сколько всего было затронуто. Раньше четыре записи об " +
+            "очистке, сделанные в одну минуту, читались одинаково — включая ту, что не удалила " +
+            "ничего. Число в журнале было всё это время, просто не доходило до экрана.";
+
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: notes, SizeBytes: 92_274_688),
+        };
+
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.EndsWith("сколько всего было затронуто. …", vm.Message);
+        Assert.DoesNotContain("включая", vm.Message);
+    }
+
+    /// <summary>
     /// Text with no sentence ending in time still gets cut, at a word.
     /// </summary>
     /// <remarks>

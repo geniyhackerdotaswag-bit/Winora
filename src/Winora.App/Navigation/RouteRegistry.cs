@@ -31,6 +31,7 @@ public sealed class RouteRegistry
 
         new(RouteKeys.Taskbar, "Nav_Taskbar", RoutePlacement.Pane, GroupPersonalization, "taskbar"),
         new(RouteKeys.Cursors, "Nav_Cursors", RoutePlacement.Pane, GroupPersonalization, "cursor"),
+        new(RouteKeys.Explorer, "Nav_Explorer", RoutePlacement.Pane, GroupPersonalization, "explorer"),
 
         new(RouteKeys.Cleanup, "Nav_Cleanup", RoutePlacement.Pane, GroupMaintenance, "broom"),
 

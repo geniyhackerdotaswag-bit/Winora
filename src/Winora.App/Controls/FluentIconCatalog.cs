@@ -28,6 +28,7 @@ public static class FluentIconCatalog
         ["taskbar"] = "",
         ["sound"] = "",
         ["cursor"] = "",
+        ["explorer"] = "",
         ["speed"] = "",
         ["broom"] = "",
         ["startup"] = "",

@@ -20,6 +20,9 @@ public sealed class RouteRegistryTests
         "cleanup",
         "sounds",
         "cursors",
+        // File Explorer: what it shows, not where files live. Two documented per-user values that
+        // had no screen until now.
+        "explorer",
         "startup",
         "bypass",
         "changes",

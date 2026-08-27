@@ -57,6 +57,7 @@ public static class ServiceRegistration
         // its drafts on load rather than being rebuilt per navigation.
         services.AddSingleton<ThemesViewModel>();
         services.AddSingleton<TaskbarViewModel>();
+        services.AddSingleton<ExplorerViewModel>();
         services.AddTransient<CleanupViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<StartupViewModel>();

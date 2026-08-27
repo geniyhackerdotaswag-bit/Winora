@@ -18,6 +18,7 @@ public static class PageCatalog
         RouteKeys.Themes => typeof(ThemesPage),
         RouteKeys.Appearance => typeof(AppearancePage),
         RouteKeys.Taskbar => typeof(TaskbarPage),
+        RouteKeys.Explorer => typeof(ExplorerPage),
         RouteKeys.Cleanup => typeof(CleanupPage),
         RouteKeys.Startup => typeof(StartupPage),
         RouteKeys.Performance => typeof(PerformancePage),

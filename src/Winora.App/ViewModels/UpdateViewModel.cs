@@ -457,9 +457,16 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// Where the last sentence ends within the limit, or null when no sentence ends in time.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A mark counts only when a space follows it, so a version number or an abbreviation does not
-    /// end a sentence. Anything shorter than half the limit is treated as no sentence at all: one
-    /// clipped opening clause tells a person less than the same length of running text would.
+    /// end a sentence.
+    /// </para>
+    /// <para>
+    /// The floor is a quarter of the limit, and it started at a half. At a half, a first sentence
+    /// of fifty-seven characters was thrown out as too short and the strip fell back to a hundred
+    /// and sixty characters ending "…включая ту, что не…". A whole short thought beats a long
+    /// fragment; the floor is only there to stop a lone "Готово." becoming the entire summary.
+    /// </para>
     /// </remarks>
     private static int? LastSentenceEnd(string text, int limit)
     {
@@ -477,7 +484,7 @@ public sealed partial class UpdateViewModel : ObservableObject
                 continue;
             }
 
-            return index + 1 >= limit / 2 ? index + 1 : null;
+            return index + 1 >= limit / 4 ? index + 1 : null;
         }
 
         return null;

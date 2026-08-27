@@ -10,6 +10,8 @@ public static class RouteKeys
     public const string Themes = "themes";
     public const string Appearance = "appearance";
     public const string Taskbar = "taskbar";
+
+    public const string Explorer = "explorer";
     public const string Performance = "performance";
     public const string Cleanup = "cleanup";
     public const string Sounds = "sounds";
@@ -33,6 +35,7 @@ public static class RouteKeys
         Themes,
         Appearance,
         Taskbar,
+        Explorer,
         Performance,
         Cleanup,
         Sounds,

@@ -64,6 +64,16 @@
   <data name="Nav_Dashboard"><value>Главная</value></data>
   <data name="Nav_Group_Personalization"><value>Персонализация</value></data>
   <data name="Nav_Themes"><value>Анимации и эффекты</value></data>
+  <data name="Nav_Explorer"><value>Проводник</value></data>
+  <data name="Explorer_Subtitle"><value>Windows по умолчанию прячет расширение у известных типов файлов. Из-за этого файл с именем «фото.jpg.exe» выглядит как «фото.jpg» — значок ему рисует тот, кто его сделал, а единственное, что выдало бы программу, Windows убирает.</value></data>
+  <data name="Explorer_PlanSummary"><value>Настройка Проводника для этой учётной записи. Меняется только то, что показано, файлы не трогаются.</value></data>
+  <data name="Explorer_ProbeFailed"><value>Не удалось прочитать настройки Проводника.</value></data>
+  <data name="Explorer_FileExtensions"><value>Расширения файлов</value></data>
+  <data name="Explorer_FileExtensions_0"><value>Показывать</value></data>
+  <data name="Explorer_FileExtensions_1"><value>Прятать у известных типов</value></data>
+  <data name="Explorer_HiddenFiles"><value>Скрытые файлы и папки</value></data>
+  <data name="Explorer_HiddenFiles_1"><value>Показывать</value></data>
+  <data name="Explorer_HiddenFiles_2"><value>Не показывать</value></data>
   <data name="Nav_Taskbar"><value>Панель задач</value></data>
   <data name="Nav_Sounds"><value>Звуки</value></data>
   <data name="Nav_Cursors"><value>Курсоры</value></data>
