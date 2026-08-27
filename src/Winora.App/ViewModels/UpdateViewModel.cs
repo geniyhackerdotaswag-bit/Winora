@@ -416,12 +416,20 @@ public sealed partial class UpdateViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Shortens release notes to a length that fits the strip, breaking on a word boundary rather
-    /// than mid-word, and marking the cut with an ellipsis.
+    /// Shortens release notes to what the strip can carry, ending on a whole sentence where there
+    /// is one.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// A sentence first, a word only if there is no sentence to end on. Cutting at the nearest word
+    /// produced strips like "…из 549 её файлов система держала только 76 —…": two lines of half a
+    /// thought, ending on a dash. It was doing exactly what it was told, and what it was told was
+    /// wrong — a notification that stops mid-sentence reads as broken software, whatever it says.
+    /// </para>
+    /// <para>
     /// Empty notes come back empty rather than as an ellipsis on their own, so the caller can tell
     /// "nothing to show" apart from "something was cut" without a separate check.
+    /// </para>
     /// </remarks>
     private static string SummarizeNotes(string notes)
     {
@@ -432,10 +440,47 @@ public sealed partial class UpdateViewModel : ObservableObject
             return trimmed;
         }
 
+        // The ellipsis is what says there is more; a full stop already ending the text would read
+        // as the whole of it, which would be the one untrue thing this could say.
+        if (LastSentenceEnd(trimmed, NotesMaxLength) is { } sentence)
+        {
+            return trimmed[..sentence] + " …";
+        }
+
         var cut = trimmed.LastIndexOf(' ', NotesMaxLength - 1);
         var shortened = cut > 0 ? trimmed[..cut] : trimmed[..NotesMaxLength];
 
         return shortened.TrimEnd() + "…";
+    }
+
+    /// <summary>
+    /// Where the last sentence ends within the limit, or null when no sentence ends in time.
+    /// </summary>
+    /// <remarks>
+    /// A mark counts only when a space follows it, so a version number or an abbreviation does not
+    /// end a sentence. Anything shorter than half the limit is treated as no sentence at all: one
+    /// clipped opening clause tells a person less than the same length of running text would.
+    /// </remarks>
+    private static int? LastSentenceEnd(string text, int limit)
+    {
+        var end = Math.Min(limit, text.Length - 1);
+
+        for (var index = end; index > 0; index--)
+        {
+            if (text[index] is not ('.' or '!' or '?'))
+            {
+                continue;
+            }
+
+            if (index + 1 < text.Length && text[index + 1] != ' ')
+            {
+                continue;
+            }
+
+            return index + 1 >= limit / 2 ? index + 1 : null;
+        }
+
+        return null;
     }
 
     /// <summary>

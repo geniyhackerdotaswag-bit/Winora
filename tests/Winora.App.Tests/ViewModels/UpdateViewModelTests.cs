@@ -430,6 +430,88 @@ public sealed class UpdateViewModelTests
     }
 
     /// <summary>
+    /// Long notes end on a whole sentence, not mid-thought.
+    /// </summary>
+    /// <remarks>
+    /// The real text of v0.4.7, which is what sent this to be rewritten. Cutting at the nearest
+    /// word produced "…из 549 её файлов система держала только 76 —…": two lines of half a thought
+    /// ending on a dash. A notification that stops mid-sentence reads as broken software, whatever
+    /// it happens to say.
+    /// </remarks>
+    [Fact]
+    public async Task Long_notes_are_cut_where_a_sentence_ends()
+    {
+        var notes =
+            "Раздел «Очистка» опустошает временную папку Windows, а туда же распаковывается сама " +
+            "Winora перед запуском. Из 549 её файлов система держала только 76 — остальные 473 " +
+            "очистка удалила бы из-под работающей программы.";
+
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: notes, SizeBytes: 92_274_688),
+        };
+
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.EndsWith("перед запуском. …", vm.Message);
+        Assert.DoesNotContain("549", vm.Message);
+    }
+
+    /// <summary>
+    /// Text with no sentence ending in time still gets cut, at a word.
+    /// </summary>
+    /// <remarks>
+    /// Release notes are whatever somebody typed. One long line without a full stop is ordinary,
+    /// and it must not come through at full length just because no sentence ended.
+    /// </remarks>
+    [Fact]
+    public async Task Notes_with_no_sentence_end_are_still_cut_at_a_word()
+    {
+        var notes = string.Join(' ', Enumerable.Repeat("слово", 60));
+
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: notes, SizeBytes: 92_274_688),
+        };
+
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.EndsWith("…", vm.Message);
+        Assert.True(vm.Message.Length < notes.Length);
+        Assert.DoesNotContain("слов…", vm.Message);
+    }
+
+    /// <summary>
+    /// One sentence ending very early does not become the whole summary.
+    /// </summary>
+    /// <remarks>
+    /// "Готово. " followed by two hundred characters of detail would otherwise leave the strip
+    /// saying "Готово. …" — less than the running text it replaced, which is the opposite of the
+    /// point.
+    /// </remarks>
+    [Fact]
+    public async Task A_sentence_that_ends_almost_immediately_is_not_the_whole_summary()
+    {
+        var notes = "Готово. " + string.Join(' ', Enumerable.Repeat("подробность", 40));
+
+        var update = new FakeUpdateService
+        {
+            IsInstalled = true,
+            NextCheck = new AppUpdateReleaseView("9.9.9", "v9.9.9", Notes: notes, SizeBytes: 92_274_688),
+        };
+
+        var vm = Build(update);
+        await vm.CheckCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain("Готово. …", vm.Message);
+        Assert.Contains("подробность", vm.Message);
+    }
+
+    /// <summary>
     /// The strip is one line of prose, so what goes into it must be prose.
     /// </summary>
     /// <remarks>
