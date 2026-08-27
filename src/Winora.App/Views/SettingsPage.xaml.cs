@@ -9,6 +9,8 @@ namespace Winora.App.Views;
 
 public sealed partial class SettingsPage : Page
 {
+    private readonly PageLoad _load = new();
+
     public SettingsPage()
     {
         ViewModel = App.Services.GetRequiredService<SettingsViewModel>();
@@ -31,7 +33,13 @@ public sealed partial class SettingsPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _load.Leave();
     }
 
     private void OnAppearanceClick(object sender, RoutedEventArgs e) =>

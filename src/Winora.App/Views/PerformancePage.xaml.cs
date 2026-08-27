@@ -8,6 +8,8 @@ namespace Winora.App.Views;
 
 public sealed partial class PerformancePage : Page
 {
+    private readonly PageLoad _load = new();
+
     /// <summary>
     /// One second, matching what Task Manager shows by default. Faster reads as noise rather than
     /// information, and every tick costs a walk of the process list.
@@ -32,7 +34,7 @@ public sealed partial class PerformancePage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
 
         // Not started while the screen is closed: the timer's only job is to refresh figures that
         // are not on screen.

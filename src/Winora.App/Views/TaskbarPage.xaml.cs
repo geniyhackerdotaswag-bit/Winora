@@ -7,6 +7,8 @@ namespace Winora.App.Views;
 
 public sealed partial class TaskbarPage : Page
 {
+    private readonly PageLoad _load = new();
+
     public TaskbarPage()
     {
         ViewModel = App.Services.GetRequiredService<TaskbarViewModel>();
@@ -18,7 +20,13 @@ public sealed partial class TaskbarPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _load.Leave();
     }
 
     private async void OnSelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -9,6 +9,8 @@ namespace Winora.App.Views;
 
 public sealed partial class ThemesPage : Page
 {
+    private readonly PageLoad _load = new();
+
     public ThemesPage()
     {
         ViewModel = App.Services.GetRequiredService<ThemesViewModel>();
@@ -24,7 +26,13 @@ public sealed partial class ThemesPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _load.Leave();
     }
 
     /// <summary>

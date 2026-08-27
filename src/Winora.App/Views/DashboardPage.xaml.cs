@@ -11,6 +11,8 @@ namespace Winora.App.Views;
 
 public sealed partial class DashboardPage : Page
 {
+    private readonly PageLoad _load = new();
+
     public DashboardPage()
     {
         ViewModel = App.Services.GetRequiredService<DashboardViewModel>();
@@ -22,7 +24,7 @@ public sealed partial class DashboardPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
 
         // The same card as the cabinet. The dashboard was empty above the fold, and the name the
         // person just typed had nowhere to land.
@@ -30,6 +32,12 @@ public sealed partial class DashboardPage : Page
         profile.Load();
         await profile.LoadStatisticsAsync().ConfigureAwait(true);
         Card.Show(profile);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _load.Leave();
     }
 
     private async void OnRecoverClick(object sender, RoutedEventArgs e) =>

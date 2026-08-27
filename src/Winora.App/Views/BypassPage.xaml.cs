@@ -8,6 +8,8 @@ namespace Winora.App.Views;
 
 public sealed partial class BypassPage : Page
 {
+    private readonly PageLoad _load = new();
+
     /// <summary>
     /// The bypass can be started or stopped from outside Winora and outlives the app, so the state
     /// on screen is re-read rather than assumed to still be what the last click made it.
@@ -30,7 +32,7 @@ public sealed partial class BypassPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        await ViewModel.LoadAsync().ConfigureAwait(true);
+        await _load.RunAsync(ViewModel.LoadAsync);
         _timer.Start();
     }
 

@@ -60,18 +60,36 @@ public sealed partial class TaskbarViewModel : ObservableObject
         Subtitle = _text.Get("Taskbar_Subtitle");
         RestartNote = _text.Get("Shell_RestartNote");
         StatusMessage = string.Empty;
-        Rows.Clear();
+
+        // Built into a plain list first, then put into Rows in one go, with no await in between.
+        //
+        // Clearing Rows and then adding with an await between each is the same shape that crashed
+        // the animations screen: every await is a point where the page can be navigated away from,
+        // and finishing the list afterwards changes a collection WinUI has already torn down. It
+        // comes out as "System.Runtime.InteropServices.COMException (0x80004005)" from
+        // OnCollectionChanged and closes the whole application, looking from outside like the
+        // window shutting by itself.
+        var built = new List<ShellPreferenceRowViewModel>(_operations.Count);
 
         foreach (var operation in _operations)
         {
             try
             {
-                Rows.Add(await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true));
+                built.Add(await BuildRowAsync(operation, cancellationToken).ConfigureAwait(true));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 StatusMessage = _text.Get("Taskbar_ProbeFailed");
             }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Rows.Clear();
+
+        foreach (var row in built)
+        {
+            Rows.Add(row);
         }
     }
 
