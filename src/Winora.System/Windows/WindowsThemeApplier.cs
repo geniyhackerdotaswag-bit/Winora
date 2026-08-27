@@ -134,6 +134,13 @@ public sealed class WindowsThemeApplier
     /// being put back. Windows rewrites and deletes applied theme files anyway, so a saved path
     /// would name a file it has since edited or removed.
     /// </para>
+    /// <para>
+    /// One theme per call, and there is no second pass. Handing Windows a colour and then handing
+    /// back the "choose it yourself" setting was tried and does not work: applying a theme leaves
+    /// the Settings window open, and a theme handed over while it is open is ignored. So the
+    /// setting stays off once this feature is used, which the screen says before the button is
+    /// pressed rather than after.
+    /// </para>
     /// </remarks>
     public async Task<WindowsThemeApplyOutcome> ApplyAsync(
         WindowsThemeSettings wanted,
@@ -211,11 +218,16 @@ public sealed class WindowsThemeApplier
     /// Waits for Windows to hold what was asked for, and gives up rather than assuming.
     /// </summary>
     /// <remarks>
-    /// The accent is only checked when one was asked for. Windows derives further shades from it
-    /// that do not equal it, so the comparison is against the single value the theme sets — the
-    /// derived ones move on their own and would fail a change that worked. When the accent was
-    /// handed back to Windows to choose, there is no colour to compare and the flag itself is what
-    /// gets confirmed.
+    /// <para>
+    /// All three facts are checked: the mode, whether Windows is choosing the accent, and the colour
+    /// itself when one is known. The colour is checked even on the pass that hands the choice back
+    /// to Windows — that pass follows one that set the colour explicitly, and the whole point is
+    /// that the colour stays put.
+    /// </para>
+    /// <para>
+    /// Against the single value the theme sets, never against the shades Windows derives from it.
+    /// Those move on their own and would fail a change that worked.
+    /// </para>
     /// </remarks>
     private async Task<bool> ConfirmAsync(WindowsThemeSettings expected, CancellationToken cancellationToken)
     {
@@ -226,9 +238,8 @@ public sealed class WindowsThemeApplier
             var live = _state.Read();
 
             var arrived = live.Mode == expected.Mode &&
-                (expected.IsAccentAutomatic
-                    ? live.IsAccentAutomatic
-                    : expected.Accent is not { } accent || live.Accent == accent);
+                live.IsAccentAutomatic == expected.IsAccentAutomatic &&
+                (expected.Accent is not { } accent || live.Accent == accent);
 
             if (arrived)
             {

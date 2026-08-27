@@ -171,10 +171,59 @@ public sealed partial class ChangesViewModel : ObservableObject
             _ => null,
         };
 
-        return string.Format(
-            CultureInfo.CurrentCulture,
-            _text.Get("Changes_Was"),
-            known is null ? before : _text.Get(known));
+        var readable = known is not null
+            ? _text.Get(known)
+            : Appearance(before) ?? before;
+
+        return string.Format(CultureInfo.CurrentCulture, _text.Get("Changes_Was"), readable);
+    }
+
+    /// <summary>
+    /// A Windows appearance in words, or null when the value is not one.
+    /// </summary>
+    /// <remarks>
+    /// This vocabulary is Winora's own, and it went to screen raw: the history read
+    /// <c>было: dark auto</c>, which is two English words of machine shorthand on the one screen
+    /// that exists to be believed. The colour keeps its hex, because a colour named in prose is a
+    /// guess and the number is the truth.
+    /// </remarks>
+    private string? Appearance(string value)
+    {
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        var mode = parts.Length > 0
+            ? parts[0] switch
+            {
+                "dark" => _text.Get("Changes_Value_ThemeDark"),
+                "light" => _text.Get("Changes_Value_ThemeLight"),
+                _ => null,
+            }
+            : null;
+
+        if (mode is null || parts.Length > 3)
+        {
+            return null;
+        }
+
+        if (parts.Length == 1)
+        {
+            return mode;
+        }
+
+        // Written by an earlier build only. Kept so those rows read as words rather than as the
+        // program's own shorthand on the one screen that has to be believed.
+        if (string.Equals(parts[1], "auto", StringComparison.Ordinal))
+        {
+            return string.Format(CultureInfo.CurrentCulture, _text.Get("Changes_Value_ThemeAuto"), mode);
+        }
+
+        return parts.Length == 2
+            ? string.Format(
+                CultureInfo.CurrentCulture,
+                _text.Get("Changes_Value_ThemeColour"),
+                mode,
+                parts[1].ToUpperInvariant())
+            : null;
     }
 
     public async Task RollBackAsync(ChangeRecordViewModel record)

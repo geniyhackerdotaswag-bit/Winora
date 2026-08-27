@@ -12,6 +12,18 @@ public static class CapabilityBlockCodes
     /// <summary>The documented Windows API or action is not present on this build.</summary>
     public const string ApiNotAvailable = Prefix + "api-not-available";
 
+    /// <summary>
+    /// Windows names a current theme file that is not on disk.
+    /// </summary>
+    /// <remarks>
+    /// Split out of <see cref="ApiNotAvailable"/> on 2026-08-27, after landing in it during testing.
+    /// "The documented mechanism is not present on this build" is wrong and unactionable: the
+    /// mechanism is fine, Windows is simply pointing at a file that was deleted, and picking any
+    /// theme in Settings fixes it. Windows deletes theme files itself, so this is reachable without
+    /// anyone doing anything unusual.
+    /// </remarks>
+    public const string CurrentThemeMissing = Prefix + "current-theme-missing";
+
     /// <summary>The current target state could not be read, so no fingerprint can be trusted.</summary>
     public const string TargetStateUnknown = Prefix + "target-state-unknown";
 
@@ -62,6 +74,7 @@ public static class CapabilityBlockCodes
     public static IReadOnlyList<string> All { get; } =
     [
         ApiNotAvailable,
+        CurrentThemeMissing,
         TargetStateUnknown,
         TargetRemote,
         TargetProtected,

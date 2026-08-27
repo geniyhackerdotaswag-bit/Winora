@@ -46,7 +46,9 @@ public static class OperationCapabilityPolicy
         // 1. The documented mechanism must exist at all.
         if (!observation.IsApiAvailable)
         {
-            return (SupportStatus.Unsupported, CapabilityBlockCodes.ApiNotAvailable);
+            return (
+                SupportStatus.Unsupported,
+                observation.ApiUnavailableCode ?? CapabilityBlockCodes.ApiNotAvailable);
         }
 
         // 2. An unreadable source state is Unknown, never Unsupported: Winora does not claim to

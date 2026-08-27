@@ -288,7 +288,8 @@ public sealed class WindowsThemeOperation : IOperation, IConditionalSystemMutati
             RequiredPrivilege: PrivilegeRequirement.StandardUser,
             IsElevationSupportedForAccount: true,
             CurrentFingerprint: isKnown ? Fingerprint(live) : UnknownFingerprint,
-            CurrentValue: isKnown ? new DisplayValue(WindowsThemeValues.Kind, Text(live)) : null);
+            CurrentValue: isKnown ? new DisplayValue(WindowsThemeValues.Kind, Text(live)) : null,
+            ApiUnavailableCode: CapabilityBlockCodes.CurrentThemeMissing);
     }
 
     private static string Text(WindowsThemeSettings settings) => WindowsThemeValues.For(settings);

@@ -2,6 +2,7 @@ using System.Text;
 using Winora.Core.Changes;
 using Winora.Core.Contracts;
 using Winora.System.Operations;
+using Winora.System.Safety;
 using Winora.System.Windows;
 using Xunit;
 
@@ -305,5 +306,25 @@ public sealed class WindowsThemeOperationTests : IDisposable
 
         await Assert.ThrowsAsync<ArgumentException>(
             async () => await operation.ApplyStepAsync(plan, foreign, default));
+    }
+
+    /// <summary>
+    /// A current theme Windows names but does not have gets its own reason.
+    /// </summary>
+    /// <remarks>
+    /// Reached during testing on a real machine. The general answer — "this build of Windows does
+    /// not support the setting" — is untrue and leads nowhere; picking any theme in Settings fixes
+    /// it, and Windows deletes theme files itself, so nobody has to do anything odd to land here.
+    /// </remarks>
+    [Fact]
+    public async Task A_current_theme_that_is_not_on_disk_says_so_rather_than_blaming_Windows()
+    {
+        var (operation, state, _) = Build();
+        state.Path = Path.Combine(_folder, "deleted.theme");
+
+        var capability = await operation.ProbeAsync(new OperationTarget(WindowsThemeOperation.Id), default);
+
+        Assert.Equal(SupportStatus.Unsupported, capability.Support);
+        Assert.Equal(CapabilityBlockCodes.CurrentThemeMissing, capability.BlockReason);
     }
 }

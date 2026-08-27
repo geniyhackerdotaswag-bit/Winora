@@ -74,6 +74,19 @@ public sealed class WindowsThemeApplierTests : IDisposable
         }
 
         public string? CurrentThemePath() => Path;
+
+        /// <summary>Takes on what a handed file says, and reports it as the current theme.</summary>
+        public void Adopt(string themePath)
+        {
+            var file = WindowsThemeFile.Read(File.ReadAllBytes(themePath));
+
+            Settings = new WindowsThemeSettings(
+                file.Mode ?? Settings.Mode,
+                file.Accent ?? Settings.Accent,
+                file.IsAccentAutomatic);
+
+            Path = themePath;
+        }
     }
 
     private sealed class FakeLauncher : IThemeLauncher
@@ -82,7 +95,29 @@ public sealed class WindowsThemeApplierTests : IDisposable
 
         public bool SettingsOpen { get; set; }
 
-        public void Start(string themePath) => Started = themePath;
+        /// <summary>Every file handed over, in order, so a two-pass change can be inspected.</summary>
+        public List<string> Handed { get; } = [];
+
+        /// <summary>
+        /// The fake system this hands to, or null to have Windows ignore the theme entirely.
+        /// </summary>
+        /// <remarks>
+        /// When set, the state adopts whatever the file says — which is what Windows does, and what
+        /// a fake has to do for a two-pass change to mean anything. A fake that jumps to one fixed
+        /// answer cannot tell a pass that worked from a pass that was skipped.
+        /// </remarks>
+        public FakeState? Adopting { get; set; }
+
+        public void Start(string themePath)
+        {
+            Started = themePath;
+            Handed.Add(themePath);
+
+            if (Adopting is { } state)
+            {
+                state.Adopt(themePath);
+            }
+        }
 
         public bool IsSettingsOpen() => SettingsOpen;
     }
@@ -237,7 +272,7 @@ public sealed class WindowsThemeApplierTests : IDisposable
     }
 
     /// <summary>
-    /// Undo re-applies the recorded state onto whatever theme is current then.
+    /// Undo re-applies the recorded colour onto whatever theme is current then.
     /// </summary>
     /// <remarks>
     /// Not onto a file saved earlier. Windows rewrites the applied theme file and deletes the one
@@ -245,47 +280,60 @@ public sealed class WindowsThemeApplierTests : IDisposable
     /// from the current one keeps whatever the person changed in the meantime.
     /// </remarks>
     [Fact]
-    public async Task Undo_asks_Windows_to_choose_the_accent_again_when_it_had_been()
+    public async Task Undo_puts_the_recorded_colour_back_on_the_current_theme()
     {
         var state = new FakeState
         {
             Path = WriteSample(),
-            ChangesAfterReads = 0,
             Settings = new WindowsThemeSettings(WindowsThemeMode.Light, 0x10FF10),
-            Becomes = new WindowsThemeSettings(WindowsThemeMode.Dark, 0x10FF10, IsAccentAutomatic: true),
         };
 
-        var launcher = new FakeLauncher();
-        var wanted = new WindowsThemeSettings(WindowsThemeMode.Dark, 0x533222, IsAccentAutomatic: true);
+        var launcher = new FakeLauncher { Adopting = state };
 
-        var outcome = await Build(state, launcher).ApplyAsync(wanted);
+        var outcome = await Build(state, launcher).ApplyAsync(
+            new WindowsThemeSettings(WindowsThemeMode.Dark, 0x533222));
 
         Assert.Equal(WindowsThemeApplyOutcome.Applied, outcome);
-        Assert.Contains("AutoColorization=1", Read(launcher.Started!), StringComparison.Ordinal);
+        Assert.Single(launcher.Handed);
+
+        var written = Read(launcher.Handed[0]);
+        Assert.Contains("ColorizationColor=0XC4533222", written, StringComparison.Ordinal);
+        Assert.Contains("SystemMode=Dark", written, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Asking Windows to choose the accent is confirmed on the setting, not on a colour.
+    /// A change is one theme handed over, never two.
     /// </summary>
     /// <remarks>
-    /// There is no colour to compare: Windows picks one. Comparing against the colour that was
-    /// requested would fail every undo of this kind, and comparing against nothing would pass every
-    /// one of them.
+    /// A second pass was tried, to hand the accent choice back to Windows after setting a colour.
+    /// It cannot work: applying a theme leaves the Settings window open, and a theme handed over
+    /// while it is open is ignored. The second pass would have been silently dropped every time.
     /// </remarks>
     [Fact]
-    public async Task An_automatic_accent_that_stays_switched_off_is_not_confirmed()
+    public async Task A_change_hands_over_exactly_one_theme()
+    {
+        var state = new FakeState { Path = WriteSample() };
+        var launcher = new FakeLauncher { Adopting = state };
+
+        await Build(state, launcher).ApplyAsync(new WindowsThemeSettings(WindowsThemeMode.Light, 0x10FF10));
+
+        Assert.Single(launcher.Handed);
+    }
+
+    /// <summary>Setting a colour switches Windows off choosing its own, and that is confirmed.</summary>
+    [Fact]
+    public async Task A_colour_that_arrives_but_leaves_Windows_choosing_is_not_confirmed()
     {
         var state = new FakeState
         {
             Path = WriteSample(),
             ChangesAfterReads = 0,
-            Becomes = new WindowsThemeSettings(WindowsThemeMode.Dark, 0x533222, IsAccentAutomatic: false),
+            Becomes = new WindowsThemeSettings(WindowsThemeMode.Light, 0x10FF10, IsAccentAutomatic: true),
         };
-
-        var wanted = new WindowsThemeSettings(WindowsThemeMode.Dark, 0x533222, IsAccentAutomatic: true);
 
         Assert.Equal(
             WindowsThemeApplyOutcome.NotConfirmed,
-            await Build(state, new FakeLauncher()).ApplyAsync(wanted));
+            await Build(state, new FakeLauncher()).ApplyAsync(
+                new WindowsThemeSettings(WindowsThemeMode.Light, 0x10FF10)));
     }
 }

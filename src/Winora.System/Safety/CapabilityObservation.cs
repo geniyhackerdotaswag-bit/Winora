@@ -61,4 +61,14 @@ public sealed record CapabilityObservation(
     /// Exists because the general answer was actively misleading in the one place it came up most.
     /// See <c>CapabilityBlockCodes.DependentSwitchOff</c>.
     /// </remarks>
-    string? NotWritableCode = null);
+    string? NotWritableCode = null,
+
+    /// <param name="ApiUnavailableCode">
+    /// The block code to report when <paramref name="IsApiAvailable"/> is false, when the operation
+    /// knows something more useful than "not available on this build". Null takes the general answer.
+    /// </param>
+    /// <remarks>
+    /// The same reasoning as <paramref name="NotWritableCode"/>, and it earned its place the same
+    /// way: by producing a message that was true of nothing and led nowhere.
+    /// </remarks>
+    string? ApiUnavailableCode = null);

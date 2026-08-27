@@ -282,7 +282,17 @@ public sealed partial class AppearanceViewModel : ObservableObject
     /// </summary>
     private async Task RefreshWindowsAsync(CancellationToken cancellationToken)
     {
-        CanApplyToWindows = await _windows.CanApplyAsync(cancellationToken).ConfigureAwait(true);
+        var readiness = await _windows.CanApplyAsync(cancellationToken).ConfigureAwait(true);
+
+        CanApplyToWindows = readiness.CanApply;
+
+        // A grey button with nothing beside it is the shape of a program that knows something and
+        // will not say it. Every reason this can give names something to do about it.
+        if (!readiness.CanApply)
+        {
+            WindowsResult = readiness.Reason;
+            ShowWindowsResult = readiness.Reason.Length > 0;
+        }
     }
 
     /// <summary>

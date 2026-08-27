@@ -19,17 +19,30 @@ public static class WindowsThemeValues
 
     private const string Light = "light";
 
-    /// <summary>Windows picks the accent from the wallpaper, so there is no colour to name.</summary>
+    /// <summary>
+    /// Written by an earlier build, still read.
+    /// </summary>
+    /// <remarks>
+    /// Nothing writes this any more, but change histories on machines that ran that build carry it.
+    /// Reading it keeps those rows undoable instead of turning them into a value the program no
+    /// longer understands.
+    /// </remarks>
     private const string Automatic = "auto";
 
+    /// <summary>
+    /// The mode and accent colour, as one stable string.
+    /// </summary>
+    /// <remarks>
+    /// Whether Windows was choosing the accent itself is deliberately not part of this. It cannot
+    /// be put back: setting a colour requires <c>AutoColorization=0</c>, and handing the choice
+    /// back afterwards needs a second theme, which Windows ignores because applying the first one
+    /// left its Settings window open. Recording a fact that undo cannot restore would make every
+    /// undo of this change fail its own verification. The colour is recorded either way, so the
+    /// desktop goes back to the colour it had.
+    /// </remarks>
     public static string For(WindowsThemeSettings settings)
     {
         var mode = settings.Mode == WindowsThemeMode.Light ? Light : Dark;
-
-        if (settings.IsAccentAutomatic)
-        {
-            return mode + " " + Automatic;
-        }
 
         return settings.Accent is { } accent
             ? mode + " " + (accent & 0xFFFFFF).ToString("x6", CultureInfo.InvariantCulture)
@@ -47,7 +60,7 @@ public static class WindowsThemeValues
 
         var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-        if (parts.Length is < 1 or > 2)
+        if (parts.Length is < 1 or > 3)
         {
             return false;
         }
@@ -70,18 +83,25 @@ public static class WindowsThemeValues
             return true;
         }
 
-        if (string.Equals(parts[1], Automatic, StringComparison.Ordinal))
+        var automatic = string.Equals(parts[1], Automatic, StringComparison.Ordinal);
+
+        if (automatic && parts.Length == 2)
         {
-            settings = new WindowsThemeSettings(mode, null, IsAccentAutomatic: true);
+            settings = new WindowsThemeSettings(mode, null);
             return true;
         }
 
-        if (parts[1].Length != 6 ||
-            !uint.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var accent))
+        var colour = automatic ? parts[2] : parts[1];
+
+        if ((!automatic && parts.Length != 2) ||
+            colour.Length != 6 ||
+            !uint.TryParse(colour, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var accent))
         {
             return false;
         }
 
+        // The flag is not carried through: it is what an older build recorded, and it is not
+        // something this can put back.
         settings = new WindowsThemeSettings(mode, (int)accent);
         return true;
     }
