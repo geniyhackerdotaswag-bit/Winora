@@ -12,6 +12,8 @@ public static class RouteKeys
     public const string Taskbar = "taskbar";
 
     public const string Explorer = "explorer";
+
+    public const string Machine = "machine";
     public const string Performance = "performance";
     public const string Cleanup = "cleanup";
     public const string Sounds = "sounds";
@@ -36,6 +38,7 @@ public static class RouteKeys
         Appearance,
         Taskbar,
         Explorer,
+        Machine,
         Performance,
         Cleanup,
         Sounds,

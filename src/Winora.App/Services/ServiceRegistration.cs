@@ -58,6 +58,9 @@ public static class ServiceRegistration
         services.AddSingleton<ThemesViewModel>();
         services.AddSingleton<TaskbarViewModel>();
         services.AddSingleton<ExplorerViewModel>();
+        services.AddSingleton<IWindowsEditionProbe, WindowsEditionProbe>();
+        services.AddSingleton<IMachineSummaryService, MachineSummaryService>();
+        services.AddSingleton<MachineViewModel>();
         services.AddTransient<CleanupViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<StartupViewModel>();

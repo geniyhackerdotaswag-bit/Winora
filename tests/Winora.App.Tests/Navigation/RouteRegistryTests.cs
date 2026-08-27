@@ -27,6 +27,8 @@ public sealed class RouteRegistryTests
         "bypass",
         "changes",
         "backups",
+        // The one screen that changes nothing: what this computer is.
+        "machine",
         "journal",
         "settings",
         // Added by the profile feature, alongside journal and settings in the pane footer.

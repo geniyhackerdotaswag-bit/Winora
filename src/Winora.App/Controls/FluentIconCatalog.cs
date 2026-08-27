@@ -29,6 +29,7 @@ public static class FluentIconCatalog
         ["sound"] = "",
         ["cursor"] = "",
         ["explorer"] = "",
+        ["machine"] = "",
         ["speed"] = "",
         ["broom"] = "",
         ["startup"] = "",

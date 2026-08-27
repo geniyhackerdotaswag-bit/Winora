@@ -40,6 +40,9 @@ public sealed class RouteRegistry
         new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Pane, GroupSystem, "history"),
         new(RouteKeys.Backups, "Nav_Backups", RoutePlacement.Pane, GroupSystem, "backup"),
 
+        // The one screen that changes nothing: it answers what this computer is and stops.
+        new(RouteKeys.Machine, "Nav_Machine", RoutePlacement.Pane, GroupSystem, "machine"),
+
         new(RouteKeys.Profile, "Nav_Profile", RoutePlacement.Footer, IconGlyphKey: "profile"),
         new(RouteKeys.Journal, "Nav_Journal", RoutePlacement.Footer, IconGlyphKey: "journal"),
         new(RouteKeys.Settings, "Nav_Settings", RoutePlacement.Footer, IconGlyphKey: "settings"),

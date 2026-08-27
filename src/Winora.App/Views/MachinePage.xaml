@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Winora.App.Views.MachinePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Winora.App.ViewModels"
+    xmlns:ctl="using:Winora.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <ctl:PageHeader Heading="{x:Bind ViewModel.Title, Mode=OneWay}" />
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="1800" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Padding="32,20,32,32">
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
+
+                    <!--
+                      One button, and it copies. This screen exists because somebody asks "what are
+                      your specs" and the answer otherwise means opening four Windows dialogs and
+                      typing it out.
+                    -->
+                    <Button Style="{StaticResource WinoraActionButton}"
+                            HorizontalAlignment="Left"
+                            Margin="{StaticResource WinoraStackGapL}"
+                            Content="{x:Bind ViewModel.CopyLabel, Mode=OneWay}"
+                            Click="OnCopyClick" />
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Groups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MachineGroupViewModel">
+                                <StackPanel Margin="0,0,0,20">
+                                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                                               Text="{x:Bind Title}" />
+
+                                    <Border Style="{StaticResource WinoraGroup}">
+                                        <ItemsControl ItemsSource="{x:Bind Facts}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:MachineFactViewModel">
+                                                    <Grid Padding="{StaticResource WinoraRowPadding}"
+                                                          ColumnSpacing="16">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" MinWidth="200" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0"
+                                                                   Style="{StaticResource WinoraRowDetail}"
+                                                                   Margin="0"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{x:Bind Label}" />
+
+                                                        <TextBlock Grid.Column="1"
+                                                                   Style="{StaticResource WinoraRowTitle}"
+                                                                   VerticalAlignment="Center"
+                                                                   TextWrapping="Wrap"
+                                                                   IsTextSelectionEnabled="True"
+                                                                   Text="{x:Bind Value}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
