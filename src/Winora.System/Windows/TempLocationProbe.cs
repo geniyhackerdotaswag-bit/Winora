@@ -186,10 +186,20 @@ public sealed class WindowsTempLocationProbe : ITempLocationProbe
         var walk = new Stack<string>();
         walk.Push(location.Path);
 
+        // What the cleaner will not take must not be counted as what it will free. The running
+        // program's own unpacked files sit inside this very folder, and a figure that included them
+        // would promise back two hundred megabytes that nothing is ever going to delete.
+        var mine = RunningProgramFolder.Path;
+
         while (walk.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var directory = walk.Pop();
+
+            if (RunningProgramFolder.Holds(directory, mine))
+            {
+                continue;
+            }
 
             // A reparse point can leave the location and land somewhere Winora must not touch.
             try

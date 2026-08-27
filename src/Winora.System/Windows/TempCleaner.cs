@@ -30,10 +30,22 @@ public interface ITempCleaner
 public sealed class WindowsTempCleaner : ITempCleaner
 {
     private readonly IElevationProbe _elevation;
+    private readonly Func<string?> _runningProgramFolder;
 
     public WindowsTempCleaner(IElevationProbe elevation)
+        : this(elevation, static () => RunningProgramFolder.Path)
+    {
+    }
+
+    /// <param name="runningProgramFolder">
+    /// Where the running program's own files are. Injected so the one rule that matters here — that
+    /// Winora never deletes the files it is executing from — can be proved without a test having to
+    /// be a single-file build unpacked into a temporary folder.
+    /// </param>
+    public WindowsTempCleaner(IElevationProbe elevation, Func<string?> runningProgramFolder)
     {
         _elevation = elevation ?? throw new ArgumentNullException(nameof(elevation));
+        _runningProgramFolder = runningProgramFolder ?? throw new ArgumentNullException(nameof(runningProgramFolder));
     }
 
     public TempCleanResult Clean(TempLocation location, CancellationToken cancellationToken)
@@ -58,7 +70,9 @@ public sealed class WindowsTempCleaner : ITempCleaner
         }
 
         var directories = new List<string>();
-        foreach (var file in Enumerate(location.Path, directories, ref skipped))
+        var mine = _runningProgramFolder();
+
+        foreach (var file in Enumerate(location.Path, directories, mine, ref skipped))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -104,7 +118,22 @@ public sealed class WindowsTempCleaner : ITempCleaner
         return new TempCleanResult(deleted, bytes, skipped);
     }
 
-    private static List<string> Enumerate(string root, List<string> directories, ref int skipped)
+    /// <param name="protectedFolder">
+    /// The running program's own folder, which is never walked into.
+    /// </param>
+    /// <remarks>
+    /// A single-file Winora is unpacked into the very temporary folder this offers to empty, and
+    /// most of those files are not held by Windows: measured on 2026-08-27, 473 of its own 549
+    /// unpacked files were free to delete while it was running. Winora would have taken them out
+    /// from under itself, and the failure shows up later — at the next screen that needs a lazily
+    /// loaded assembly, or at the next start, which finds an incomplete bundle and dies before any
+    /// of its own code can say so.
+    /// </remarks>
+    private static List<string> Enumerate(
+        string root,
+        List<string> directories,
+        string? protectedFolder,
+        ref int skipped)
     {
         var files = new List<string>();
         var walk = new Stack<string>();
@@ -113,6 +142,13 @@ public sealed class WindowsTempCleaner : ITempCleaner
         while (walk.Count > 0)
         {
             var directory = walk.Pop();
+
+            // Not counted as skipped: these were never candidates, and reporting them as files
+            // something else was holding would be a different and untrue statement.
+            if (RunningProgramFolder.Holds(directory, protectedFolder))
+            {
+                continue;
+            }
 
             try
             {
@@ -127,6 +163,11 @@ public sealed class WindowsTempCleaner : ITempCleaner
 
                 foreach (var child in Directory.EnumerateDirectories(directory))
                 {
+                    if (RunningProgramFolder.Holds(child, protectedFolder))
+                    {
+                        continue;
+                    }
+
                     walk.Push(child);
                     directories.Add(child);
                 }
