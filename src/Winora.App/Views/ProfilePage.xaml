@@ -31,32 +31,32 @@
                     <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
 
                     <!--
-                      The form, in a card of its own with a header strip: the registration window's
-                      shape, so somebody who filled that in three weeks ago recognises this as the
-                      same program rather than as a settings page that happens to hold their name.
+                      Both sections fold away, and start folded. The card above already shows the
+                      name, the mail and the picture — which is what somebody opens this screen to
+                      look at. These two are for changing them, which is a rarer thing to want, and
+                      unfolded they pushed everything else off the screen.
                     -->
-                    <Border Style="{StaticResource WinoraCard}"
-                            Padding="0"
-                            Margin="{StaticResource WinoraStackGapL}">
+                    <Expander HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Margin="{StaticResource WinoraStackGapL}">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center">
+                                <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="13"
+                                          Foreground="{ThemeResource WinoraTextFaint}"
+                                          Glyph="&#xE70F;"
+                                          VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                           VerticalAlignment="Center"
+                                           Text="{x:Bind ViewModel.DetailsHeading, Mode=OneWay}" />
+                            </StackPanel>
+                        </Expander.Header>
                         <StackPanel>
 
-                            <Border Style="{StaticResource WinoraCardHeaderStrip}">
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8"
-                                            VerticalAlignment="Center">
-                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                              FontFamily="Segoe Fluent Icons"
-                                              FontSize="13"
-                                              Foreground="{ThemeResource WinoraTextFaint}"
-                                              Glyph="&#xE70F;"
-                                              VerticalAlignment="Center" />
-                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Bind ViewModel.DetailsHeading, Mode=OneWay}" />
-                                </StackPanel>
-                            </Border>
-
-                            <StackPanel Padding="24" Spacing="18">
+                            <StackPanel Padding="4,8,4,8" Spacing="18">
 
                                 <StackPanel Spacing="6">
                                     <TextBlock Style="{StaticResource WinoraFieldLabel}"
@@ -108,11 +108,6 @@
                                                   VerticalAlignment="Center" />
                                     </Grid>
 
-                                    <!-- The honest part of the form. Not small print. -->
-                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                               Margin="2,2,0,0"
-                                               TextWrapping="Wrap"
-                                               Text="{x:Bind ViewModel.EmailPrivacyNote, Mode=OneWay}" />
                                 </StackPanel>
 
                                 <Rectangle Height="1"
@@ -151,7 +146,7 @@
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
-                    </Border>
+                    </Expander>
 
                     <!--
                       The pictures, in a card of their own.
@@ -166,33 +161,30 @@
                       shared message line would show a complaint about the avatar under the
                       background's buttons.
                     -->
-                    <Border Style="{StaticResource WinoraCard}" Padding="0">
+                    <Expander HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center">
+                                <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                          FontFamily="Segoe Fluent Icons"
+                                          FontSize="13"
+                                          Foreground="{ThemeResource WinoraTextFaint}"
+                                          Glyph="&#xE91B;"
+                                          VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource WinoraFieldLabel}"
+                                           VerticalAlignment="Center"
+                                           Text="{x:Bind ViewModel.PicturesHeading, Mode=OneWay}" />
+                            </StackPanel>
+                        </Expander.Header>
                         <StackPanel>
 
-                            <Border Style="{StaticResource WinoraCardHeaderStrip}">
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="8"
-                                            VerticalAlignment="Center">
-                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                              FontFamily="Segoe Fluent Icons"
-                                              FontSize="13"
-                                              Foreground="{ThemeResource WinoraTextFaint}"
-                                              Glyph="&#xE91B;"
-                                              VerticalAlignment="Center" />
-                                    <TextBlock Style="{StaticResource WinoraFieldLabel}"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Bind ViewModel.PicturesHeading, Mode=OneWay}" />
-                                </StackPanel>
-                            </Border>
-
-                            <StackPanel Padding="24" Spacing="18">
+                            <StackPanel Padding="4,8,4,8" Spacing="18">
 
                                 <StackPanel Spacing="6">
                                     <TextBlock Style="{StaticResource WinoraFieldLabel}"
                                                Text="{x:Bind ViewModel.AvatarPictureLabel, Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                               TextWrapping="Wrap"
-                                               Text="{x:Bind ViewModel.AvatarLimits, Mode=OneWay}" />
 
                                     <StackPanel Orientation="Horizontal"
                                                 Spacing="10"
@@ -228,9 +220,6 @@
                                 <StackPanel Spacing="6">
                                     <TextBlock Style="{StaticResource WinoraFieldLabel}"
                                                Text="{x:Bind ViewModel.BackgroundPictureLabel, Mode=OneWay}" />
-                                    <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                               TextWrapping="Wrap"
-                                               Text="{x:Bind ViewModel.BackgroundLimits, Mode=OneWay}" />
 
                                     <StackPanel Orientation="Horizontal"
                                                 Spacing="10"
@@ -253,7 +242,7 @@
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
-                    </Border>
+                    </Expander>
                 </StackPanel>
             </Grid>
         </StackPanel>

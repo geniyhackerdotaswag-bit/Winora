@@ -106,6 +106,20 @@ public static class DocumentedShellValues
             RestartRequirement.Explorer, ExplorerReference, "explorer"),
         new("Hidden", "hidden-files", [1, 2], 2, RegistryValueKind.DWord,
             RestartRequirement.Explorer, ExplorerReference, "explorer"),
+
+        // The rest of what the same specification documents and Winora is willing to offer.
+        new("ShowInfoTip", "info-tips", [0, 1], 1, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("FolderContentsInfoTip", "folder-size-tips", [0, 1], 1, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("ShowCompColor", "compressed-in-colour", [0, 1], 0, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("PersistBrowsers", "reopen-folders", [0, 1], 0, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("SeparateProcess", "separate-process", [0, 1], 0, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
+        new("NoNetCrawling", "network-search", [0, 1], 1, RegistryValueKind.DWord,
+            RestartRequirement.Explorer, ExplorerReference, "explorer"),
     ];
 
     public static bool TryFind(string valueName, out DocumentedShellValue entry)

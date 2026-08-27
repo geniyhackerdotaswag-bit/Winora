@@ -240,16 +240,6 @@ public sealed class ProfileViewModelTests
         Assert.True(vm.HasProfile);
     }
 
-    /// <summary>The line under the email field is not optional; it is the honest part of the form.</summary>
-    [Fact]
-    public void The_email_privacy_note_is_present()
-    {
-        var vm = Build(new FakeProfileService());
-        vm.Load();
-
-        Assert.Equal("Profile_EmailPrivacy", vm.EmailPrivacyNote);
-    }
-
     [Fact]
     public async Task The_recorded_change_count_comes_from_the_journal()
     {
@@ -261,14 +251,36 @@ public sealed class ProfileViewModelTests
         Assert.Equal("записано 7", vm.RecordedChanges);
     }
 
-    /// <summary>The limits are stated on the screen, before the dialog opens rather than after.</summary>
-    [Fact]
-    public void The_limits_are_on_the_page()
+    /// <summary>
+    /// The rules are told at a refusal, not before it.
+    /// </summary>
+    /// <remarks>
+    /// The screen used to state both sets of limits above their buttons, at all times, for everyone
+    /// — three paragraphs of small print about pictures nobody had chosen yet. The owner had them
+    /// removed on 2026-08-27. Nothing is lost, because each refusal already carries the rule it
+    /// broke; this asserts that it still does, which is the whole condition for the removal being
+    /// safe.
+    /// </remarks>
+    [Theory]
+    [InlineData(PictureVerdict.TooSmall, ProfilePictureKind.Avatar, "Profile_PictureAvatarTooSmall")]
+    [InlineData(PictureVerdict.TooSmall, ProfilePictureKind.CardBackground, "Profile_PictureBackgroundTooSmall")]
+    [InlineData(PictureVerdict.TooLarge, ProfilePictureKind.Avatar, "Profile_PictureTooLarge")]
+    [InlineData(PictureVerdict.UnsupportedFormat, ProfilePictureKind.Avatar, "Profile_PictureBadFormat")]
+    public void A_refusal_names_the_rule_that_was_broken(
+        PictureVerdict verdict,
+        ProfilePictureKind kind,
+        string expected)
     {
-        var vm = Build(new FakeProfileService());
+        var vm = Build(new FakeProfileService { NextVerdict = verdict });
+        vm.Load();
 
-        Assert.Equal("Profile_AvatarLimits", vm.AvatarLimits);
-        Assert.Equal("Profile_BackgroundLimits", vm.BackgroundLimits);
+        vm.ApplyPicture(kind, ChosenFile);
+
+        var shown = kind == ProfilePictureKind.Avatar
+            ? vm.AvatarPictureMessage
+            : vm.BackgroundPictureMessage;
+
+        Assert.Equal(expected, shown);
     }
 
     /// <summary>

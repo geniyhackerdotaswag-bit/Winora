@@ -134,18 +134,9 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     public string AvatarPictureLabel => _text.Get("Profile_AvatarPicture");
 
-    /// <summary>
-    /// What will be accepted, said before the dialog opens rather than after it closes.
-    /// </summary>
-    /// <remarks>
-    /// A limit that is only ever stated as a refusal reads as the program changing its mind. These
-    /// two lines are the same numbers the checker enforces, written out.
-    /// </remarks>
-    public string AvatarLimits => _text.Get("Profile_AvatarLimits");
 
     public string BackgroundPictureLabel => _text.Get("Profile_BackgroundPicture");
 
-    public string BackgroundLimits => _text.Get("Profile_BackgroundLimits");
 
     public string ChoosePictureLabel => _text.Get("Profile_PictureChoose");
 
@@ -157,15 +148,6 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     public string EmailLabel => _text.Get("Profile_EmailLabel");
 
-    /// <summary>
-    /// The line under the email field.
-    /// </summary>
-    /// <remarks>
-    /// Not optional and not small print. A form shaped like a registration that sends nothing has
-    /// to say so — otherwise it is the one place in Winora where the app promises something it
-    /// does not do.
-    /// </remarks>
-    public string EmailPrivacyNote => _text.Get("Profile_EmailPrivacy");
 
     public string AvatarLabel => _text.Get("Profile_AvatarLabel");
 
