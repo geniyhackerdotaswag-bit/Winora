@@ -334,9 +334,15 @@ public sealed class BypassStrategyCatalogTests : IDisposable
             Write(name + ".bat", RealStrategy);
         }
 
-        var offered = new BypassStrategyCatalog(_root).Strategies().Select(static s => s.Id);
+        var offered = new BypassStrategyCatalog(_root).Strategies().Select(static s => s.Id).ToArray();
 
-        Assert.Equal(kept.OrderBy(static n => n, StringComparer.CurrentCultureIgnoreCase), offered);
+        // The order asserted spelled out, not derived from a comparer: the point of this list is
+        // that a person works down it in the order it is numbered, and ALT10 sitting second was
+        // exactly what a text comparison produced.
+        Assert.Equal(kept, offered);
+        Assert.Equal("general (ALT)", offered[0]);
+        Assert.Equal("general (ALT2)", offered[1]);
+        Assert.Equal("general (ALT12)", offered[^1]);
     }
 
     [Fact]

@@ -149,7 +149,10 @@ public sealed class BypassStrategyCatalog : IBypassStrategyCatalog
             .Select(file => Read(file, variables))
             .Where(static strategy => strategy is not null)
             .Select(static strategy => strategy!)
-            .OrderBy(static strategy => strategy.Name, StringComparer.CurrentCultureIgnoreCase)
+            // Natural order, so ALT2 comes before ALT10. Plain text comparison put ALT10, ALT11,
+            // ALT12 and ALT13 second through fifth in a list of thirteen — correct for text, wrong
+            // for a numbered list somebody is going to work down in order.
+            .OrderBy(static strategy => strategy.Name, NaturalOrder.Instance)
             .ToArray();
     }
 

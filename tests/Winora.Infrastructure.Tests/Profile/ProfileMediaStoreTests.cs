@@ -124,7 +124,7 @@ public sealed class ProfileMediaStoreTests : IDisposable
     [Theory]
     [InlineData(ProfilePictureKind.Avatar, 64, 64, PictureVerdict.TooSmall)]
     [InlineData(ProfilePictureKind.CardBackground, 400, 100, PictureVerdict.TooSmall)]
-    [InlineData(ProfilePictureKind.CardBackground, 1000, 1000, PictureVerdict.WrongShape)]
+    [InlineData(ProfilePictureKind.CardBackground, 100, 100, PictureVerdict.TooSmall)]
     public void A_refusal_arrives_with_the_rule_it_broke(
         ProfilePictureKind kind,
         int width,

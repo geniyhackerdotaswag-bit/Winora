@@ -226,7 +226,7 @@ public sealed class ProfileServiceTests : IDisposable
     /// <summary>A refused file changes nothing at all, and says which rule it broke.</summary>
     [Theory]
     [InlineData(ProfilePictureKind.Avatar, 64, 64, PictureVerdict.TooSmall)]
-    [InlineData(ProfilePictureKind.CardBackground, 1000, 1000, PictureVerdict.WrongShape)]
+    [InlineData(ProfilePictureKind.CardBackground, 100, 100, PictureVerdict.TooSmall)]
     public void A_refused_picture_leaves_the_profile_as_it_was(
         ProfilePictureKind kind,
         int width,

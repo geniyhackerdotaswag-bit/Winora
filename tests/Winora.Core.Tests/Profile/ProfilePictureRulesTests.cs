@@ -13,6 +13,12 @@ namespace Winora.Core.Tests.Profile;
 /// </remarks>
 public sealed class ProfilePictureRulesTests
 {
+    private static PictureVerdict Checked(int width, int height, ProfilePictureKind kind)
+    {
+        var bytes = Png(width, height);
+        return ProfilePictureRules.Check(kind, bytes.Length, bytes);
+    }
+
     private static byte[] Png(int width, int height)
     {
         var bytes = new byte[24];
@@ -293,10 +299,10 @@ public sealed class ProfilePictureRulesTests
     [InlineData(800, 400, PictureVerdict.Ok)]
     [InlineData(2000, 400, PictureVerdict.Ok)]
     [InlineData(799, 200, PictureVerdict.TooSmall)]
-    [InlineData(1600, 900, PictureVerdict.WrongShape)]
-    [InlineData(1000, 1000, PictureVerdict.WrongShape)]
-    [InlineData(3000, 400, PictureVerdict.WrongShape)]
-    [InlineData(1000, 3000, PictureVerdict.WrongShape)]
+    [InlineData(1600, 900, PictureVerdict.Ok)]
+    [InlineData(1000, 1000, PictureVerdict.Ok)]
+    [InlineData(3000, 400, PictureVerdict.Ok)]
+    [InlineData(1000, 3000, PictureVerdict.Ok)]
     public void A_card_background_needs_width_and_proportion(int width, int height, PictureVerdict expected)
     {
         var bytes = Png(width, height);
@@ -323,14 +329,21 @@ public sealed class ProfilePictureRulesTests
             ProfilePictureRules.Check(ProfilePictureKind.CardBackground, bytes.Length, bytes));
     }
 
-    /// <summary>A portrait photograph is the case the shape rule exists for.</summary>
+    /// <summary>
+    /// A portrait photograph is accepted, because the card crops it.
+    /// </summary>
+    /// <remarks>
+    /// This test used to assert the opposite. The shape rule it guarded turned away pictures the
+    /// card draws correctly: the background is a brush set to UniformToFill inside a rounded
+    /// border, so a tall photograph shows its middle and the rest is cropped — never squashed.
+    /// </remarks>
     [Fact]
-    public void A_portrait_photograph_is_not_a_card_background()
+    public void A_portrait_photograph_is_accepted_and_cropped_by_the_card()
     {
         var bytes = Jpeg(3000, 4000);
 
         Assert.Equal(
-            PictureVerdict.WrongShape,
+            PictureVerdict.Ok,
             ProfilePictureRules.Check(ProfilePictureKind.CardBackground, bytes.Length, bytes));
     }
 
@@ -406,5 +419,35 @@ public sealed class ProfilePictureRulesTests
     public void An_unreasonably_long_name_is_refused()
     {
         Assert.False(ProfilePictureRules.IsStoredFileName(new string('a', 200) + ".png"));
+    }
+
+    /// <summary>
+    /// The pictures that sent this rule to be rewritten.
+    /// </summary>
+    /// <remarks>
+    /// Both were refused by the old rule and both are drawn correctly by the card: 736x414 for
+    /// being neither wide enough nor the right shape, 736x271 for the width alone. The card crops
+    /// to its own shape and lays an 86% sheet over the result, so neither refusal protected
+    /// anything a person could see.
+    /// </remarks>
+    [Theory]
+    [InlineData(736, 414)]
+    [InlineData(736, 271)]
+    public void An_ordinary_wallpaper_is_accepted_as_a_background(int width, int height)
+    {
+        Assert.Equal(
+            PictureVerdict.Ok,
+            Checked(width, height, ProfilePictureKind.CardBackground));
+    }
+
+    /// <summary>An icon blown up to fill a card is still refused.</summary>
+    [Theory]
+    [InlineData(64, 64)]
+    [InlineData(1200, 120)]
+    public void Something_too_small_to_be_a_picture_is_still_refused(int width, int height)
+    {
+        Assert.Equal(
+            PictureVerdict.TooSmall,
+            Checked(width, height, ProfilePictureKind.CardBackground));
     }
 }

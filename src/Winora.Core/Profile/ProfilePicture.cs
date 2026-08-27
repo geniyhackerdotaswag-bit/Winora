@@ -47,7 +47,14 @@ public enum PictureVerdict
     /// <summary>Fewer pixels than the place it is going needs.</summary>
     TooSmall,
 
-    /// <summary>The right size, the wrong proportions — a portrait photo offered as a wide banner.</summary>
+    /// <summary>
+    /// No longer returned by anything.
+    /// </summary>
+    /// <remarks>
+    /// The card crops to its own shape, so proportions were never a reason to refuse a picture.
+    /// The value stays so that a profile written by an older build, carrying this verdict, still
+    /// reads back as something the program understands rather than as a number with no name.
+    /// </remarks>
     WrongShape,
 
     /// <summary>Gone, locked, or a recognised header whose dimensions could not be read.</summary>
@@ -109,13 +116,16 @@ public static class ProfilePictureRules
     public const int AvatarMinSide = 128;
 
     /// <summary>A card background is stretched across the card, so its width is what matters.</summary>
-    public const int BackgroundMinWidth = 800;
-
-    /// <summary>Narrower than this and the picture is not a banner.</summary>
-    public const double BackgroundMinRatio = 2.0;
-
-    /// <summary>Wider than this and there is nothing left of it to see.</summary>
-    public const double BackgroundMaxRatio = 5.0;
+    /// <summary>
+    /// The smallest side a background may have.
+    /// </summary>
+    /// <remarks>
+    /// Was 800 and applied to the width alone, which turned away ordinary pictures — a 736-pixel
+    /// wallpaper, for one. The card crops to its own shape and then lays an 86% sheet of the
+    /// scheme's own colour over the result, so sharpness barely survives to be judged: the floor
+    /// exists only to keep an icon from being blown up into a smear, not to enforce a standard.
+    /// </remarks>
+    public const int BackgroundMinWidth = 240;
 
     /// <summary>The longest a stored file name may be.</summary>
     private const int MaxStoredNameLength = 64;
@@ -209,13 +219,16 @@ public static class ProfilePictureRules
                     ? PictureVerdict.TooSmall
                     : PictureVerdict.Ok,
 
-            // Width before shape, deliberately. A 400x100 strip is both too small and correctly
-            // proportioned; told it was the wrong shape, somebody would go looking for a rounder
-            // picture, which is the opposite of what would help.
+            // Shape is not checked, and that is deliberate. The card paints the picture as a brush
+            // set to UniformToFill inside its own rounded border, so whatever the proportions, the
+            // middle of the picture fills the card and the rest is cropped — never squashed. A
+            // square photograph and a wide strip both land correctly. Refusing one of them was a
+            // rule protecting nothing: it turned away pictures the card would have drawn properly,
+            // and the person had no way to tell, because what they saw was a refusal.
             ProfilePictureKind.CardBackground =>
-                header.Width < BackgroundMinWidth ? PictureVerdict.TooSmall
-                : IsBannerShaped(header.Width, header.Height) ? PictureVerdict.Ok
-                : PictureVerdict.WrongShape,
+                header.Width < BackgroundMinWidth || header.Height < BackgroundMinWidth
+                    ? PictureVerdict.TooSmall
+                    : PictureVerdict.Ok,
 
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
@@ -303,12 +316,6 @@ public static class ProfilePictureRules
         var extension = name[(dot + 1)..];
 
         return extension is "png" or "jpg" or "webp";
-    }
-
-    private static bool IsBannerShaped(int width, int height)
-    {
-        var ratio = (double)width / height;
-        return ratio >= BackgroundMinRatio && ratio <= BackgroundMaxRatio;
     }
 
     /// <summary>
