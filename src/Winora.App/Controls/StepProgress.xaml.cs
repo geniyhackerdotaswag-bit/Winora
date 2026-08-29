@@ -20,7 +20,7 @@ namespace Winora.App.Controls;
 public sealed partial class StepProgress : UserControl
 {
     /// <summary>How many circles there are; the fourth step (Done) lights all of them.</summary>
-    private const int Count = 3;
+    private const int Count = 2;
 
     private static readonly SolidColorBrush Lit = Solid(0xFF, 0xFF, 0xFF);
     private static readonly SolidColorBrush OnLit = Solid(0x0A, 0x0A, 0x0C);
@@ -55,15 +55,14 @@ public sealed partial class StepProgress : UserControl
     {
         InitializeComponent();
 
-        _rings = [Ring1, Ring2, Ring3];
-        _numbers = [Number1, Number2, Number3];
-        _ticks = [Tick1, Tick2, Tick3];
-        _labels = [Label1, Label2, Label3];
+        _rings = [Ring1, Ring2];
+        _numbers = [Number1, Number2];
+        _ticks = [Tick1, Tick2];
+        _labels = [Label1, Label2];
 
         var text = App.Services.GetRequiredService<ILocalizationService>();
         Label1.Text = text.Get("Reg_StepName");
         Label2.Text = text.Get("Reg_StepEmail");
-        Label3.Text = text.Get("Reg_StepPassword");
 
         for (var index = 0; index < Count; index++)
         {

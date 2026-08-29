@@ -41,7 +41,7 @@ public interface IProfileService
     bool Save(string name, string email, int avatar);
 
     /// <summary>Creates the profile the registration window filled in.</summary>
-    bool Register(string name, string email, string password);
+    bool Register(string name, string email);
 
     /// <summary>
     /// Checks the file the person picked, keeps a copy of it, and points the profile at the copy.
@@ -143,19 +143,16 @@ public sealed class ProfileService : IProfileService
 
         // Save edits a profile; it does not create one. When there is nothing to read — no profile
         // yet, a transiently unreadable file, or a read that lost a race with another writer —
-        // writing anyway would store an empty digest, and the file would then fail Read's own guard
-        // on the next launch. That costs the person the whole profile, not just the password, and
-        // reports success while doing it. Registration is the only thing that creates a profile.
-        if (existing?.Password is null)
+        // writing anyway would invent one from a half-filled form and report success while doing
+        // it. Registration is the only thing that creates a profile.
+        if (existing is null)
         {
             return false;
         }
 
         // Built from what is already stored rather than from a fresh record, so that every field
         // this method does not edit survives it. Constructing a new UserProfile here would have
-        // silently dropped both picture names the moment somebody corrected a typo in their name —
-        // the same shape of loss as the password, which used to be the only field that had to be
-        // remembered here and is now simply one more that is never touched.
+        // silently dropped both picture names the moment somebody corrected a typo in their name.
         return _store.Write(
             existing with
             {
@@ -167,11 +164,11 @@ public sealed class ProfileService : IProfileService
 
     /// <summary>Creates the profile the registration window fills in.</summary>
     /// <remarks>
-    /// The one place a profile comes into being. The password is hashed here rather than by a
-    /// caller, so nothing above this layer ever holds the plain text longer than the keystroke
-    /// that produced it.
+    /// The one place a profile comes into being. It used to take a password and hash it; there was
+    /// nothing that ever checked the result, so it took a secret, stored it on disk and protected
+    /// nothing with it.
     /// </remarks>
-    public bool Register(string name, string email, string password)
+    public bool Register(string name, string email)
     {
         var trimmed = ProfileRules.NormaliseName(name);
 
@@ -185,8 +182,7 @@ public sealed class ProfileService : IProfileService
                 trimmed,
                 email?.Trim() ?? string.Empty,
                 ProfileAvatar.FromName,
-                DateTimeOffset.UtcNow,
-                PasswordHash.Create(password)));
+                DateTimeOffset.UtcNow));
     }
 
     /// <inheritdoc />
@@ -208,7 +204,7 @@ public sealed class ProfileService : IProfileService
 
         // The same guard Save has, for the same reason: a profile is created by registration and
         // by nothing else, and writing one from here would store an empty digest.
-        if (existing?.Password is null)
+        if (existing is null)
         {
             return PictureVerdict.NotStored;
         }
@@ -246,7 +242,7 @@ public sealed class ProfileService : IProfileService
     {
         var existing = _store.Read();
 
-        if (existing?.Password is null)
+        if (existing is null)
         {
             return false;
         }

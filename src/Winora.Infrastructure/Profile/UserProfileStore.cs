@@ -94,7 +94,8 @@ public sealed class UserProfileStore : IUserProfileStore
                 return null;
             }
 
-            var stored = JsonSerializer.Deserialize<StoredProfile>(File.ReadAllText(Path), Options);
+            var text = File.ReadAllText(Path);
+            var stored = JsonSerializer.Deserialize<StoredProfile>(text, Options);
 
             if (stored is null)
             {
@@ -116,27 +117,20 @@ public sealed class UserProfileStore : IUserProfileStore
                 ? normalisedName.Substring(0, ProfileRules.NameMaxLength)
                 : normalisedName;
 
-            // A profile with no usable digest never went through registration. That is the only
-            // way in now, so such a file reads as absent and the person is asked to register.
-            var digest = new PasswordDigest(
-                stored.PasswordHash ?? string.Empty,
-                stored.PasswordSalt ?? string.Empty,
-                stored.PasswordIterations);
-
-            if (stored.SchemaVersion < ReadableSchemaVersion ||
-                digest.Hash.Length == 0 ||
-                digest.Salt.Length == 0 ||
-                digest.Iterations <= 0)
+            // A name and a readable schema are the whole test now. The password used to be part of
+            // it, and that was the wrong bar twice over: it threw away a perfectly good profile
+            // whose hash had gone missing, and it made a stored secret load-bearing for a check
+            // nothing ever performed.
+            if (stored.SchemaVersion < ReadableSchemaVersion)
             {
                 return null;
             }
 
-            return new UserProfile(
+            var profile = new UserProfile(
                 finalName,
                 stored.Email?.Trim() ?? string.Empty,
                 stored.Avatar,
                 stored.CreatedUtc,
-                digest,
 
                 // A name that is not one this program generates is dropped, not obeyed. It reaches
                 // here from a text file anybody can edit, and joining "..\..\Windows\x.png" to the
@@ -144,6 +138,18 @@ public sealed class UserProfileStore : IUserProfileStore
                 // never follow. A dropped name is a card with the drawn mark on it, nothing worse.
                 Safe(stored.AvatarFile),
                 Safe(stored.BackgroundFile));
+
+            // A file written by an older build still carries the password hash and its salt.
+            // Dropping the fields from the shape above stops them being read, but it does not take
+            // them off the disk — and a secret that no longer does anything is worse lying about
+            // than deleted, because nothing will ever remove it. Rewriting here, once, is what
+            // actually removes it.
+            if (HadStoredPassword(text))
+            {
+                Write(profile);
+            }
+
+            return profile;
         }
         catch (Exception)
         {
@@ -152,6 +158,18 @@ public sealed class UserProfileStore : IUserProfileStore
             return null;
         }
     }
+
+    /// <summary>
+    /// Whether the file on disk was written before the password was taken out.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the raw text rather than of the parsed shape, because the parsed shape no longer
+    /// has anywhere to put the answer. The property name is what the camel-case policy writes, and
+    /// it is matched without regard to case so a hand-edited file is caught too.
+    /// </remarks>
+    public static bool HadStoredPassword(string? text) =>
+        text is not null &&
+        text.Contains("passwordHash", StringComparison.OrdinalIgnoreCase);
 
     public bool Write(UserProfile profile)
     {
@@ -172,9 +190,6 @@ public sealed class UserProfileStore : IUserProfileStore
                         profile.Email,
                         profile.Avatar,
                         profile.CreatedUtc,
-                        profile.Password?.Hash ?? string.Empty,
-                        profile.Password?.Salt ?? string.Empty,
-                        profile.Password?.Iterations ?? 0,
                         Safe(profile.AvatarFile),
                         Safe(profile.BackgroundFile)),
                     Options));
@@ -213,15 +228,18 @@ public sealed class UserProfileStore : IUserProfileStore
         }
     }
 
+    /// <remarks>
+    /// The three password fields are gone from this shape and are not read. A file written by an
+    /// older build still holds them; unknown properties are ignored on the way in, and the first
+    /// save writes the file without them. See <see cref="HadStoredPassword"/> for why that save is
+    /// made to happen immediately rather than waited for.
+    /// </remarks>
     private sealed record StoredProfile(
         int SchemaVersion,
         string? Name,
         string? Email,
         int Avatar,
         DateTimeOffset CreatedUtc,
-        string? PasswordHash,
-        string? PasswordSalt,
-        int PasswordIterations,
         string? AvatarFile = null,
         string? BackgroundFile = null);
 }

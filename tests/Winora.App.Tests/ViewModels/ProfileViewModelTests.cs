@@ -35,7 +35,7 @@ public sealed class ProfileViewModelTests
             return true;
         }
 
-        public bool Register(string name, string email, string password) => true;
+        public bool Register(string name, string email) => true;
 
         /// <summary>What the next SetPicture will report, so every verdict can be exercised.</summary>
         public PictureVerdict NextVerdict { get; init; } = PictureVerdict.Ok;

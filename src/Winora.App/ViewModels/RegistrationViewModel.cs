@@ -10,12 +10,11 @@ public enum RegistrationStep
 {
     Name = 0,
     Email = 1,
-    Password = 2,
-    Done = 3,
+    Done = 2,
 }
 
 /// <summary>
-/// The first-run wizard: name, email, password, done.
+/// The first-run wizard: name, email, done.
 /// </summary>
 /// <remarks>
 /// Knows nothing about windows or animations — it holds what has been typed and what that permits.
@@ -48,11 +47,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
     [ObservableProperty]
     public partial string Email { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string Password { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string Confirm { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
@@ -71,7 +66,6 @@ public sealed partial class RegistrationViewModel : ObservableObject
     [ObservableProperty]
     public partial bool EmailTouched { get; set; }
 
-    public PasswordStrength Strength => PasswordStrengthRules.Evaluate(Password);
 
     /// <summary>Two characters, matching the reference the owner supplied.</summary>
     public bool IsNameAcceptable => ProfileRules.NormaliseName(Name).Length >= 2;
@@ -94,29 +88,17 @@ public sealed partial class RegistrationViewModel : ObservableObject
     public bool CanGoNext => Step switch
     {
         RegistrationStep.Name => IsNameAcceptable,
-        RegistrationStep.Email => IsEmailAcceptable,
+        RegistrationStep.Email => false,
         _ => false,
     };
 
-    public bool CanFinish =>
-        Step == RegistrationStep.Password &&
-        Strength.IsAcceptable &&
-        Confirm.Length > 0 &&
-        string.Equals(Password, Confirm, StringComparison.Ordinal);
+    public bool CanFinish => Step == RegistrationStep.Email && IsEmailAcceptable;
 
-    public bool CanGoBack => Step is RegistrationStep.Email or RegistrationStep.Password;
+    public bool CanGoBack => Step == RegistrationStep.Email;
 
     partial void OnNameChanged(string value) => Recheck();
 
     partial void OnEmailChanged(string value) => Recheck();
-
-    partial void OnPasswordChanged(string value)
-    {
-        OnPropertyChanged(nameof(Strength));
-        Recheck();
-    }
-
-    partial void OnConfirmChanged(string value) => Recheck();
 
     partial void OnStepChanged(RegistrationStep value) => Recheck();
 
@@ -158,7 +140,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
         }
 
         StatusMessage = string.Empty;
-        Step = Step == RegistrationStep.Name ? RegistrationStep.Email : RegistrationStep.Password;
+        Step = RegistrationStep.Email;
     }
 
     [RelayCommand]
@@ -170,7 +152,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
         }
 
         StatusMessage = string.Empty;
-        Step = Step == RegistrationStep.Password ? RegistrationStep.Email : RegistrationStep.Name;
+        Step = RegistrationStep.Name;
     }
 
     [RelayCommand]
@@ -187,7 +169,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
         var trimmedName = ProfileRules.NormaliseName(Name);
         var trimmedEmail = Email.Trim();
 
-        if (!_profile.Register(trimmedName, trimmedEmail, Password))
+        if (!_profile.Register(trimmedName, trimmedEmail))
         {
             // Stays on this step with everything typed still there: a failed save must not cost
             // somebody the three screens they just filled in.
@@ -195,9 +177,6 @@ public sealed partial class RegistrationViewModel : ObservableObject
             return;
         }
 
-        // The plain text is not kept a moment longer than it takes to hash it.
-        Password = string.Empty;
-        Confirm = string.Empty;
         StatusMessage = string.Empty;
         Step = RegistrationStep.Done;
     }

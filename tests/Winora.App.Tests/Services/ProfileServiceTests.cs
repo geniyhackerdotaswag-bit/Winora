@@ -63,31 +63,34 @@ public sealed class ProfileServiceTests : IDisposable
     private string MediaFolder => Path.Combine(_folder, "media");
 
     /// <summary>
-    /// Editing a name in the cabinet must not disturb the password.
+    /// Editing from the cabinet keeps every field it does not touch.
     /// </summary>
     /// <remarks>
-    /// Register and Save write the same file by different routes. If Save ever stops carrying the
-    /// digest across, the password is silently lost, and nobody finds out until the day there is
-    /// something to log into.
+    /// This used to be about the password: Register and Save write the same file by different
+    /// routes, and Save dropping the digest would have lost it silently. The password is gone —
+    /// nothing ever verified it — but the shape of the mistake is not, so the test now guards the
+    /// fields that remain.
     /// </remarks>
     [Fact]
-    public void Saving_from_the_cabinet_keeps_the_password()
+    public void Saving_from_the_cabinet_keeps_what_it_does_not_edit()
     {
         var store = new UserProfileStore(_folder);
         var service = Service();
 
-        Assert.True(service.Register("Аня", "a@b.ru", "Password1!"));
+        Assert.True(service.Register("Аня", "a@b.ru"));
+        var created = store.Read()!.CreatedUtc;
+
         Assert.True(service.Save("Пётр", "a@b.ru", 3));
 
         var stored = store.Read();
 
-        Assert.NotNull(stored?.Password);
-        Assert.Equal("Пётр", stored.Name);
-        Assert.True(PasswordHash.Verify("Password1!", stored.Password));
+        Assert.Equal("Пётр", stored!.Name);
+        Assert.Equal("a@b.ru", stored.Email);
+        Assert.Equal(created, stored.CreatedUtc);
     }
 
     /// <summary>
-    /// With nothing to edit, Save refuses rather than writing a profile with no password.
+    /// With nothing to edit, Save refuses rather than inventing one.
     /// </summary>
     /// <remarks>
     /// The dangerous case is not "no profile yet" — it is a file that is momentarily unreadable.
@@ -116,7 +119,7 @@ public sealed class ProfileServiceTests : IDisposable
     {
         var service = Service();
 
-        Assert.True(service.Register("Аня", "a@b.ru", "Password1!"));
+        Assert.True(service.Register("Аня", "a@b.ru"));
         Assert.Equal(
             PictureVerdict.Ok,
             service.SetPicture(ProfilePictureKind.Avatar, Picture("face.png", 256, 256)));
@@ -137,7 +140,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void The_card_is_pointed_at_the_copy_and_not_at_the_original()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         var source = Picture("face.png", 256, 256);
 
@@ -161,7 +164,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void Replacing_a_picture_clears_up_after_the_old_one()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         service.SetPicture(ProfilePictureKind.Avatar, Picture("first.png", 256, 256));
         service.SetPicture(ProfilePictureKind.Avatar, Picture("second.png", 512, 512));
@@ -181,7 +184,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void A_removed_picture_gives_back_the_drawn_mark_in_its_old_colour()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
         Assert.True(service.Save("Аня", "", 4));
 
         var colourBefore = service.Current!.Colour;
@@ -201,7 +204,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void Removing_the_avatar_leaves_the_card_background()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         service.SetPicture(ProfilePictureKind.Avatar, Picture("face.png", 256, 256));
         service.SetPicture(ProfilePictureKind.CardBackground, Picture("wide.png", 1600, 400));
@@ -217,7 +220,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void Removing_a_picture_that_was_never_set_succeeds_quietly()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         Assert.True(service.RemovePicture(ProfilePictureKind.Avatar));
         Assert.Empty(service.Current!.AvatarImagePath);
@@ -234,7 +237,7 @@ public sealed class ProfileServiceTests : IDisposable
         PictureVerdict expected)
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         Assert.Equal(expected, service.SetPicture(kind, Picture("bad.png", width, height)));
 
@@ -268,7 +271,7 @@ public sealed class ProfileServiceTests : IDisposable
     public void A_picture_whose_file_has_gone_reads_as_no_picture()
     {
         var service = Service();
-        Assert.True(service.Register("Аня", "", "Password1!"));
+        Assert.True(service.Register("Аня", ""));
 
         service.SetPicture(ProfilePictureKind.Avatar, Picture("face.png", 256, 256));
 

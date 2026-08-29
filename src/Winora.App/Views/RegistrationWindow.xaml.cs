@@ -72,10 +72,10 @@ public sealed partial class RegistrationWindow : Window
         RemoveSystemChrome();
         MakeBackdropTransparent();
 
-        // 520 is the card's own Width; 720 is Card's MinHeight in the markup, sized for the
-        // password step. See the remark on Card in RegistrationWindow.xaml for why a fixed height
-        // was chosen over resizing the window on every step change.
-        Resize(520, 720);
+        // 520 is the card's own Width. The height was 720, sized for the password step; without
+        // it the tallest screen is the email one, and the window no longer needs the room. Still
+        // fixed rather than resized per step — see the remark on Card in RegistrationWindow.xaml.
+        Resize(520, 600);
 
         Model.PropertyChanged += OnModelChanged;
         Model.Completed += OnModelCompleted;
@@ -126,71 +126,6 @@ public sealed partial class RegistrationWindow : Window
     public Brush EmailEdge(string error, bool accepted) =>
         error.Length > 0 ? Refused : accepted ? Accepted : Quiet;
 
-    /// <summary>What is wrong with the repeated password, or nothing while it is still being typed.</summary>
-    /// <remarks>
-    /// Computed here rather than on the view model, which has no such property: it is the one thing
-    /// on these screens that exists purely to be looked at. What it says is already enforced by
-    /// <see cref="RegistrationViewModel.CanFinish"/>, which is what actually refuses the save.
-    /// </remarks>
-    public string ConfirmError(string password, string confirm) =>
-        confirm.Length > 0 && !string.Equals(password, confirm, StringComparison.Ordinal)
-            ? _text.Get("Reg_ConfirmMismatch")
-            : string.Empty;
-
-    /// <summary>Whether <see cref="ConfirmError"/> has anything to show.</summary>
-    /// <remarks>
-    /// Its own function because <c>x:Bind</c> cannot nest one function binding inside another.
-    /// </remarks>
-    public Visibility ConfirmErrorShown(string password, string confirm) =>
-        ConfirmError(password, confirm).Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-    /// <summary>The repeat field's border, red once the two no longer agree.</summary>
-    public Brush ConfirmEdge(string password, string confirm) =>
-        FieldEdge(ConfirmError(password, confirm));
-
-    /// <summary>The word for how strong the password is.</summary>
-    /// <remarks>
-    /// Written as five literal keys rather than as "Reg_Strength_" plus a number, so that the
-    /// architecture test which checks every requested key against the resource file can see them.
-    /// </remarks>
-    public string StrengthLabel(PasswordStrength strength)
-    {
-        ArgumentNullException.ThrowIfNull(strength);
-
-        return strength.Score switch
-        {
-            1 => _text.Get("Reg_Strength_1"),
-            2 => _text.Get("Reg_Strength_2"),
-            3 => _text.Get("Reg_Strength_3"),
-            4 => _text.Get("Reg_Strength_4"),
-            _ => _text.Get("Reg_Strength_0"),
-        };
-    }
-
-    /// <summary>The colour of that word: grey, red, amber, green.</summary>
-    public Brush StrengthEdge(PasswordStrength strength)
-    {
-        ArgumentNullException.ThrowIfNull(strength);
-
-        return strength.Score switch
-        {
-            1 => Weak,
-            2 => Fair,
-            >= 3 => Good,
-            _ => Unsaid,
-        };
-    }
-
-    /// <summary>A met requirement or an unmet one, on the checklist.</summary>
-    public string RuleGlyph(bool met) => met ? TickGlyph : CrossGlyph;
-
-    /// <summary>Green for a met requirement; the checklist's own grey for one still outstanding.</summary>
-    /// <remarks>
-    /// Grey rather than red for the unmet ones: a person halfway through typing a password has not
-    /// done anything wrong, and a column of red crosses says they have.
-    /// </remarks>
-    public Brush RuleEdge(bool met) => met ? Accepted : Unsaid;
-
     private void OnModelChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName == nameof(RegistrationViewModel.Step))
@@ -206,27 +141,19 @@ public sealed partial class RegistrationWindow : Window
     /// Swaps the visible step, sliding the new one in.
     /// </summary>
     /// <remarks>
-    /// Done by hand rather than by a transition on a Frame: there are four fixed panels, and a
-    /// navigation stack for four panels that never navigate anywhere is more machinery than the
+    /// Done by hand rather than by a transition on a Frame: there are three fixed panels, and a
+    /// navigation stack for three panels that never navigate anywhere is more machinery than the
     /// thing it drives.
     /// </remarks>
     private void ShowStep(RegistrationStep step, bool animate)
     {
-        var panels = new UIElement[] { StepName, StepEmail, StepPassword, StepDone };
+        var panels = new UIElement[] { StepName, StepEmail, StepDone };
 
         for (var index = 0; index < panels.Length; index++)
         {
             panels[index].Visibility = index == (int)step
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-        }
-
-        if (step == RegistrationStep.Done)
-        {
-            // The view model wipes the plain text the moment it has been hashed. These two controls
-            // are the other copy of it, and leaving them holding it would make that wipe a gesture.
-            PasswordField.Password = string.Empty;
-            ConfirmField.Password = string.Empty;
         }
 
         Steps.Show(step);
@@ -264,7 +191,6 @@ public sealed partial class RegistrationWindow : Window
         {
             RegistrationStep.Name => NameField,
             RegistrationStep.Email => EmailField,
-            RegistrationStep.Password => PasswordField,
             _ => null,
         };
 
@@ -328,19 +254,7 @@ public sealed partial class RegistrationWindow : Window
 
     private void OnEmailLostFocus(object sender, RoutedEventArgs args) => Model.EmailTouched = true;
 
-    /// <summary>
-    /// Carries the typed password to the view model.
-    /// </summary>
-    /// <remarks>
-    /// By hand rather than by a two-way binding. <see cref="PasswordBox.Password"/> is the one field
-    /// on these screens where the control, not the model, is the thing somebody would think to read
-    /// at a breakpoint, and an explicit line here is easier to be sure of than a binding mode.
-    /// </remarks>
-    private void OnPasswordTyped(object sender, RoutedEventArgs args) =>
-        Model.Password = PasswordField.Password;
 
-    private void OnConfirmTyped(object sender, RoutedEventArgs args) =>
-        Model.Confirm = ConfirmField.Password;
 
     /// <summary>
     /// Puts an offered domain onto whatever has been typed, replacing any domain already there.

@@ -22,13 +22,13 @@ public sealed class RegistrationViewModelTests
         // success clears an earlier failure's message on the same view model instance.
         public bool RegisterSucceeds { get; set; } = true;
 
-        public (string Name, string Email, string Password)? Registered { get; private set; }
+        public (string Name, string Email)? Registered { get; private set; }
 
         public bool Save(string name, string email, int avatar) => true;
 
-        public bool Register(string name, string email, string password)
+        public bool Register(string name, string email)
         {
-            Registered = (name, email, password);
+            Registered = (name, email);
             return RegisterSucceeds;
         }
 
@@ -88,7 +88,11 @@ public sealed class RegistrationViewModelTests
         vm.Email = email;
 
         Assert.Equal(RegistrationStep.Email, vm.Step);
-        Assert.Equal(expected, vm.CanGoNext);
+
+        // CanFinish, not CanGoNext: the email step is the last one, so the address is what the
+        // finish button waits for. There is nowhere further to go.
+        Assert.Equal(expected, vm.CanFinish);
+        Assert.False(vm.CanGoNext);
     }
 
     /// <summary>
@@ -124,7 +128,15 @@ public sealed class RegistrationViewModelTests
         Assert.Equal("a@b.ru", vm.Email);
     }
 
-    private static RegistrationViewModel AtPasswordStep(IProfileService service)
+    /// <summary>
+    /// The last step, which is now the email one.
+    /// </summary>
+    /// <remarks>
+    /// It used to be the password step. The password was collected, hashed and stored, and nothing
+    /// ever checked it — see the store, where a missing digest used to make a whole profile read as
+    /// absent. Removed on 2026-08-27 rather than given a login to justify it.
+    /// </remarks>
+    private static RegistrationViewModel AtLastStep(IProfileService service)
     {
         var vm = new RegistrationViewModel(service, new EchoLocalization())
         {
@@ -133,24 +145,19 @@ public sealed class RegistrationViewModelTests
 
         vm.NextCommand.Execute(null);
         vm.Email = "a@b.ru";
-        vm.NextCommand.Execute(null);
         return vm;
     }
 
     [Theory]
-    [InlineData("Password1!", "Password1!", true)]
-    [InlineData("Password1!", "Password1", false)]
-    [InlineData("Password1!", "", false)]
-    [InlineData("short1!", "short1!", false)]
-    [InlineData("abcdefgh", "abcdefgh", false)]
-    public void Finishing_needs_a_matching_acceptable_password(
-        string password, string confirm, bool expected)
+    [InlineData("a@b.ru", true)]
+    [InlineData("не почта", false)]
+    [InlineData("", false)]
+    public void Finishing_needs_a_usable_address(string email, bool expected)
     {
-        var vm = AtPasswordStep(new FakeProfileService());
-        vm.Password = password;
-        vm.Confirm = confirm;
+        var vm = AtLastStep(new FakeProfileService());
+        vm.Email = email;
 
-        Assert.Equal(RegistrationStep.Password, vm.Step);
+        Assert.Equal(RegistrationStep.Email, vm.Step);
         Assert.Equal(expected, vm.CanFinish);
     }
 
@@ -158,39 +165,28 @@ public sealed class RegistrationViewModelTests
     public void Finishing_registers_the_trimmed_values_and_moves_to_done()
     {
         var service = new FakeProfileService();
-        var vm = AtPasswordStep(service);
+        var vm = AtLastStep(service);
         vm.Name = "  Аня  ";
         vm.Email = "  a@b.ru  ";
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
 
         vm.FinishCommand.Execute(null);
 
-        Assert.Equal(("Аня", "a@b.ru", "Password1!"), service.Registered);
+        Assert.Equal(("Аня", "a@b.ru"), service.Registered);
         Assert.Equal(RegistrationStep.Done, vm.Step);
     }
 
     [Fact]
-    public void A_failed_save_says_so_and_stays_on_the_password_step()
+    /// <remarks>
+    /// Everything typed stays typed: a failed save must not cost somebody the screens they filled.
+    /// </remarks>
+    public void A_failed_save_says_so_and_stays_on_the_last_step()
     {
-        var vm = AtPasswordStep(new FakeProfileService { RegisterSucceeds = false });
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
+        var vm = AtLastStep(new FakeProfileService { RegisterSucceeds = false });
 
         vm.FinishCommand.Execute(null);
 
-        Assert.Equal(RegistrationStep.Password, vm.Step);
+        Assert.Equal(RegistrationStep.Email, vm.Step);
         Assert.Equal("Reg_SaveFailed", vm.StatusMessage);
-    }
-
-    [Fact]
-    public void The_strength_follows_the_password()
-    {
-        var vm = AtPasswordStep(new FakeProfileService());
-        vm.Password = "Abcdefg1!";
-
-        Assert.Equal(4, vm.Strength.Score);
-        Assert.True(vm.Strength.IsAcceptable);
     }
 
     [Fact]
@@ -258,26 +254,10 @@ public sealed class RegistrationViewModelTests
     }
 
     [Fact]
-    public void A_failed_finish_leaves_the_password_and_confirm_typed_in_so_the_person_can_retry()
-    {
-        var vm = AtPasswordStep(new FakeProfileService { RegisterSucceeds = false });
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
-
-        vm.FinishCommand.Execute(null);
-
-        Assert.Equal(RegistrationStep.Password, vm.Step);
-        Assert.Equal("Password1!", vm.Password);
-        Assert.Equal("Password1!", vm.Confirm);
-    }
-
-    [Fact]
     public void A_stale_failure_message_does_not_survive_into_the_done_step()
     {
         var service = new FakeProfileService { RegisterSucceeds = false };
-        var vm = AtPasswordStep(service);
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
+        var vm = AtLastStep(service);
         vm.FinishCommand.Execute(null);
 
         Assert.Equal("Reg_SaveFailed", vm.StatusMessage);
@@ -313,9 +293,7 @@ public sealed class RegistrationViewModelTests
     [Fact]
     public void Opening_after_finishing_raises_completed()
     {
-        var vm = AtPasswordStep(new FakeProfileService());
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
+        var vm = AtLastStep(new FakeProfileService());
         vm.FinishCommand.Execute(null);
 
         var raised = false;
@@ -333,9 +311,7 @@ public sealed class RegistrationViewModelTests
     [Fact]
     public void Opening_twice_raises_completed_once()
     {
-        var vm = AtPasswordStep(new FakeProfileService());
-        vm.Password = "Password1!";
-        vm.Confirm = "Password1!";
+        var vm = AtLastStep(new FakeProfileService());
         vm.FinishCommand.Execute(null);
 
         var raisedCount = 0;

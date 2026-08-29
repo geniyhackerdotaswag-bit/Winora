@@ -41,8 +41,7 @@ public sealed class UserProfileStoreTests : IDisposable
             "Аня",
             "anya@example.com",
             2,
-            new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero),
-            PasswordHash.Create("Password1!"));
+            new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero));
 
     [Fact]
     public void A_written_profile_comes_back_whole()
@@ -195,11 +194,11 @@ public sealed class UserProfileStoreTests : IDisposable
 
         var read = Store().Read();
 
-        Assert.NotNull(read?.Password);
-        Assert.Equal(written.Password!.Hash, read.Password!.Hash);
-        Assert.Equal(written.Password.Salt, read.Password.Salt);
-        Assert.Equal(written.Password.Iterations, read.Password.Iterations);
-        Assert.True(PasswordHash.Verify("Password1!", read.Password));
+        Assert.NotNull(read);
+        Assert.Equal(written.Name, read!.Name);
+        Assert.Equal(written.Email, read.Email);
+        Assert.Equal(written.Avatar, read.Avatar);
+        Assert.Equal(written.CreatedUtc, read.CreatedUtc);
     }
 
     /// <summary>
@@ -251,7 +250,6 @@ public sealed class UserProfileStoreTests : IDisposable
         Assert.Equal("Аня", read.Name);
         Assert.Equal("anya@example.com", read.Email);
         Assert.Equal(2, read.Avatar);
-        Assert.Equal("h", read.Password!.Hash);
         Assert.Null(read.AvatarFile);
         Assert.Null(read.BackgroundFile);
     }
@@ -328,17 +326,56 @@ public sealed class UserProfileStoreTests : IDisposable
         Assert.DoesNotContain("escape", File.ReadAllText(Path.Combine(_folder, "profile.json")), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A file written before the password was removed still reads, and loses its hash.
+    /// </summary>
+    /// <remarks>
+    /// Two things at once, and both matter. The profile must survive — this used to be the file
+    /// that read as no profile at all, because a missing digest was treated as never having
+    /// registered, which would now throw away everybody's name and pictures. And the hash must
+    /// leave the disk: dropping the fields from the shape stops them being read but does not
+    /// remove them, and a secret nothing uses is worse left lying about than deleted.
+    /// </remarks>
     [Fact]
-    public void A_profile_whose_digest_is_empty_reads_as_no_profile()
+    public void An_old_file_with_a_password_still_reads_and_the_password_leaves_the_disk()
+    {
+        var path = Path.Combine(_folder, "profile.json");
+
+        File.WriteAllText(
+            path,
+            """
+            {"schemaVersion":3,"name":"Аня","email":"a@b.ru","avatar":2,
+             "createdUtc":"2026-08-24T00:00:00+00:00",
+             "passwordHash":"h","passwordSalt":"s","passwordIterations":600000}
+            """);
+
+        var read = Store().Read();
+
+        Assert.NotNull(read);
+        Assert.Equal("Аня", read!.Name);
+        Assert.Equal("a@b.ru", read.Email);
+
+        var after = File.ReadAllText(path);
+        Assert.DoesNotContain("passwordHash", after, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("passwordSalt", after, StringComparison.OrdinalIgnoreCase);
+
+        // Asked of a second read rather than of the text: the serializer escapes Cyrillic
+        // as a \u04xx sequence, so searching the raw file for the name finds nothing even
+        // when the name is perfectly well there.
+        Assert.Equal("Аня", Store().Read()!.Name);
+    }
+
+    /// <summary>A file with no password at all is an ordinary profile now, not an absent one.</summary>
+    [Fact]
+    public void A_profile_with_no_password_is_a_profile()
     {
         File.WriteAllText(
             Path.Combine(_folder, "profile.json"),
             """
-            {"schemaVersion":2,"name":"Аня","email":"","avatar":0,
-             "createdUtc":"2026-08-24T00:00:00+00:00",
-             "passwordHash":"","passwordSalt":"","passwordIterations":0}
+            {"schemaVersion":3,"name":"Аня","email":"","avatar":0,
+             "createdUtc":"2026-08-24T00:00:00+00:00"}
             """);
 
-        Assert.Null(Store().Read());
+        Assert.NotNull(Store().Read());
     }
 }
