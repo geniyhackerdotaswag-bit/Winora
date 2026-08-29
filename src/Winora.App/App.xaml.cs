@@ -74,22 +74,9 @@ public partial class App : Application
     {
         try
         {
-            // The packaged build hands off to an elevated copy of itself and leaves without ever
-            // showing a window, so the user sees one app rather than two. A declined prompt falls
-            // through and runs as-is.
-            //
-            // The portable build does not, and the check is here rather than inside the relauncher.
-            // Auto-elevating it was tried and taken back out: a file somebody downloaded and
-            // double-clicked demanding administrator before it has shown them anything is a
-            // different proposition from an installed program doing it. It asks when there is
-            // something to ask for instead — the animation screen's "Перезапустить" button, which
-            // calls the same relauncher and now works for this kind of build too.
-            if (Services.GetRequiredService<IDeploymentState>().IsPackaged &&
-                Services.GetRequiredService<IElevationRelauncher>().TryRelaunchElevated())
-            {
-                Exit();
-                return;
-            }
+            // No relaunch here any more. The manifest asks for administrator before the process
+            // starts, so by the time this runs the rights are already held — see app.manifest for
+            // why that was chosen over starting plain and elevating afterwards.
 
             ApplyStoredScheme();
 
