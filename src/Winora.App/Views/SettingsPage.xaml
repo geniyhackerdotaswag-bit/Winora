@@ -50,6 +50,43 @@
                     </Border>
 
                     <!--
+                      Carrying settings to another machine, as a file. Here rather than in the pane
+                      for the same reason the colours are: this is a rare thing to want, and the
+                      pane is for the screens somebody opens to change something today.
+
+                      A file, not an account. The two buttons below do what a server would do for
+                      this purpose, and cost nobody a password, a host or a thing that can be down.
+                    -->
+                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
+                               Text="{x:Bind ViewModel.TransferHeading, Mode=OneWay}" />
+
+                    <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Text="{x:Bind ViewModel.TransferDescription, Mode=OneWay}" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Style="{StaticResource WinoraActionButton}"
+                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(ViewModel.IsTransferBusy), Mode=OneWay}"
+                                        Content="{x:Bind ViewModel.TransferSaveLabel, Mode=OneWay}"
+                                        Click="OnTransferSaveClick" />
+                                <Button Style="{StaticResource WinoraActionButton}"
+                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(ViewModel.IsTransferBusy), Mode=OneWay}"
+                                        Content="{x:Bind ViewModel.TransferLoadLabel, Mode=OneWay}"
+                                        Click="OnTransferLoadClick" />
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                       Margin="0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{x:Bind ctl:XamlConvert.ShowText(ViewModel.TransferMessage), Mode=OneWay}"
+                                       Text="{x:Bind ViewModel.TransferMessage, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!--
                       Winora already checks for a new version by itself at startup
                       (UpdateViewModel.StartupAsync); this is the same check, run on request, for the
                       moment somebody wants an answer right now instead of waiting. Collapsed whole in

@@ -78,6 +78,8 @@
       for — showing what happened without showing what it happened to — can be asserted directly.
     -->
     <Compile Include="..\..\src\Winora.App\ViewModels\JournalViewModel.cs" LinkBase="Linked\ViewModels" />
+    <Compile Include="..\..\src\Winora.App\Services\ChangeExecutor.cs" LinkBase="Linked\Services" />
+    <Compile Include="..\..\src\Winora.App\Services\SettingsTransferService.cs" LinkBase="Linked\Services" />
 
     <!-- ShellViewModel is the pane structure and two strings; RouteRegistry and IAppEnvironment
          are both linked above already. -->

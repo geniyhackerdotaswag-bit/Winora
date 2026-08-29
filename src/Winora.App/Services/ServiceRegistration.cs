@@ -61,6 +61,7 @@ public static class ServiceRegistration
         services.AddSingleton<IWindowsEditionProbe, WindowsEditionProbe>();
         services.AddSingleton<IMachineSummaryService, MachineSummaryService>();
         services.AddSingleton<MachineViewModel>();
+        services.AddSingleton<ISettingsTransferService, SettingsTransferService>();
         services.AddTransient<CleanupViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<StartupViewModel>();

@@ -42,6 +42,30 @@ public sealed partial class SettingsPage : Page
         _load.Leave();
     }
 
+    /// <summary>Writes this machine's settings to a file the person names.</summary>
+    private async void OnTransferSaveClick(object sender, RoutedEventArgs e)
+    {
+        var path = await Services.SettingsFilePicker.SaveAsync(
+            App.CurrentWindow,
+            "winora-" + DateTimeOffset.Now.ToString("yyyy-MM-dd", global::System.Globalization.CultureInfo.InvariantCulture));
+
+        if (path is not null)
+        {
+            await ViewModel.SaveTransferAsync(path);
+        }
+    }
+
+    /// <summary>Applies a file to this machine, through the ordinary change pipeline.</summary>
+    private async void OnTransferLoadClick(object sender, RoutedEventArgs e)
+    {
+        var path = await Services.SettingsFilePicker.OpenAsync(App.CurrentWindow);
+
+        if (path is not null)
+        {
+            await ViewModel.LoadTransferAsync(path);
+        }
+    }
+
     private void OnAppearanceClick(object sender, RoutedEventArgs e) =>
         App.Services.GetRequiredService<Navigation.INavigationService>()
             .NavigateTo(Navigation.RouteKeys.Appearance);
