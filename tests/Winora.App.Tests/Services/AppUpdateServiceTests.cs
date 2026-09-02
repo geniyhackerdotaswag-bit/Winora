@@ -95,9 +95,7 @@ public sealed class AppUpdateServiceTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(NextOutcome);
 
-        public void RemoveLeftovers()
-        {
-        }
+        public int RemoveLeftovers() => 0;
 
         public bool Restart() => true;
     }

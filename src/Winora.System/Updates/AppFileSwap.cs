@@ -125,7 +125,7 @@ public static class AppFileSwap
     /// folder on its own startup regardless of where it is itself running from.
     /// </para>
     /// </remarks>
-    public static void RemoveLeftovers(string directory, string executableName)
+    public static int RemoveLeftovers(string directory, string executableName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         ArgumentException.ThrowIfNullOrWhiteSpace(executableName);
@@ -134,7 +134,7 @@ public static class AppFileSwap
         {
             if (!Directory.Exists(directory))
             {
-                return;
+                return 0;
             }
 
             // The program this cleanup runs on behalf of has to still be there. Its absence means a
@@ -142,18 +142,29 @@ public static class AppFileSwap
             // only way back — see the remarks above.
             if (!File.Exists(Path.Combine(directory, executableName)))
             {
-                return;
+                return 0;
             }
+
+            var left = 0;
 
             foreach (var file in Directory.EnumerateFiles(directory, "*" + OldSuffix)
                          .Concat(Directory.EnumerateFiles(directory, "*" + FreshSuffix)))
             {
                 TryDelete(file);
+
+                if (File.Exists(file))
+                {
+                    left++;
+                }
             }
+
+            return left;
         }
         catch (Exception)
         {
-            // Same reasoning: never a reason to fail a startup.
+            // Same reasoning: never a reason to fail a startup. Reported as "something is left"
+            // so a caller that retries will try again rather than conclude the folder is clean.
+            return 1;
         }
     }
 

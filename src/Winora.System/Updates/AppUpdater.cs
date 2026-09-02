@@ -52,7 +52,15 @@ public interface IAppUpdater
         CancellationToken cancellationToken = default);
 
     /// <summary>Clears away what a previous update left behind. Called once at startup.</summary>
-    void RemoveLeftovers();
+    /// <summary>
+    /// Clears away what a previous update left behind, and says how much would not go.
+    /// </summary>
+    /// <remarks>
+    /// Zero means the place is clean. Anything else is almost always the copy that has just been
+    /// replaced, still held by the process that is on its way out — see the remarks on the
+    /// implementation for why that is worth retrying rather than leaving until next time.
+    /// </remarks>
+    int RemoveLeftovers();
 
     /// <summary>
     /// Starts the installed copy and reports whether that succeeded. Ending this process is the
@@ -219,19 +227,28 @@ public sealed class AppUpdater : IAppUpdater
     }
 
     /// <remarks>
+    /// <para>
     /// Two kinds of leftover, both from updating. The <c>.old</c> and <c>.new</c> files beside the
     /// program, and the unpacked copies of replaced versions in the temporary folder — those are
     /// far larger, and .NET leaves every one of them behind for good.
+    /// </para>
+    /// <para>
+    /// Returns how many of the files beside the program would not go. Right after an update that is
+    /// normally one: the copy just replaced, still open by the process that started this one and
+    /// has not finished exiting. That is the case worth retrying — see the caller.
+    /// </para>
     /// </remarks>
-    public void RemoveLeftovers()
+    public int RemoveLeftovers()
     {
         var executable = Path.GetFileName(_location.InstalledExecutablePath);
 
-        AppFileSwap.RemoveLeftovers(_location.InstalledDirectory, executable);
+        var left = AppFileSwap.RemoveLeftovers(_location.InstalledDirectory, executable);
 
         ExtractionCache.RemoveReplaced(
             Path.GetFileNameWithoutExtension(executable),
             AppContext.BaseDirectory);
+
+        return left;
     }
 
     /// <remarks>

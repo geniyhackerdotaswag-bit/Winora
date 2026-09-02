@@ -281,6 +281,41 @@ public sealed class UpdateViewModelTests
         Assert.True(update.RemoveLeftoversCalled);
     }
 
+    /// <summary>
+    /// Debris still held by the departing process is chased, not left for next time.
+    /// </summary>
+    /// <remarks>
+    /// Measured on 2026-08-30: right after an update the replaced copy was still open by the
+    /// process that had started this one, so a single attempt failed — which is exactly the moment
+    /// there is something to clear. The file then sat on disk until the next launch, which could
+    /// be days.
+    /// </remarks>
+    [Fact]
+    public async Task Startup_keeps_trying_while_something_is_still_held()
+    {
+        var update = new FakeUpdateService { NextCheck = null };
+        update.LeftoversRemaining.Enqueue(1);
+        update.LeftoversRemaining.Enqueue(1);
+
+        var vm = Build(update);
+
+        await vm.StartupAsync();
+
+        Assert.Equal(3, update.RemoveLeftoversCalls);
+    }
+
+    /// <summary>A clean folder is not swept again.</summary>
+    [Fact]
+    public async Task Startup_stops_as_soon_as_nothing_is_left()
+    {
+        var update = new FakeUpdateService { NextCheck = null };
+        var vm = Build(update);
+
+        await vm.StartupAsync();
+
+        Assert.Equal(1, update.RemoveLeftoversCalls);
+    }
+
     [Fact]
     public async Task Startup_does_nothing_in_the_packaged_build()
     {
@@ -725,6 +760,12 @@ public sealed class UpdateViewModelTests
 
         public bool RemoveLeftoversCalled { get; private set; }
 
+        /// <summary>How many attempts the view model made before it stopped.</summary>
+        public int RemoveLeftoversCalls { get; private set; }
+
+        /// <summary>How many leftovers each call reports, in order. Missing entries read as zero.</summary>
+        public Queue<int> LeftoversRemaining { get; } = new();
+
         public bool UpdateAsyncCalled { get; private set; }
 
         public int UpdateAsyncCallCount { get; private set; }
@@ -743,7 +784,13 @@ public sealed class UpdateViewModelTests
         /// </summary>
         public TaskCompletionSource<AppUpdateOutcomeView>? PendingUpdate { get; set; }
 
-        public void RemoveLeftovers() => RemoveLeftoversCalled = true;
+        public int RemoveLeftovers()
+        {
+            RemoveLeftoversCalled = true;
+            RemoveLeftoversCalls++;
+
+            return LeftoversRemaining.Count > 0 ? LeftoversRemaining.Dequeue() : 0;
+        }
 
         public Task<AppUpdateReleaseView?> CheckAsync(
             string currentVersion,

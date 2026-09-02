@@ -70,7 +70,8 @@ public interface IAppUpdateService
     bool IsInstalled { get; }
 
     /// <summary>Clears away what a previous update left behind. Called once at startup.</summary>
-    void RemoveLeftovers();
+    /// <summary>Clears update debris, reporting how much would not go.</summary>
+    int RemoveLeftovers();
 
     /// <summary>
     /// Whether the last <see cref="CheckAsync"/> managed to reach the feed at all.
@@ -126,7 +127,7 @@ public sealed class AppUpdateService : IAppUpdateService
     /// <inheritdoc />
     public bool Reached { get; private set; } = true;
 
-    public void RemoveLeftovers() => _updater.RemoveLeftovers();
+    public int RemoveLeftovers() => _updater.RemoveLeftovers();
 
     public async Task<AppUpdateReleaseView?> CheckAsync(
         string currentVersion,

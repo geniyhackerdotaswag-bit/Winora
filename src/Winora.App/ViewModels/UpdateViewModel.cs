@@ -162,8 +162,11 @@ public sealed partial class UpdateViewModel : ObservableObject
     /// The one check made without being asked, at startup.
     /// </summary>
     /// <remarks>
-    /// Also the moment the debris of a previous update is cleared: the displaced file is no longer
-    /// running by now, so this is the first point at which it can actually be deleted.
+    /// Also the moment the debris of a previous update is cleared — but not in one go, because the
+    /// displaced file usually is still running. Measured on 2026-08-30: right after an update the
+    /// old copy remained beside the new one, held by the process that had just started this one and
+    /// had not finished exiting. The comment here used to claim the opposite and the debris
+    /// therefore sat on disk until the next launch, which could be days.
     /// </remarks>
     public async Task StartupAsync()
     {
@@ -172,9 +175,49 @@ public sealed partial class UpdateViewModel : ObservableObject
             return;
         }
 
-        _update.RemoveLeftovers();
+        await RemoveLeftoversAsync().ConfigureAwait(true);
         await CheckAsync(announceNothing: false).ConfigureAwait(true);
     }
+
+    /// <summary>
+    /// Clears update debris, waiting out the process that is still holding it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The copy that has just been replaced is open by the program that started this one, and that
+    /// program is in the middle of exiting. A single attempt therefore fails almost every time an
+    /// update has just happened — which is exactly when there is something to clear.
+    /// </para>
+    /// <para>
+    /// Off the interface thread and never awaited to completion by anything the user is waiting on:
+    /// this is housekeeping, and a window that opens a second later because a file would not delete
+    /// is a worse outcome than a file that goes a second later.
+    /// </para>
+    /// </remarks>
+    private async Task RemoveLeftoversAsync()
+    {
+        for (var attempt = 0; attempt < LeftoverAttempts; attempt++)
+        {
+            if (await Task.Run(_update.RemoveLeftovers).ConfigureAwait(true) == 0)
+            {
+                return;
+            }
+
+            await Task.Delay(LeftoverWait).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// How many times the debris is chased before it is left for the next launch.
+    /// </summary>
+    /// <remarks>
+    /// Six tries half a second apart covers the three seconds a departing process takes to let go
+    /// of its own file. Beyond that the holder is something else — another copy of Winora, or a
+    /// virus scanner reading the file — and waiting longer would not help.
+    /// </remarks>
+    private const int LeftoverAttempts = 6;
+
+    private static readonly TimeSpan LeftoverWait = TimeSpan.FromMilliseconds(500);
 
     [RelayCommand]
     private Task Check() => CheckAsync(announceNothing: true);
