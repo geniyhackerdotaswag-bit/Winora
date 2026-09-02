@@ -67,7 +67,7 @@
                        VerticalAlignment="Center" />
             <FontIcon x:Name="Tick1"
                       AutomationProperties.AccessibilityView="Raw"
-                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                       FontSize="12"
                       Glyph="&#xE73E;"
                       Visibility="Collapsed" />
@@ -82,7 +82,7 @@
                        VerticalAlignment="Center" />
             <FontIcon x:Name="Tick2"
                       AutomationProperties.AccessibilityView="Raw"
-                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                       FontSize="12"
                       Glyph="&#xE73E;"
                       Visibility="Collapsed" />
@@ -97,7 +97,7 @@
                        VerticalAlignment="Center" />
             <FontIcon x:Name="Tick3"
                       AutomationProperties.AccessibilityView="Raw"
-                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                       FontSize="12"
                       Glyph="&#xE73E;"
                       Visibility="Collapsed" />

@@ -115,7 +115,7 @@
                                         VerticalAlignment="Center"
                                         Spacing="8">
                                 <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                          FontFamily="{StaticResource WinoraIconFontFamily}"
+                                          FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                           FontSize="14"
                                           Foreground="#9A9AA2"
                                           Glyph="&#xE8FA;" />
@@ -140,7 +140,7 @@
                                     Click="OnCloseClicked"
                                     AutomationProperties.Name="{x:Bind Localized('Reg_Close')}">
                                 <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                          FontFamily="{StaticResource WinoraIconFontFamily}"
+                                          FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                           FontSize="10"
                                           Glyph="&#xE8BB;" />
                             </Button>
@@ -167,7 +167,7 @@
                                 <Border Style="{StaticResource WinoraRegistrationBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                   FontSize="12"
                                                   Foreground="#8E8E96"
                                                   Glyph="&#xE8FA;"
@@ -192,7 +192,7 @@
                                             BorderBrush="{x:Bind FieldEdge(Model.NameError), Mode=OneWay}">
                                         <Grid>
                                             <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                       FontSize="15"
                                                       Foreground="#6E6E78"
                                                       Glyph="&#xE77B;"
@@ -228,7 +228,7 @@
                                 <Border Style="{StaticResource WinoraRegistrationBadge}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                   FontSize="12"
                                                   Foreground="#8E8E96"
                                                   Glyph="&#xE715;"
@@ -257,7 +257,7 @@
                                             BorderBrush="{x:Bind EmailEdge(Model.EmailError, Model.CanFinish), Mode=OneWay}">
                                         <Grid>
                                             <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                       FontSize="15"
                                                       Foreground="#6E6E78"
                                                       Glyph="&#xE715;"
@@ -278,7 +278,7 @@
                                               last one now.
                                             -->
                                             <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                      FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                       FontSize="14"
                                                       Foreground="#34D399"
                                                       Glyph="&#xE73E;"
@@ -341,7 +341,7 @@
                                             BorderThickness="1"
                                             CornerRadius="20" />
                                     <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                              FontFamily="{StaticResource WinoraIconFontFamily}"
+                                              FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                               FontSize="30"
                                               Foreground="#E6E6EA"
                                               Glyph="&#xE77B;" />
@@ -352,7 +352,7 @@
                                           Margin="0,0,-4,-4">
                                         <Ellipse Fill="#34D399" Stroke="#0A0A0C" StrokeThickness="2" />
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                   FontSize="11"
                                                   Foreground="#08080A"
                                                   Glyph="&#xE73E;" />

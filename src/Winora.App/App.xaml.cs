@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Winora.App.Controls;
 using Winora.App.Diagnostics;
 using Winora.App.Services;
 using Winora.Core.Appearance;
@@ -24,11 +23,6 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-
-        // Before any page is parsed, because every icon in the app reads this by StaticResource and
-        // a lookup that runs first would take the Windows 11 default. Windows 10 and stripped builds
-        // have no "Segoe Fluent Icons", and there every icon drew as an empty box.
-        Resources["WinoraIconFontFamily"] = CatalogIcon.Font;
 
         try
         {

@@ -142,7 +142,7 @@
                                           is noise to everybody else.
                                         -->
                                         <FontIcon Glyph="&#xE72E;"
-                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                   FontSize="14"
                                                   HorizontalAlignment="Right"
                                                   Foreground="{ThemeResource WinoraTextMuted}"

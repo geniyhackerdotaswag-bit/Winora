@@ -19,31 +19,18 @@ public static class CatalogIcon
     public const double Size = 20;
 
     /// <summary>
-    /// The icon font this machine has, asked once.
+    /// The icon font, built once.
     /// </summary>
     /// <remarks>
-    /// Lazily and once, not per icon: the pane builds seventeen of these while the window is
-    /// opening, and the answer cannot change while the process runs — installing a font mid-session
-    /// would not repaint anything already drawn anyway.
+    /// Once rather than per icon: the pane builds seventeen of these while the window opens.
     ///
-    /// It used to be the literal "Segoe Fluent Icons". That font is Windows 11 only, so on Windows
-    /// 10 and on stripped builds every icon in the pane drew as an empty box. See
-    /// <see cref="IconFontProbe"/>.
+    /// It used to name "Segoe Fluent Icons" alone. That font is Windows 11 only, so on Windows 10
+    /// and on stripped builds every icon in the pane drew as an empty box. <see cref="IconFonts"/>
+    /// names both, and the text engine picks the one that has the glyph.
     /// </remarks>
     private static readonly Lazy<FontFamily> IconFont = new(
-        static () => new FontFamily(new IconFontProbe().ResolveFamily()),
+        static () => new FontFamily(IconFonts.Family),
         LazyThreadSafetyMode.ExecutionAndPublication);
-
-    /// <summary>
-    /// The icon font, for the markup that draws a glyph without going through the catalog.
-    /// </summary>
-    /// <remarks>
-    /// Published so <c>App</c> can put it in application resources under
-    /// <c>WinoraIconFontFamily</c>, which is what every <c>FontIcon</c> in XAML binds to. Naming the
-    /// family in markup is what left twenty-one glyphs still hard-coded to the Windows 11 font after
-    /// this class had already stopped doing so.
-    /// </remarks>
-    public static FontFamily Font => IconFont.Value;
 
     /// <summary>
     /// Resolves one catalog key to an icon, of whichever kind the catalog holds it as.

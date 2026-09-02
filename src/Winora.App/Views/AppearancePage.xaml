@@ -77,7 +77,7 @@
                                                    Foreground="{ThemeResource WinoraTextFaint}"
                                                    Text="{x:Bind Variant}" />
                                         <FontIcon Glyph="&#xE73E;"
-                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                   FontSize="14"
                                                   VerticalAlignment="Center"
                                                   Foreground="{ThemeResource WinoraHuePersonalization}"

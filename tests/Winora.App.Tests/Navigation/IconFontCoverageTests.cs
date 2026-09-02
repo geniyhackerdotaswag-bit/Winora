@@ -45,8 +45,8 @@ public sealed class IconFontCoverageTests
     {
         (string Family, string File)[] fonts =
         [
-            (IconFontProbe.PreferredFamily, "SegoeIcons.ttf"),
-            (IconFontProbe.FallbackFamily, "segmdl2.ttf"),
+            (IconFonts.PreferredFamily, "SegoeIcons.ttf"),
+            (IconFonts.FallbackFamily, "segmdl2.ttf"),
         ];
 
         var checkedFonts = 0;
