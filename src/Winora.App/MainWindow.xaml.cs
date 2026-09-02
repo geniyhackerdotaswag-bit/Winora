@@ -1,4 +1,4 @@
-using global::System.ComponentModel;
+﻿using global::System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -72,7 +72,6 @@ public sealed partial class MainWindow : Window
         // free, which on a cold start is before the content tree has a XamlRoot — and a
         // ContentDialog without one throws "This element does not have a XamlRoot". The log had
         // three of those before anybody noticed the dialog was simply never appearing.
-        RootGrid.Loaded += OnRootLoaded;
     }
 
     private void OnSchemeApplied(object? sender, EventArgs e) => ApplyScheme();
@@ -386,92 +385,5 @@ public sealed partial class MainWindow : Window
 
         // Deliberately not awaited: the window must finish opening whatever the network is doing.
         _ = _update.StartupAsync();
-    }
-
-    /// <summary>
-    /// Offers to move a downloaded copy into the programs folder.
-    /// </summary>
-    /// <remarks>
-    /// Asked every launch until it is answered yes, and never remembered as a no. Somebody who
-    /// downloaded the program to look at it opens it the second time on purpose, and that is the
-    /// better moment to ask than the first. If this turns out to be a nuisance the answer is a
-    /// "don't ask again", but not before it has actually been a nuisance.
-    /// </remarks>
-    /// <summary>Offers the install once, after the content tree exists.</summary>
-    private async void OnRootLoaded(object sender, RoutedEventArgs e)
-    {
-        // Once only: Loaded fires again whenever the element is re-parented into the tree. Unhooked
-        // before the await below, so a second Loaded firing on this same window (re-parenting) can
-        // never queue a second run of the install offer.
-        RootGrid.Loaded -= OnRootLoaded;
-
-        await OfferInstallAsync();
-    }
-
-    private async Task OfferInstallAsync()
-    {
-        // No caller further up propagates a fault out of OnRootLoaded's async void either, so a
-        // throw here would still reach the synchronization context directly and take the whole
-        // process down, in the first seconds of a new user's first launch. Every callee happens to
-        // swallow its own exceptions today, but that is incidental safety, not a guarantee this
-        // method may rely on.
-        try
-        {
-            var installer = App.Services.GetRequiredService<IAppInstaller>();
-
-            if (App.Services.GetRequiredService<IDeploymentState>().IsPackaged ||
-                !installer.NeedsInstalling)
-            {
-                return;
-            }
-
-            var dialog = new ContentDialog
-            {
-                XamlRoot = Content.XamlRoot,
-                Title = _text.Get("Install_Title"),
-                Content = string.Format(
-                    global::System.Globalization.CultureInfo.CurrentCulture,
-                    _text.Get("Install_Body"),
-                    installer.DestinationPath),
-                PrimaryButtonText = _text.Get("Install_Yes"),
-                CloseButtonText = _text.Get("Install_No"),
-                DefaultButton = ContentDialogButton.Primary,
-            };
-
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            {
-                return;
-            }
-
-            switch (installer.Install())
-            {
-                case InstallOutcome.Installed when installer.StartInstalledCopy():
-                    Close();
-                    return;
-
-                case InstallOutcome.Installed:
-                    // The copy landed and the shortcut was written; only the hand-off to the new
-                    // process failed. Saying "не удалось скопировать" here would be false -- the
-                    // copy is exactly why Install_Failed_Restart exists instead of Install_Failed.
-                    _update.ReportInstallRestartFailed();
-                    return;
-
-                case InstallOutcome.CopyFailed:
-                    _update.ReportInstallFailed();
-                    return;
-
-                case InstallOutcome.AlreadyInstalled:
-                default:
-                    // NeedsInstalling was already checked above the dialog; reaching this is only
-                    // possible through a race, and there is nothing wrong to report -- the program
-                    // is exactly where it should be.
-                    return;
-            }
-        }
-        catch (Exception ex)
-        {
-            Diagnostics.DiagnosticSink.Write("OfferInstall", ex);
-            _update.ReportInstallFailed();
-        }
     }
 }

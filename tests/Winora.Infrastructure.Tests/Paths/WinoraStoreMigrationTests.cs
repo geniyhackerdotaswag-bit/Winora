@@ -1,4 +1,4 @@
-using Winora.Infrastructure.Paths;
+﻿using Winora.Infrastructure.Paths;
 using Winora.Infrastructure.Tests.Persistence;
 using Xunit;
 
@@ -119,6 +119,71 @@ public sealed class WinoraStoreMigrationTests
         Assert.Equal("two", File.ReadAllText(Path.Combine(current, "Operations", "abc", "Transitions", "2.json")));
         Assert.Equal("bytes", File.ReadAllText(Path.Combine(current, "Backups", "xyz", "payload.bin")));
         Assert.Equal("event", File.ReadAllText(Path.Combine(current, "Journal", "Events", "e.json")));
+    }
+
+    /// <summary>
+    /// A store on another volume comes across too, whole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the ordinary case now, not an exotic one: the store follows the program, and anyone
+    /// who keeps Winora off their system drive has the old store on C: and the new one wherever
+    /// they put the folder. <c>Directory.Move</c> refuses across volumes, and refusing here would
+    /// quietly cost them their journal and every backup.
+    /// </para>
+    /// <para>
+    /// Runs only when this machine has a second fixed volume, and says so rather than passing in
+    /// silence when it does not — a migration test that moved nothing has tested nothing.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_store_on_another_volume_comes_across_whole()
+    {
+        var other = SecondVolumeRoot();
+
+        if (other is null)
+        {
+            Assert.Fail(
+                "This machine has one fixed volume, so the cross-volume path could not be exercised. " +
+                "Run the suite on a machine with two, or the copy fallback ships unchecked.");
+        }
+
+        using var legacy = new TemporaryDirectory();
+        var current = Path.Combine(other, "Winora.Tests", Guid.NewGuid().ToString("N"), "WinoraData");
+
+        Write(legacy.Path, "Journal/Events/e.json", "event");
+        Write(legacy.Path, "Backups/xyz/payload.bin", "bytes");
+
+        try
+        {
+            Assert.Equal(StoreMigrationOutcome.Moved, new WinoraStoreMigration(legacy.Path, current).Run());
+
+            Assert.Equal("event", File.ReadAllText(Path.Combine(current, "Journal", "Events", "e.json")));
+            Assert.Equal("bytes", File.ReadAllText(Path.Combine(current, "Backups", "xyz", "payload.bin")));
+
+            // The old copy is gone: two live stores is worse than either one, because the next run
+            // would find the old one and refuse to migrate anything ever again.
+            Assert.False(Directory.Exists(legacy.Path));
+        }
+        finally
+        {
+            var scratch = Path.GetDirectoryName(current);
+            if (scratch is not null && Directory.Exists(scratch))
+            {
+                Directory.Delete(scratch, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>A writable fixed volume that is not the one the temporary folder is on.</summary>
+    private static string? SecondVolumeRoot()
+    {
+        var here = Path.GetPathRoot(Path.GetFullPath(Path.GetTempPath()));
+
+        return DriveInfo.GetDrives()
+            .Where(static drive => drive is { DriveType: DriveType.Fixed, IsReady: true })
+            .Select(static drive => drive.RootDirectory.FullName)
+            .FirstOrDefault(root => !string.Equals(root, here, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

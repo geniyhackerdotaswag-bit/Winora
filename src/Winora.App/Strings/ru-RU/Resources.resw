@@ -324,7 +324,7 @@
   <data name="Cursors_NoneInstalled"><value>Наборов не найдено. Положите папку с файлами .cur или .ani в каталог выше — она появится здесь. Winora ничего не скачивает и не открывает install.inf.</value></data>
   <data name="Settings_Subtitle"><value>Что это за сборка и где она хранит данные.</value></data>
   <data name="Settings_StorageHeading"><value>Хранилище</value></data>
-  <data name="Settings_StorageNote"><value>Здесь лежат журнал, архив планов и резервные копии — всё, на чём держится возможность отменить изменение. Папка намеренно вынесена за пределы хранилища пакета, чтобы переживать удаление приложения.</value></data>
+  <data name="Settings_StorageNote"><value>Здесь лежат журнал, архив планов, резервные копии и профиль — всё, на чём держится возможность отменить изменение. Папка лежит рядом с самой программой: перенесёте её на другой компьютер вместе с Winora.exe — всё поедет с ней.</value></data>
   <data name="Settings_OpenFolder"><value>Открыть папку</value></data>
   <data name="Journal_Subtitle"><value>Обезличенная запись того, что делала Winora.</value></data>
   <data name="Journal_Affected"><value>затронуто объектов: {0}</value></data>
@@ -594,10 +594,6 @@
   <data name="Update_Failed_Restart"><value>Обновлено. Закройте окно и откройте Winora заново.</value></data>
   <data name="Update_Failed_NoOffer"><value>Нечего устанавливать — сначала проверьте обновления.</value></data>
   <data name="Update_NotInstalled"><value>Скачайте новую версию — эта копия запущена не из папки программ.</value></data>
-  <data name="Install_Title"><value>Установить Winora?</value></data>
-  <data name="Install_Body"><value>Программа скопирует себя в {0} и добавит ярлык в меню Пуск. Права администратора не нужны.</value></data>
-  <data name="Install_Yes"><value>Установить</value></data>
-  <data name="Install_No"><value>Не сейчас</value></data>
   <data name="Install_Failed"><value>Не удалось скопировать. Программа продолжит работать отсюда.</value></data>
   <data name="Install_Failed_Restart"><value>Установлено. Закройте окно и откройте Winora заново.</value></data>
   <data name="Update_Settings_Heading"><value>Обновления</value></data>

@@ -1,60 +1,65 @@
 namespace Winora.System.Updates;
 
-/// <summary>Where this copy of the program is, and where an installed one belongs.</summary>
+/// <summary>Where this copy of the program is.</summary>
 public interface IAppInstallLocation
 {
     /// <summary>The file this process was started from.</summary>
     string CurrentExecutablePath { get; }
 
-    /// <summary>The folder an installed copy lives in.</summary>
+    /// <summary>The folder that file sits in. Everything Winora keeps lives here.</summary>
     string InstalledDirectory { get; }
 
-    /// <summary>The file an installed copy is.</summary>
+    /// <summary>The file an update replaces.</summary>
     string InstalledExecutablePath { get; }
 
-    /// <summary>True when this process is running from the installed place, under that name.</summary>
+    /// <summary>True when this copy can replace itself where it stands.</summary>
     bool IsInstalled { get; }
 }
 
 /// <inheritdoc />
 /// <remarks>
 /// <para>
-/// The name is part of the answer, not only the folder. The build produces
-/// <c>Winora.App.exe</c> and the release is published as <c>Winora.exe</c>; requiring both to match
-/// means a build run out of the debugger is never mistaken for an installed copy, and development
-/// never tries to update itself out from under the debugger.
+/// Winora is portable: it lives where it was put, updates itself there, and keeps its files
+/// beside itself. There is no installed place and no other place — the folder holding
+/// <c>Winora.exe</c> is the answer to all three questions above.
 /// </para>
 /// <para>
-/// <c>%LOCALAPPDATA%\Programs</c> and not <c>Program Files</c>: that folder belongs to the user, so
-/// installing and later replacing a file there needs no administrator rights. Winora asks for
-/// elevation for the operations that genuinely require it and for nothing else, and putting itself
-/// somewhere that made every update an elevation prompt would break that.
+/// It used to copy itself into <c>%LOCALAPPDATA%\Programs\Winora</c> and treat only that copy as
+/// real: a copy running from anywhere else was refused self-update and sent to the download page
+/// instead. The owner had that removed on 2026-09-03 — a program that greets a new user by asking
+/// to move itself somewhere they did not choose is asking the wrong question, and being told your
+/// copy cannot update itself is worse than the problem it avoided.
+/// </para>
+/// <para>
+/// The name is still part of the answer. The build produces <c>Winora.App.exe</c> and the release
+/// is published as <c>Winora.exe</c>; requiring the release name means a build run out of the
+/// debugger never tries to update itself out from under the debugger.
 /// </para>
 /// </remarks>
 public sealed class AppInstallLocation : IAppInstallLocation
 {
-    /// <summary>The folder name, and the file name, an installed copy uses.</summary>
-    private const string ProductName = "Winora";
-
+    /// <summary>The file name a released copy has.</summary>
     private const string ExecutableName = "Winora.exe";
 
     public AppInstallLocation()
-        : this(
-            Environment.ProcessPath ?? string.Empty,
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Programs"))
+        : this(Environment.ProcessPath ?? string.Empty)
     {
     }
 
-    public AppInstallLocation(string currentExecutablePath, string programsRoot)
+    public AppInstallLocation(string currentExecutablePath)
     {
         ArgumentNullException.ThrowIfNull(currentExecutablePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(programsRoot);
 
         CurrentExecutablePath = currentExecutablePath;
-        InstalledDirectory = Path.Combine(programsRoot, ProductName);
-        InstalledExecutablePath = Path.Combine(InstalledDirectory, ExecutableName);
+
+        // Environment.ProcessPath, never AppContext.BaseDirectory: this is a single-file build, and
+        // BaseDirectory points at the unpacked copy under %TEMP% rather than at the file the user
+        // double-clicked. Writing beside that would put the store somewhere Windows empties.
+        InstalledDirectory = DirectoryOf(currentExecutablePath);
+
+        InstalledExecutablePath = InstalledDirectory.Length == 0
+            ? string.Empty
+            : Path.Combine(InstalledDirectory, ExecutableName);
     }
 
     public string CurrentExecutablePath { get; }
@@ -66,13 +71,37 @@ public sealed class AppInstallLocation : IAppInstallLocation
     public bool IsInstalled => Same(CurrentExecutablePath, InstalledExecutablePath);
 
     /// <summary>
+    /// The folder a path sits in, or empty when the path cannot be read as one.
+    /// </summary>
+    /// <remarks>
+    /// Empty rather than a throw. This is reached from the very first lines of startup, before
+    /// there is a window to show a failure in or a log to write it to, and a process path Windows
+    /// will not parse must not be the reason the program never opens.
+    /// </remarks>
+    private static string DirectoryOf(string executablePath)
+    {
+        if (executablePath.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return Path.GetDirectoryName(Path.GetFullPath(executablePath)) ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
     /// Whether two paths name the same file, as Windows would judge it.
     /// </summary>
     /// <remarks>
     /// Compared after <see cref="Path.GetFullPath(string)" />, which settles forward slashes and
     /// <c>..</c> segments, and ignoring case, which is what the file system does. Comparing the
-    /// strings as typed would answer "not installed" for a path that differs only in how somebody
-    /// wrote it, and the program would offer to install itself on top of itself.
+    /// strings as typed would answer "no" for a path that differs only in how somebody wrote it.
     /// </remarks>
     private static bool Same(string left, string right)
     {
@@ -90,7 +119,6 @@ public sealed class AppInstallLocation : IAppInstallLocation
         }
         catch (Exception)
         {
-            // A path the file system will not even parse is not the installed one.
             return false;
         }
     }

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Winora.App.Navigation;
 using Winora.App.ViewModels;
 using Winora.Core.Appearance;
@@ -155,11 +155,6 @@ public static class ServiceRegistration
         services.AddSingleton<IAppReleaseFeed, AppReleaseFeed>();
         services.AddSingleton<IAppUpdater>(provider =>
             new AppUpdater(provider.GetRequiredService<IAppInstallLocation>()));
-        services.AddSingleton<IAppInstaller>(provider =>
-            new AppInstaller(
-                provider.GetRequiredService<IAppInstallLocation>(),
-                provider.GetRequiredService<IShortcutWriter>()));
-
         // Singletons: the store is a file and the card appears in two places, which must not read
         // it into two different answers.
         services.AddSingleton<IUserProfileStore, UserProfileStore>();
@@ -224,10 +219,11 @@ public static class ServiceRegistration
     {
         services.AddSingleton(_ =>
         {
-            // Before anything opens the store. An older build kept it inside the package container,
-            // which Windows deletes on uninstall, so a store found there is moved out first. The
+            // Before anything opens the store. Two former homes are looked in — the user profile,
+            // and before that the package container Windows deletes on uninstall — and a store
+            // found in either is brought to where the store lives now, beside the program. The
             // migration is idempotent and leaves both locations untouched if it cannot finish.
-            WinoraStoreMigration.ForCurrentUser().Run();
+            WinoraStoreMigration.RunForCurrentUser();
             return WinoraDataPaths.ForCurrentUser();
         });
         services.AddSingleton(provider => new AtomicJsonFile(provider.GetRequiredService<WinoraDataPaths>()));

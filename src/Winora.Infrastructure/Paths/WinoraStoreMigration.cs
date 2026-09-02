@@ -61,6 +61,43 @@ public sealed class WinoraStoreMigration
     public static WinoraStoreMigration ForCurrentUser() =>
         new(LegacyRootForCurrentUser(), WinoraDataPaths.RootForCurrentUser());
 
+    /// <summary>
+    /// Brings a store from either former home into the current one.
+    /// </summary>
+    /// <remarks>
+    /// Two homes now, tried newest first: the user profile, where the store lived until the program
+    /// became fully portable on 2026-09-03, and before that the package container. The profile is
+    /// tried first because it is the one that holds a live store — someone who has been running
+    /// Winora recently has their journal and backups there, and those are what a missed migration
+    /// costs.
+    ///
+    /// Nothing is done when the current home already holds a store, or when it *is* one of the old
+    /// ones — which happens when the program's own folder cannot be written and the profile is used
+    /// as the fallback.
+    /// </remarks>
+    public static StoreMigrationOutcome RunForCurrentUser()
+    {
+        var current = WinoraDataPaths.RootForCurrentUser();
+        var outcome = StoreMigrationOutcome.NothingToMove;
+
+        foreach (var legacy in new[] { WinoraDataPaths.ProfileRoot(), LegacyRootForCurrentUser() })
+        {
+            if (SameFolder(legacy, current))
+            {
+                continue;
+            }
+
+            outcome = new WinoraStoreMigration(legacy, current).Run();
+
+            if (outcome is StoreMigrationOutcome.Moved or StoreMigrationOutcome.AlreadyMigrated)
+            {
+                return outcome;
+            }
+        }
+
+        return outcome;
+    }
+
     /// <summary>Where the store used to live, before it was moved out of the package container.</summary>
     public static string LegacyRootForCurrentUser() =>
         Path.Combine(
@@ -68,6 +105,21 @@ public sealed class WinoraStoreMigration
                 Environment.SpecialFolder.LocalApplicationData,
                 Environment.SpecialFolderOption.DoNotVerify),
             "Winora");
+
+    private static bool SameFolder(string left, string right)
+    {
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     public StoreMigrationOutcome Run()
     {
@@ -98,15 +150,96 @@ public sealed class WinoraStoreMigration
                 Directory.Delete(_currentRoot);
             }
 
-            // Atomic within a volume, and both locations live under the same user profile. A
-            // cross-volume layout would throw, which is reported rather than papered over with a
-            // copy that could half-finish.
-            Directory.Move(_legacyRoot, _currentRoot);
-            return StoreMigrationOutcome.Moved;
+            try
+            {
+                // Atomic when both are on one volume, which is the ordinary case.
+                Directory.Move(_legacyRoot, _currentRoot);
+                return StoreMigrationOutcome.Moved;
+            }
+            catch (IOException)
+            {
+                // Different volumes. Now that the store follows the program, this is the ordinary
+                // case for anyone who keeps Winora off their system drive — the old store is on C:
+                // and the new one is wherever they put the folder. Refusing here would quietly cost
+                // them their journal and every backup, which is the one thing this program must not
+                // do, so the tree is copied instead.
+                return CopyAcrossVolumes();
+            }
         }
         catch (Exception)
         {
             return StoreMigrationOutcome.Failed;
+        }
+    }
+
+    /// <summary>
+    /// Copies the whole tree, then removes the old one — for when the two are on different volumes.
+    /// </summary>
+    /// <remarks>
+    /// Still all-or-nothing, just in three steps instead of one. Every file is copied, then the
+    /// count and the total size are compared against the source, and only a match lets the old
+    /// store be deleted. A copy that stopped halfway leaves the old store untouched and takes the
+    /// half-written new one away with it, so the next run finds exactly what this one found.
+    ///
+    /// Sizes rather than hashes: this runs before the first window and a store holding backups can
+    /// be hundreds of megabytes. A file that copied to the right length but the wrong content is
+    /// not a failure mode <c>File.Copy</c> has.
+    /// </remarks>
+    private StoreMigrationOutcome CopyAcrossVolumes()
+    {
+        try
+        {
+            foreach (var source in Directory.EnumerateFiles(_legacyRoot, "*", SearchOption.AllDirectories))
+            {
+                var destination = Path.Combine(_currentRoot, Path.GetRelativePath(_legacyRoot, source));
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(source, destination, overwrite: true);
+            }
+
+            if (!SameContents(_legacyRoot, _currentRoot))
+            {
+                Discard(_currentRoot);
+                return StoreMigrationOutcome.Failed;
+            }
+
+            Directory.Delete(_legacyRoot, recursive: true);
+            return StoreMigrationOutcome.Moved;
+        }
+        catch (Exception)
+        {
+            Discard(_currentRoot);
+            return StoreMigrationOutcome.Failed;
+        }
+    }
+
+    private static bool SameContents(string left, string right)
+    {
+        static (int Count, long Bytes) Measure(string root) =>
+            Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                .Select(static file => new FileInfo(file))
+                .Aggregate((Count: 0, Bytes: 0L), static (total, file) =>
+                    (total.Count + 1, total.Bytes + file.Length));
+
+        return Measure(left) == Measure(right);
+    }
+
+    /// <remarks>
+    /// Removing a half-copied destination is not optional. Left in place it would look like a live
+    /// store to the next run, which would then refuse the migration and leave the real one stranded
+    /// at the old location for good.
+    /// </remarks>
+    private static void Discard(string root)
+    {
+        try
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+        catch (Exception)
+        {
+            // Nothing better to do here, and the outcome is already a failure.
         }
     }
 

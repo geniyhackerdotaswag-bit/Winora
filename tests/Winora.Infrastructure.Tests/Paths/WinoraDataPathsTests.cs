@@ -1,4 +1,4 @@
-using Winora.Infrastructure.Paths;
+﻿using Winora.Infrastructure.Paths;
 using Xunit;
 
 namespace Winora.Infrastructure.Tests.Paths;
@@ -6,27 +6,42 @@ namespace Winora.Infrastructure.Tests.Paths;
 public sealed class WinoraDataPathsTests
 {
     /// <summary>
-    /// The store lives under the user profile.
+    /// The store lives beside the program.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Winora is portable, and the owner asked on 2026-09-03 for everything it needs to sit in the
+    /// folder they put it in. Move that folder and the journal, the backups and the profile go with
+    /// it.
+    /// </para>
+    /// <para>
+    /// The test host is not a single-file Winora, so the folder it names here is the test runner's.
+    /// That is the point: what is asserted is the rule — beside the running program, under
+    /// <c>WinoraData</c> — and not a path that only holds on one machine.
+    /// </para>
+    /// <para>
     /// This test used to pin <c>LocalApplicationData</c>, and in doing so it pinned a real defect: a
     /// packaged app has that folder redirected into its own container, and Windows deletes the
     /// container when the package is removed. Measured on 2026-08-04 — an uninstall took the
     /// journal, the plan archive and every backup with it, while the registry changes those backups
-    /// existed to undo stayed applied. The profile root is not redirected.
+    /// existed to undo stayed applied. Neither of the two homes since then is redirected.
+    /// </para>
     /// </remarks>
     [Fact]
-    public void Current_user_root_is_under_the_user_profile()
+    public void Current_user_root_sits_beside_the_running_program()
     {
-        var expectedRoot = Path.Combine(
-            Environment.GetFolderPath(
-                Environment.SpecialFolder.UserProfile,
-                Environment.SpecialFolderOption.DoNotVerify),
-            "Winora",
-            "State");
+        var beside = WinoraDataPaths.BesideTheProgram();
 
+        Assert.False(string.IsNullOrEmpty(beside), "The program's own folder could not be resolved.");
+        Assert.Equal(WinoraDataPaths.StoreFolderName, Path.GetFileName(beside));
         Assert.Equal(
-            Path.GetFullPath(expectedRoot),
+            Path.GetDirectoryName(Path.GetFullPath(Environment.ProcessPath!)),
+            Path.GetDirectoryName(beside));
+
+        // Resolved, not assumed: a folder that refuses writes sends the store to the profile, and
+        // asserting the beside-path unconditionally would fail on exactly those machines.
+        Assert.Equal(
+            Path.GetFullPath(WinoraDataPaths.RootForCurrentUser()),
             WinoraDataPaths.ForCurrentUser().RootDirectory);
     }
 

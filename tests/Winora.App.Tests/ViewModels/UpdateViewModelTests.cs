@@ -1,4 +1,4 @@
-using Winora.App.Services;
+﻿using Winora.App.Services;
 using Winora.App.ViewModels;
 using Xunit;
 
@@ -612,31 +612,7 @@ public sealed class UpdateViewModelTests
     /// landed but could not be handed off" from "the copy never happened" the same way
     /// Update_Failed_Restart already distinguishes those two outcomes on the update path.
     /// </summary>
-    [Fact]
-    public void ReportInstallRestartFailed_says_the_copy_succeeded_and_reads_as_routine()
-    {
-        var vm = Build(new FakeUpdateService());
 
-        vm.ReportInstallRestartFailed();
-
-        Assert.Equal("Install_Failed_Restart", vm.Message);
-        Assert.True(vm.IsBannerVisible);
-        Assert.False(vm.IsActionVisible);
-        Assert.False(vm.IsFailure);
-    }
-
-    [Fact]
-    public void ReportInstallFailed_says_the_copy_never_happened_and_reads_as_a_failure()
-    {
-        var vm = Build(new FakeUpdateService());
-
-        vm.ReportInstallFailed();
-
-        Assert.Equal("Install_Failed", vm.Message);
-        Assert.True(vm.IsBannerVisible);
-        Assert.False(vm.IsActionVisible);
-        Assert.True(vm.IsFailure);
-    }
 
     /// <summary>
     /// Review finding (Important 2): the InfoBar's own close button only closes the control; nothing

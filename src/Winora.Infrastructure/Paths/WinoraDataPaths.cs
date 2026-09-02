@@ -113,24 +113,105 @@ public sealed class WinoraDataPaths
 
     public static WinoraDataPaths ForCurrentUser() => new(RootForCurrentUser());
 
+    /// <summary>The folder the store sits in, beside the program: <c>WinoraData</c>.</summary>
+    public const string StoreFolderName = "WinoraData";
+
     /// <summary>
-    /// Where this user's store lives: <c>%USERPROFILE%\Winora\State</c>.
+    /// Where the store lives: in <c>WinoraData</c>, beside <c>Winora.exe</c>.
     /// </summary>
     /// <remarks>
-    /// Under the user profile rather than <c>LocalApplicationData</c>, because a packaged app has
-    /// the latter redirected into its own container and Windows deletes that container when the
-    /// package is removed — taking the journal, the plan archive and every backup with it, while the
-    /// changes they exist to undo stay applied. The profile root is not redirected, which the cursor
-    /// and sound folders already demonstrate. <c>WinoraStoreMigration</c> moves an older store here
-    /// on first run.
+    /// <para>
+    /// Winora is portable, and the owner asked on 2026-09-03 for everything it needs to sit in the
+    /// folder they put the program in. Move that folder to a memory stick and the journal, the plan
+    /// archive, the backups and the profile go with it; delete it and nothing of Winora's is left
+    /// behind anywhere.
+    /// </para>
+    /// <para>
+    /// <c>Environment.ProcessPath</c>, never <c>AppContext.BaseDirectory</c>: this is a single-file
+    /// build, and <c>BaseDirectory</c> points at the unpacked copy under <c>%TEMP%</c>, which
+    /// Windows empties. The store would vanish between runs and every backup with it.
+    /// </para>
+    /// <para>
+    /// Falls back to the user profile when the program's own folder cannot be written — a copy run
+    /// straight from a read-only share or a disc. Losing the ability to undo a change is a worse
+    /// outcome than keeping the store somewhere the user did not pick, and
+    /// <c>WinoraStoreMigration</c> brings an older store across on first run either way.
+    /// </para>
     /// </remarks>
-    public static string RootForCurrentUser() =>
+    /// <remarks>
+    /// Resolved once. Six different places ask for this — the diagnostic sink, the profile store,
+    /// the bypass store, the settings screen, the migration and the paths themselves — and the
+    /// answer costs a directory creation and a test write. Asking each time would repeat that on
+    /// every call, and worse: a folder that stopped accepting writes midway through a session would
+    /// leave half the program reading one store and half writing another.
+    /// </remarks>
+    private static readonly Lazy<string> ResolvedRoot = new(
+        static () =>
+        {
+            var beside = BesideTheProgram();
+
+            return beside.Length > 0 && CanWriteInto(beside) ? beside : ProfileRoot();
+        },
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static string RootForCurrentUser() => ResolvedRoot.Value;
+
+    /// <summary>Where the store would go if the program's folder allows it. Empty when unknown.</summary>
+    public static string BesideTheProgram()
+    {
+        try
+        {
+            var executable = Environment.ProcessPath;
+
+            if (string.IsNullOrEmpty(executable))
+            {
+                return string.Empty;
+            }
+
+            var folder = Path.GetDirectoryName(Path.GetFullPath(executable));
+
+            return string.IsNullOrEmpty(folder) ? string.Empty : Path.Combine(folder, StoreFolderName);
+        }
+        catch (Exception)
+        {
+            // Reached before there is a window or a log; an unparseable process path must not be
+            // the reason the program never opens.
+            return string.Empty;
+        }
+    }
+
+    /// <summary>The old home, and the fallback: <c>%USERPROFILE%\Winora\State</c>.</summary>
+    public static string ProfileRoot() =>
         Path.Combine(
             Environment.GetFolderPath(
                 Environment.SpecialFolder.UserProfile,
                 Environment.SpecialFolderOption.DoNotVerify),
             "Winora",
             "State");
+
+    /// <summary>
+    /// Whether a folder can actually be created and written in, tested by doing it.
+    /// </summary>
+    /// <remarks>
+    /// Tested rather than inferred from access-control rules: the rules are not the only thing that
+    /// refuses a write. A read-only volume, a full disk and a folder an administrator has locked all
+    /// answer "allowed" to the rules and "no" to the file system.
+    /// </remarks>
+    private static bool CanWriteInto(string folder)
+    {
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var probe = Path.Combine(folder, ".write-probe");
+            File.WriteAllBytes(probe, []);
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     internal string GetBackupDirectory(string backupId) =>
         Path.Combine(BackupsDirectory, ValidatePathSegment(backupId, nameof(backupId)));

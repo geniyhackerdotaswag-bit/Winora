@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Winora.App.Services;
@@ -427,36 +427,6 @@ public sealed partial class UpdateViewModel : ObservableObject
         IsFailure = true;
     }
 
-    /// <summary>
-    /// Reports that the first-run install offer copied the program but could not hand off to the
-    /// new process.
-    /// </summary>
-    /// <remarks>
-    /// Review finding (Important 4): MainWindow used to write UpdateBar.Message and UpdateBar.IsOpen
-    /// directly for this, bypassing the one source of truth Dismiss() established for the strip, and
-    /// it used to say "Не удалось скопировать" for this exact case even though the copy had
-    /// succeeded -- only starting the new process failed. Update_Failed_Restart already has the
-    /// right words for the same situation on the update path; this is its install-time twin. Left at
-    /// informational, the same as Update_Failed_Restart: the program is exactly where it should be,
-    /// and reopening it by hand is the only thing left to do.
-    /// </remarks>
-    public void ReportInstallRestartFailed()
-    {
-        Message = _text.Get("Install_Failed_Restart");
-        IsActionVisible = false;
-        IsFailure = false;
-        IsBannerVisible = true;
-    }
-
-    /// <summary>Reports that the first-run install offer could not copy the program at all.</summary>
-    /// <remarks>See <see cref="ReportInstallRestartFailed"/> for the case this is paired with.</remarks>
-    public void ReportInstallFailed()
-    {
-        Message = _text.Get("Install_Failed");
-        IsActionVisible = false;
-        IsFailure = true;
-        IsBannerVisible = true;
-    }
 
     /// <summary>
     /// Shortens release notes to what the strip can carry, ending on a whole sentence where there
