@@ -173,7 +173,7 @@ public sealed partial class StartupViewModel : ObservableObject
             var outcome = await _executor.ApplyAsync(operation, draft, CancellationToken.None).ConfigureAwait(true);
             if (!outcome.Succeeded)
             {
-                StatusMessage = outcome.Message;
+                StatusMessage = outcome.Report;
             }
 
             // Re-read the inventory so the switch reflects the registry, not the request.

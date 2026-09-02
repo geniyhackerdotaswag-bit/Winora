@@ -322,7 +322,7 @@ public sealed partial class AppearanceViewModel : ObservableObject
             var outcome = await _windows.ApplyAsync(palette.IsDark, accent, cancellationToken)
                 .ConfigureAwait(true);
 
-            WindowsResult = outcome.Message;
+            WindowsResult = outcome.Report;
             ShowWindowsResult = true;
         }
         finally

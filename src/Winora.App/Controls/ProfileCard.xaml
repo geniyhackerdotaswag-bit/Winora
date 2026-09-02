@@ -106,7 +106,7 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Grid.Column="0"
                                       AutomationProperties.AccessibilityView="Raw"
-                                      FontFamily="Segoe Fluent Icons"
+                                      FontFamily="{StaticResource WinoraIconFontFamily}"
                                       FontSize="13"
                                       Foreground="{ThemeResource WinoraTextFaint}"
                                       Glyph="&#xE715;"
@@ -123,7 +123,7 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Grid.Column="0"
                                       AutomationProperties.AccessibilityView="Raw"
-                                      FontFamily="Segoe Fluent Icons"
+                                      FontFamily="{StaticResource WinoraIconFontFamily}"
                                       FontSize="13"
                                       Foreground="{ThemeResource WinoraTextFaint}"
                                       Glyph="&#xE787;"

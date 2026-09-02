@@ -15,6 +15,14 @@
                 <!-- Navigation last: it restyles the stock NavigationView using the hues above. -->
                 <ResourceDictionary Source="ms-appx:///Resources/Styles/Navigation.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                Every FontIcon in the app draws with this. The value here is only the placeholder
+                that makes the key exist for the parser; App's constructor replaces it with the font
+                this machine actually has, before any page is parsed. Windows 10 and stripped builds
+                have no Segoe Fluent Icons, and there every icon drew as an empty box.
+            -->
+            <FontFamily x:Key="WinoraIconFontFamily">Segoe Fluent Icons</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

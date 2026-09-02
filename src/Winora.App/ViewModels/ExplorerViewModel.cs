@@ -174,7 +174,7 @@ public sealed partial class ExplorerViewModel : ObservableObject
 
             if (!outcome.Succeeded)
             {
-                StatusMessage = outcome.Message;
+                StatusMessage = outcome.Report;
             }
 
             var capability = await operation

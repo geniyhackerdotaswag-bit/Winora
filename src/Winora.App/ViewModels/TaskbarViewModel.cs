@@ -166,7 +166,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var outcome = await _executor.ApplyAsync(operation, draft, CancellationToken.None).ConfigureAwait(true);
             if (!outcome.Succeeded)
             {
-                StatusMessage = outcome.Message;
+                StatusMessage = outcome.Report;
             }
 
             var capability = await operation

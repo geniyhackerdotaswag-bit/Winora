@@ -8,7 +8,38 @@ namespace Winora.App.Services;
 /// <param name="Succeeded">True when the change applied and verified.</param>
 /// <param name="Message">Localized text describing the outcome.</param>
 /// <param name="Disposition">The coordinator's own verdict, for callers that need to branch.</param>
-public sealed record ChangeOutcome(bool Succeeded, string Message, CoordinatorDisposition Disposition);
+/// <param name="Detail">
+/// What actually went wrong, in the words of whatever refused. Empty when there is nothing to add.
+/// </param>
+/// <remarks>
+/// <para>
+/// <paramref name="Detail"/> exists because it was being thrown away. The coordinator has always
+/// carried the reason a backup or a write failed and has always written it to the journal, but the
+/// switch-driven screens showed only the localized sentence for the disposition. A user on another
+/// computer reported "не удалось создать или проверить резервную копию" on 2026-09-03 and neither
+/// they nor this repository could say why, because the one sentence that knew was dropped here.
+/// </para>
+/// <para>
+/// It is not localized and not meant to be. It is the exception's own text, and translating it
+/// would mean translating messages that come from Windows.
+/// </para>
+/// </remarks>
+public sealed record ChangeOutcome(
+    bool Succeeded,
+    string Message,
+    CoordinatorDisposition Disposition,
+    string Detail = "")
+{
+    /// <summary>
+    /// What to put on a status banner: the sentence, and the reason after it when there is one.
+    /// </summary>
+    /// <remarks>
+    /// A property on the record rather than a rule each screen applies, because the five screens
+    /// that show an outcome each wrote <c>outcome.Message</c> and would each have to remember. One
+    /// forgetting is how the reason went missing in the first place.
+    /// </remarks>
+    public string Report => string.IsNullOrWhiteSpace(Detail) ? Message : $"{Message} Причина: {Detail}";
+}
 
 /// <summary>
 /// Runs one change from draft to verified result in a single call.
@@ -113,6 +144,7 @@ public sealed class ChangeExecutor : IChangeExecutor
         return new ChangeOutcome(
             result.Disposition == CoordinatorDisposition.Completed,
             _text.Get(CoordinatorDispositionPresentation.ResourceKeyFor(result.Disposition)),
-            result.Disposition);
+            result.Disposition,
+            result.Detail ?? string.Empty);
     }
 }

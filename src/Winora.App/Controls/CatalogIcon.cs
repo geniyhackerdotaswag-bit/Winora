@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Winora.System.Windows;
 
 namespace Winora.App.Controls;
 
@@ -18,6 +19,33 @@ public static class CatalogIcon
     public const double Size = 20;
 
     /// <summary>
+    /// The icon font this machine has, asked once.
+    /// </summary>
+    /// <remarks>
+    /// Lazily and once, not per icon: the pane builds seventeen of these while the window is
+    /// opening, and the answer cannot change while the process runs — installing a font mid-session
+    /// would not repaint anything already drawn anyway.
+    ///
+    /// It used to be the literal "Segoe Fluent Icons". That font is Windows 11 only, so on Windows
+    /// 10 and on stripped builds every icon in the pane drew as an empty box. See
+    /// <see cref="IconFontProbe"/>.
+    /// </remarks>
+    private static readonly Lazy<FontFamily> IconFont = new(
+        static () => new FontFamily(new IconFontProbe().ResolveFamily()),
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>
+    /// The icon font, for the markup that draws a glyph without going through the catalog.
+    /// </summary>
+    /// <remarks>
+    /// Published so <c>App</c> can put it in application resources under
+    /// <c>WinoraIconFontFamily</c>, which is what every <c>FontIcon</c> in XAML binds to. Naming the
+    /// family in markup is what left twenty-one glyphs still hard-coded to the Windows 11 font after
+    /// this class had already stopped doing so.
+    /// </remarks>
+    public static FontFamily Font => IconFont.Value;
+
+    /// <summary>
     /// Resolves one catalog key to an icon, of whichever kind the catalog holds it as.
     /// </summary>
     /// <remarks>
@@ -33,7 +61,7 @@ public static class CatalogIcon
             return new FontIcon
             {
                 Glyph = glyph,
-                FontFamily = new FontFamily("Segoe Fluent Icons"),
+                FontFamily = IconFont.Value,
                 FontSize = Size,
             };
         }

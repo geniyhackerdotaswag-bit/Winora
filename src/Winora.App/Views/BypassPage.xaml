@@ -178,7 +178,7 @@
 
                                         <FontIcon Grid.Column="2"
                                                   Glyph="&#xE73E;"
-                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
                                                   FontSize="15"
                                                   VerticalAlignment="Center"
                                                   Visibility="{x:Bind ctl:XamlConvert.Show(IsSelected), Mode=OneWay}"

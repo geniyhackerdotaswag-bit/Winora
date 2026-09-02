@@ -44,7 +44,7 @@
                                         Spacing="8"
                                         VerticalAlignment="Center">
                                 <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                          FontFamily="Segoe Fluent Icons"
+                                          FontFamily="{StaticResource WinoraIconFontFamily}"
                                           FontSize="13"
                                           Foreground="{ThemeResource WinoraTextFaint}"
                                           Glyph="&#xE70F;"
@@ -76,7 +76,7 @@
                                                  PlaceholderText="{x:Bind ViewModel.NamePlaceholder, Mode=OneWay}"
                                                  Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
                                                   FontSize="15"
                                                   Foreground="{ThemeResource WinoraTextFaint}"
                                                   Glyph="&#xE77B;"
@@ -98,7 +98,7 @@
                                                  PlaceholderText="{x:Bind ViewModel.EmailPlaceholder, Mode=OneWay}"
                                                  Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="Segoe Fluent Icons"
+                                                  FontFamily="{StaticResource WinoraIconFontFamily}"
                                                   FontSize="15"
                                                   Foreground="{ThemeResource WinoraTextFaint}"
                                                   Glyph="&#xE715;"
@@ -168,7 +168,7 @@
                                         Spacing="8"
                                         VerticalAlignment="Center">
                                 <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                          FontFamily="Segoe Fluent Icons"
+                                          FontFamily="{StaticResource WinoraIconFontFamily}"
                                           FontSize="13"
                                           Foreground="{ThemeResource WinoraTextFaint}"
                                           Glyph="&#xE91B;"

@@ -219,7 +219,7 @@ public sealed partial class ThemesViewModel : ObservableObject
             var outcome = await _executor.ApplyAsync(operation, draft, CancellationToken.None).ConfigureAwait(true);
             if (!outcome.Succeeded)
             {
-                StatusMessage = outcome.Message;
+                StatusMessage = outcome.Report;
             }
 
             await RefreshAsync(row, operation).ConfigureAwait(true);
