@@ -1,3 +1,36 @@
 {
-  "packs": []
+  "packs": [
+    {
+      "id": "chroma-black-s",
+      "name": "Chroma чёрная S",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/chroma-black-s.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/chroma-black-s.png",
+      "sizeBytes": 137828
+    },
+    {
+      "id": "chroma-black-m",
+      "name": "Chroma чёрная M",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/chroma-black-m.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/chroma-black-m.png",
+      "sizeBytes": 182123
+    },
+    {
+      "id": "chroma-white-s",
+      "name": "Chroma белая S",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/chroma-white-s.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/chroma-white-s.png",
+      "sizeBytes": 136384
+    },
+    {
+      "id": "chroma-white-m",
+      "name": "Chroma белая M",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/chroma-white-m.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/chroma-white-m.png",
+      "sizeBytes": 171830
+    }
+  ]
 }
