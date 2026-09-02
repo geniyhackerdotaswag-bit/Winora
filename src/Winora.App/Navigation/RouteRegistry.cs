@@ -43,6 +43,10 @@ public sealed class RouteRegistry
         new(RouteKeys.Machine, "Nav_Machine", RoutePlacement.Pane, GroupSystem, "machine"),
 
         new(RouteKeys.Profile, "Nav_Profile", RoutePlacement.Footer, IconGlyphKey: "profile"),
+
+        // Рядом с профилем, а не в системной группе: подписка — про человека и его
+        // деньги, а группы панели про то, что программа делает с Windows.
+        new(RouteKeys.Licence, "Nav_Licence", RoutePlacement.Footer, IconGlyphKey: "licence"),
         // Next to the journal, not in the system group. The journal says what happened and the
         // changes screen is where one of those is undone; they were two rooms apart, and the
         // journal's own text had to send people to the other one by name.

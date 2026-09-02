@@ -1,4 +1,4 @@
-namespace Winora.App.Navigation;
+﻿namespace Winora.App.Navigation;
 
 /// <summary>
 /// Stable route identifiers. These are never derived from a localized label, because a route key
@@ -22,6 +22,8 @@ public static class RouteKeys
     public const string Bypass = "bypass";
     public const string Changes = "changes";
     public const string Backups = "backups";
+
+    public const string Licence = "licence";
     public const string Journal = "journal";
     public const string Settings = "settings";
     public const string Profile = "profile";
@@ -47,6 +49,7 @@ public static class RouteKeys
         Bypass,
         Changes,
         Backups,
+        Licence,
         Journal,
         Settings,
         Profile,

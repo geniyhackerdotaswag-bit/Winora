@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Winora.App.Navigation;
 using Xunit;
 
@@ -33,6 +33,10 @@ public sealed class RouteRegistryTests
         "settings",
         // Added by the profile feature, alongside journal and settings in the pane footer.
         "profile",
+        // Subscriptions: entering a key and seeing what it bought. In the footer with the profile
+        // rather than in a pane group, because it is about the person and their money, and the
+        // groups are about what the program does to Windows.
+        "licence",
         "change-review",
         "applying",
         "result-success",
@@ -138,7 +142,7 @@ public sealed class RouteRegistryTests
             .Where(static route => route.Placement == RoutePlacement.Footer)
             .Select(static route => route.Key)
             .OrderBy(static key => key, StringComparer.Ordinal);
-        Assert.Equal(new[] { "changes", "journal", "profile", "settings" }, footer);
+        Assert.Equal(new[] { "changes", "journal", "licence", "profile", "settings" }, footer);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using Winora.App.Views;
+﻿using Winora.App.Views;
 
 namespace Winora.App.Navigation;
 
@@ -28,6 +28,7 @@ public static class PageCatalog
         RouteKeys.Changes => typeof(ChangesPage),
         RouteKeys.Recovery => typeof(RecoveryPage),
         RouteKeys.Backups => typeof(BackupsPage),
+        RouteKeys.Licence => typeof(LicencePage),
         RouteKeys.Journal => typeof(JournalPage),
         RouteKeys.Profile => typeof(ProfilePage),
         RouteKeys.Settings => typeof(SettingsPage),

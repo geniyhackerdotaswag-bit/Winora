@@ -9,6 +9,7 @@ using Winora.Infrastructure.Backups;
 using Winora.Infrastructure.History;
 using Winora.Infrastructure.Journal;
 using Winora.Infrastructure.Leases;
+using Winora.Infrastructure.Licence;
 using Winora.Infrastructure.Operations;
 using Winora.Infrastructure.Paths;
 using Winora.Infrastructure.Persistence;
@@ -17,6 +18,7 @@ using Winora.Infrastructure.Profile;
 using Winora.Infrastructure.Recovery;
 using Winora.Infrastructure.Time;
 using Winora.System.Backups;
+using Winora.System.Licence;
 using Winora.System.Operations;
 using Winora.System.Updates;
 using Winora.System.Windows;
@@ -122,6 +124,13 @@ public static class ServiceRegistration
         services.AddSingleton<IActionJournalWriter, ActionJournalWriter>();
         services.AddSingleton<IActionJournalReader, ActionJournalReader>();
         services.AddTransient<JournalViewModel>();
+
+        // Синглтоны: хранилище лицензии — один файл, и два читателя разошлись бы
+        // во мнении о том, что в нём написано.
+        services.AddSingleton<ILicenceClient, LicenceClient>();
+        services.AddSingleton<ILicenceStore, LicenceStore>();
+        services.AddSingleton<ILicenceService, LicenceService>();
+        services.AddTransient<LicenceViewModel>();
 
         services.AddSingleton<IAppEnvironment, AppEnvironment>();
         services.AddTransient<SettingsViewModel>();

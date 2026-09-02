@@ -1,4 +1,4 @@
-namespace Winora.App.Controls;
+﻿namespace Winora.App.Controls;
 
 /// <summary>
 /// The single icon catalog. Every glyph in the shell resolves through here so no screen can invent
@@ -39,6 +39,7 @@ public static class FluentIconCatalog
         ["journal"] = "",
         ["settings"] = "",
         ["profile"] = "",
+        ["licence"] = "",
     };
 
     /// <summary>
