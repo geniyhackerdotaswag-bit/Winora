@@ -545,7 +545,6 @@
   <data name="Bypass_Start_ExitedImmediately"><value>Программа запустилась и сразу завершилась, поэтому трафик не фильтруется. Что она сообщила:</value></data>
   <data name="Bypass_OpenFolder"><value>Открыть папку</value></data>
   <data name="Settings_AppearanceHeading"><value>Оформление</value></data>
-  <data name="Settings_AppearanceDescription"><value>Цвета самой Winora: фон и акцент. Windows это не меняет.</value></data>
   <data name="Nav_Appearance"><value>Оформление</value></data>
   <data name="Appearance_PresetsHeading"><value>Готовые схемы</value></data>
   <data name="Appearance_CustomHeading"><value>Свои цвета</value></data>

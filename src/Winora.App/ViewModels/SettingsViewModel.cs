@@ -43,8 +43,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string AppearanceHeading { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string AppearanceDescription { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string AppearanceLabel { get; set; } = string.Empty;
@@ -92,7 +90,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         TransferLoadLabel = _text.Get("Settings_TransferLoad");
 
         AppearanceHeading = _text.Get("Settings_AppearanceHeading");
-        AppearanceDescription = _text.Get("Settings_AppearanceDescription");
         AppearanceLabel = _text.Get("Nav_Appearance");
 
         return Task.CompletedTask;

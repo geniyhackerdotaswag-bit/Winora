@@ -29,24 +29,12 @@
                     <TextBlock Style="{StaticResource WinoraSectionHeading}"
                                Text="{x:Bind ViewModel.AppearanceHeading, Mode=OneWay}" />
 
+                    <!-- Button on the left, like every other card here. -->
                     <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
-                        <Grid ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       VerticalAlignment="Center"
-                                       Style="{StaticResource WinoraRowDetail}"
-                                       Margin="0"
-                                       TextWrapping="Wrap"
-                                       Text="{x:Bind ViewModel.AppearanceDescription, Mode=OneWay}" />
-                            <Button Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource WinoraActionButton}"
-                                    Content="{x:Bind ViewModel.AppearanceLabel, Mode=OneWay}"
-                                    Click="OnAppearanceClick" />
-                        </Grid>
+                        <Button HorizontalAlignment="Left"
+                                Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind ViewModel.AppearanceLabel, Mode=OneWay}"
+                                Click="OnAppearanceClick" />
                     </Border>
 
                     <!--
