@@ -1,4 +1,4 @@
-namespace Winora.App.Navigation;
+﻿namespace Winora.App.Navigation;
 
 /// <summary>
 /// The single source of truth for which screens exist. Lookup of an unregistered key throws rather
@@ -37,14 +37,17 @@ public sealed class RouteRegistry
 
         new(RouteKeys.Startup, "Nav_Startup", RoutePlacement.Pane, GroupSystem, "startup"),
         new(RouteKeys.Bypass, "Nav_Bypass", RoutePlacement.Pane, GroupSystem, "globe"),
-        new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Pane, GroupSystem, "history"),
         new(RouteKeys.Backups, "Nav_Backups", RoutePlacement.Pane, GroupSystem, "backup"),
 
         // The one screen that changes nothing: it answers what this computer is and stops.
         new(RouteKeys.Machine, "Nav_Machine", RoutePlacement.Pane, GroupSystem, "machine"),
 
         new(RouteKeys.Profile, "Nav_Profile", RoutePlacement.Footer, IconGlyphKey: "profile"),
+        // Next to the journal, not in the system group. The journal says what happened and the
+        // changes screen is where one of those is undone; they were two rooms apart, and the
+        // journal's own text had to send people to the other one by name.
         new(RouteKeys.Journal, "Nav_Journal", RoutePlacement.Footer, IconGlyphKey: "journal"),
+        new(RouteKeys.Changes, "Nav_Changes", RoutePlacement.Footer, IconGlyphKey: "history"),
         new(RouteKeys.Settings, "Nav_Settings", RoutePlacement.Footer, IconGlyphKey: "settings"),
 
         // Reached from the settings screen, not from the pane. Winora's own colours are a preference

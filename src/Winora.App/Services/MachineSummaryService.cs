@@ -81,8 +81,18 @@ public sealed class MachineSummaryService : IMachineSummaryService
             ? edition.Family
             : $"{edition.Family} {edition.Edition}";
 
-        yield return new MachineFact("Machine_Windows_Edition", name);
-        yield return new MachineFact("Machine_Windows_Version", edition.DisplayVersion);
+        // Издание и выпуск одной строкой: «Windows 10 Pro, 22H2».
+        //
+        // Двумя строками это читалось как два разных факта, хотя человек называет их вместе, когда
+        // его спрашивают, какая у него Windows. Объединено по просьбе владельца 3 сентября 2026.
+        //
+        // Выпуск приклеивается, только если он прочитался: на сборках, где `DisplayVersion` пуст,
+        // строка иначе оканчивалась бы висящей запятой.
+        yield return new MachineFact(
+            "Machine_Windows_Version",
+            string.IsNullOrWhiteSpace(edition.DisplayVersion)
+                ? name
+                : $"{name}, {edition.DisplayVersion}");
 
         yield return new MachineFact(
             "Machine_Windows_Build",

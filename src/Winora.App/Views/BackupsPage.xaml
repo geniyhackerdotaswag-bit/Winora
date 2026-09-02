@@ -32,6 +32,16 @@
                              Margin="{StaticResource WinoraStackGapL}"
                              Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
+                    <!--
+                      Above the buttons, not under them: the word "точка возврата" means nothing to
+                      most people until they are told what it covers, and by then they have already
+                      pressed the button.
+                    -->
+                    <TextBlock Style="{StaticResource WinoraRowDetail}"
+                               TextWrapping="Wrap"
+                               Margin="2,0,0,16"
+                               Text="{x:Bind ViewModel.Description, Mode=OneWay}" />
+
                     <StackPanel Orientation="Horizontal"
                                 Spacing="8"
                                 Margin="{StaticResource WinoraStackGapL}">

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
@@ -49,6 +49,10 @@ public sealed partial class BackupsViewModel : ObservableObject
     [ObservableProperty]
     public partial string Subtitle { get; set; } = string.Empty;
 
+    /// <summary>What a restore point covers, said before the button rather than after it.</summary>
+    [ObservableProperty]
+    public partial string Description { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial string CreateLabel { get; set; } = string.Empty;
 
@@ -87,6 +91,7 @@ public sealed partial class BackupsViewModel : ObservableObject
     {
         Title = _text.Get("Nav_Backups");
         Subtitle = _text.Get("Backups_Subtitle");
+        Description = _text.Get("Backups_Description");
         CreateLabel = _text.Get("Backups_Create");
         RefreshLabel = _text.Get("Backups_Refresh");
         EmptyMessage = _text.Get("Backups_Empty");

@@ -122,14 +122,23 @@ public sealed class RouteRegistryTests
         }
     }
 
+    /// <summary>
+    /// The footer holds what is about the person and their record, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// The changes screen joined them on 2026-09-03. It belongs beside the journal: the journal says
+    /// what happened, the changes screen is where one of those is undone, and they used to sit in
+    /// different parts of the pane — the journal's own text had to send people to the other one by
+    /// name.
+    /// </remarks>
     [Fact]
-    public void The_footer_holds_exactly_the_journal_settings_and_profile_items()
+    public void The_footer_holds_exactly_the_person_and_the_record()
     {
         var footer = Registry.Routes
             .Where(static route => route.Placement == RoutePlacement.Footer)
             .Select(static route => route.Key)
             .OrderBy(static key => key, StringComparer.Ordinal);
-        Assert.Equal(new[] { "journal", "profile", "settings" }, footer);
+        Assert.Equal(new[] { "changes", "journal", "profile", "settings" }, footer);
     }
 
     [Fact]

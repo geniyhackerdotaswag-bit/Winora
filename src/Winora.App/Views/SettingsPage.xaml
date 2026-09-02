@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="Winora.App.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -62,11 +62,7 @@
 
                     <Border Style="{StaticResource WinoraCard}" Margin="{StaticResource WinoraStackGapL}">
                         <StackPanel Spacing="12">
-                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                       Margin="0"
-                                       TextWrapping="Wrap"
-                                       Text="{x:Bind ViewModel.TransferDescription, Mode=OneWay}" />
-
+                            
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Button Style="{StaticResource WinoraActionButton}"
                                         IsEnabled="{x:Bind ctl:XamlConvert.Not(ViewModel.IsTransferBusy), Mode=OneWay}"

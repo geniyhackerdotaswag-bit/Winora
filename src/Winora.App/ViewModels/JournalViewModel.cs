@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
@@ -68,8 +68,6 @@ public sealed partial class JournalViewModel : ObservableObject
     [ObservableProperty]
     public partial string Subtitle { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string PrivacyNote { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string RefreshLabel { get; set; } = string.Empty;
@@ -92,7 +90,6 @@ public sealed partial class JournalViewModel : ObservableObject
     {
         Title = _text.Get("Nav_Journal");
         Subtitle = _text.Get("Journal_Subtitle");
-        PrivacyNote = _text.Get("Journal_PrivacyNote");
         RefreshLabel = _text.Get("Journal_Refresh");
         EmptyMessage = _text.Get("Journal_Empty");
 

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
 
 namespace Winora.App.ViewModels;
@@ -52,8 +52,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string TransferHeading { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string TransferDescription { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string TransferSaveLabel { get; set; } = string.Empty;
@@ -90,10 +88,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         StoragePath = _environment.StorageRoot;
         OpenFolderLabel = _text.Get("Settings_OpenFolder");
         TransferHeading = _text.Get("Settings_TransferHeading");
-        TransferDescription = string.Format(
-            global::System.Globalization.CultureInfo.CurrentCulture,
-            _text.Get("Settings_TransferDescription"),
-            _transfer.PortableCount);
         TransferSaveLabel = _text.Get("Settings_TransferSave");
         TransferLoadLabel = _text.Get("Settings_TransferLoad");
 
