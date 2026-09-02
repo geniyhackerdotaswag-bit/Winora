@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -291,7 +291,7 @@
 
   <data name="Startup_Subtitle"><value>Что запускается при входе в систему.</value></data>
   <data name="Startup_PlanSummary"><value>Перенос документированной записи автозагрузки между ключом Run и служебным ключом Winora с проверкой результата.</value></data>
-  <data name="Startup_MachineReadOnly"><value>Общесистемная запись. Для изменения нужны права администратора — Winora их не запрашивает.</value></data>
+  <data name="Startup_MachineReadOnly"><value>Общесистемная запись — она у всех пользователей этого компьютера. Winora пока такие не меняет, только показывает.</value></data>
   <data name="Startup_CountFormat"><value>Пользовательских записей: {0} · общесистемных: {1}</value></data>
   <data name="Startup_UndocumentedKind"><value>Значение не строкового типа — Winora не показывает его команду и не будет его изменять.</value></data>
 
@@ -557,32 +557,6 @@
   <data name="Appearance_OnAccent"><value>Цвет на акценте</value></data>
   <data name="Appearance_OnAccentAuto"><value>Подобран автоматически: из чёрного и белого берётся тот, что контрастнее на акценте.</value></data>
   <data name="Appearance_OnAccentManual"><value>Задан вручную. Смена акцента вернёт автоподбор.</value></data>
-  <data name="Appearance_DerivedHeading"><value>Что выведено из этих двух цветов</value></data>
-  <data name="Appearance_Derived_Sheet"><value>Лист</value></data>
-  <data name="Appearance_Derived_Card"><value>Карточка</value></data>
-  <data name="Appearance_Derived_CardHover"><value>Карточка при наведении</value></data>
-  <data name="Appearance_Derived_Divider"><value>Разделитель</value></data>
-  <data name="Appearance_Derived_Stroke"><value>Обводка</value></data>
-  <data name="Appearance_Derived_TextPrimary"><value>Основной текст</value></data>
-  <data name="Appearance_Derived_TextSecondary"><value>Второстепенный текст</value></data>
-  <data name="Appearance_Derived_TextMuted"><value>Приглушённый текст</value></data>
-  <data name="Appearance_Derived_TextFaint"><value>Едва заметный текст</value></data>
-  <data name="Appearance_MeasurementHeading"><value>Замер</value></data>
-  <data name="Appearance_Check_TextPrimary"><value>Основной текст в строке</value></data>
-  <data name="Appearance_Check_TextMuted"><value>Приглушённый текст</value></data>
-  <data name="Appearance_Check_TextFaint"><value>Едва заметная подпись</value></data>
-  <data name="Appearance_Check_OnAccent"><value>Текст на главной кнопке</value></data>
-  <data name="Appearance_Check_AccentRule"><value>Черта под заголовком</value></data>
-  <data name="Appearance_Check_AccentSwitch"><value>Включённый переключатель</value></data>
-  <data name="Appearance_Floor_Text"><value>Порог {0:F1}:1 — текст</value></data>
-  <data name="Appearance_Floor_NonText"><value>Порог {0:F1}:1 — не текст</value></data>
-  <data name="Appearance_ContrastSample"><value>Аа</value></data>
-  <data name="Appearance_Passes"><value>Проходит</value></data>
-  <data name="Appearance_Fails"><value>Не проходит</value></data>
-  <data name="Appearance_Gate_Ok"><value>Всё проходит</value></data>
-  <data name="Appearance_Gate_OkDetail"><value>Каждая пара текста выше 4,5:1, акцент выше 3:1. Схему можно применять.</value></data>
-  <data name="Appearance_Gate_Warn"><value>Текст читается, но акцент почти сливается</value></data>
-  <data name="Appearance_Gate_WarnDetail"><value>Применить можно: это не текст, и тихий акцент — ваше право. Но выделенный раздел и включённый переключатель придётся различать по форме, а не по цвету.</value></data>
   <data name="Appearance_Gate_Blocked"><value>Текст ниже читаемого порога</value></data>
   <data name="Appearance_Gate_BlockedDetail"><value>Схему нельзя применить: из нечитаемой Winora её уже не поправишь. Осветлите или затемните фон, либо возьмите готовую схему.</value></data>
   <data name="Appearance_Apply"><value>Применить схему</value></data>

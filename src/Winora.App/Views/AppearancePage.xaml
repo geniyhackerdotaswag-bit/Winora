@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="Winora.App.Views.AppearancePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -88,6 +88,38 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!--
+                      Apply and revert sit here, under the schemes, rather than at the foot of the
+                      page. Picking a ready-made scheme is what most visits to this screen are, and
+                      the button that finishes that visit was three sections and a scroll away.
+                    -->
+
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="10"
+                                Margin="{StaticResource WinoraStackGapXl}">
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                IsEnabled="{x:Bind ViewModel.CanApply, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
+                                Click="OnApplyClick" />
+                        <Button Style="{StaticResource WinoraActionButton}"
+                                Content="{x:Bind ViewModel.ResetLabel, Mode=OneWay}"
+                                Click="OnResetClick" />
+                    </StackPanel>
+
+                    <!-- Only when the scheme is refused. See AppearanceViewModel.ShowGate. -->
+                    <InfoBar IsOpen="{x:Bind ViewModel.ShowGate, Mode=OneWay}"
+                             IsClosable="False"
+                             Margin="{StaticResource WinoraStackGapL}"
+                             Severity="{x:Bind ctl:XamlConvert.InfoSeverity(ViewModel.CanApply), Mode=OneWay}"
+                             Title="{x:Bind ViewModel.GateTitle, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.GateMessage, Mode=OneWay}" />
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.ShowSaved, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Success"
+                             Margin="0,14,0,0"
+                             Message="{x:Bind ViewModel.SavedNotice, Mode=OneWay}" />
 
                     <!-- The two chosen colours, plus the one derived from the accent -->
 
@@ -275,127 +307,6 @@
                                        Text="{x:Bind ViewModel.WindowsResult, Mode=OneWay}" />
                         </StackPanel>
                     </Border>
-
-                    <!-- What those two produced -->
-
-                    <Expander HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Stretch"
-                              Margin="{StaticResource WinoraStackGapXl}"
-                              Header="{x:Bind ViewModel.DerivedHeading, Mode=OneWay}">
-                        <StackPanel>
-                            <ItemsControl ItemsSource="{x:Bind ViewModel.Derived}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <ctl:WrapPanel HorizontalSpacing="20" VerticalSpacing="10" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:DerivedColorViewModel">
-                                        <StackPanel Orientation="Horizontal" Spacing="10" Width="240">
-                                            <Border Width="22"
-                                                    Height="22"
-                                                    CornerRadius="5"
-                                                    BorderThickness="1"
-                                                    BorderBrush="{ThemeResource WinoraStrokeBrush}"
-                                                    VerticalAlignment="Center"
-                                                    Background="{x:Bind ctl:XamlConvert.Swatch(Value), Mode=OneWay}" />
-                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0"
-                                                       Text="{x:Bind Label}" />
-                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0"
-                                                       FontFamily="Consolas"
-                                                       Text="{x:Bind Hex, Mode=OneWay}" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                        </StackPanel>
-                    </Expander>
-
-                    <!-- The measurement, and the gate it drives -->
-
-                    <TextBlock Style="{StaticResource WinoraSectionHeading}"
-                               Text="{x:Bind ViewModel.MeasurementHeading, Mode=OneWay}" />
-
-
-                    <Border Style="{StaticResource WinoraGroup}">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.Checks}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ContrastCheckViewModel">
-                                    <Grid Padding="{StaticResource WinoraRowPadding}" ColumnSpacing="14">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- The pair being measured, shown as it actually sits -->
-                                        <Border Grid.Column="0"
-                                                Width="34"
-                                                Height="26"
-                                                CornerRadius="5"
-                                                BorderThickness="1"
-                                                BorderBrush="{ThemeResource WinoraStrokeBrush}"
-                                                VerticalAlignment="Center"
-                                                Background="{x:Bind ctl:XamlConvert.Swatch(SurfaceValue), Mode=OneWay}">
-                                            <TextBlock Text="{x:Bind Sample}"
-                                                       FontSize="13"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{x:Bind ctl:XamlConvert.Swatch(ForegroundValue), Mode=OneWay}" />
-                                        </Border>
-
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
-                                                       Text="{x:Bind Label}" />
-                                            <TextBlock Style="{StaticResource WinoraRowDetail}"
-                                                       Text="{x:Bind Detail}" />
-                                        </StackPanel>
-
-                                        <TextBlock Grid.Column="2"
-                                                   VerticalAlignment="Center"
-                                                   FontFamily="Consolas"
-                                                   Text="{x:Bind Measured, Mode=OneWay}" />
-
-                                        <TextBlock Grid.Column="3"
-                                                   VerticalAlignment="Center"
-                                                   Style="{StaticResource WinoraRowDetail}"
-                                                   Margin="0"
-                                                   Text="{x:Bind Status, Mode=OneWay}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Border>
-
-                    <!-- Shown only when there is something to say. See ShowGate. -->
-                    <InfoBar IsOpen="{x:Bind ViewModel.ShowGate, Mode=OneWay}"
-                             IsClosable="False"
-                             Margin="{StaticResource WinoraStackGapL}"
-                             Severity="{x:Bind ctl:XamlConvert.InfoSeverity(ViewModel.CanApply), Mode=OneWay}"
-                             Title="{x:Bind ViewModel.GateTitle, Mode=OneWay}"
-                             Message="{x:Bind ViewModel.GateMessage, Mode=OneWay}" />
-
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Style="{StaticResource WinoraActionButton}"
-                                IsEnabled="{x:Bind ViewModel.CanApply, Mode=OneWay}"
-                                Content="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
-                                Click="OnApplyClick" />
-                        <Button Style="{StaticResource WinoraActionButton}"
-                                Content="{x:Bind ViewModel.ResetLabel, Mode=OneWay}"
-                                Click="OnResetClick" />
-                    </StackPanel>
-
-                    <InfoBar IsOpen="{x:Bind ViewModel.ShowSaved, Mode=OneWay}"
-                             IsClosable="False"
-                             Severity="Success"
-                             Margin="0,14,0,0"
-                             Message="{x:Bind ViewModel.SavedNotice, Mode=OneWay}" />
 
                 </StackPanel>
             </Grid>

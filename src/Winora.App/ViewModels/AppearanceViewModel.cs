@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Windows.UI;
@@ -29,60 +29,20 @@ public sealed partial class AppearancePresetViewModel : ObservableObject
     public partial bool IsSelected { get; set; }
 }
 
-/// <summary>One derived colour, shown so the user can see what their two choices produced.</summary>
-public sealed partial class DerivedColorViewModel : ObservableObject
-{
-    [ObservableProperty]
-    public partial string Label { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Hex { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial Color Value { get; set; }
-}
-
-/// <summary>One measured pair from the contrast report.</summary>
-public sealed partial class ContrastCheckViewModel : ObservableObject
-{
-    /// <summary>
-    /// The letters shown in the swatch, so the pair can be judged as type rather than as two
-    /// rectangles. Localized, because a Cyrillic interface wants a Cyrillic specimen.
-    /// </summary>
-    [ObservableProperty]
-    public partial string Sample { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Label { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Detail { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Measured { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Status { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool Passes { get; set; }
-
-    [ObservableProperty]
-    public partial Color ForegroundValue { get; set; }
-
-    [ObservableProperty]
-    public partial Color SurfaceValue { get; set; }
-}
-
 /// <summary>
 /// Winora's own colours, chosen by the user.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two colours are edited here and the rest is derived; the derived list is shown rather than
-/// hidden, so nothing about the result is a surprise. The measurement table is the part that makes
-/// the freedom safe: it is the same arithmetic <c>PaletteContrastTests</c> runs over the shipped
-/// palette, and it refuses to let a scheme through whose text falls under the readable floor.
+/// Two colours are edited here and the rest is derived. The derived list and the measurement table
+/// used to be on screen; the owner had both removed on 2026-09-03, and the code that filled them
+/// went with them rather than staying as a collection nothing reads.
+/// </para>
+/// <para>
+/// The measurement itself did not go anywhere. It is the same arithmetic
+/// <c>PaletteContrastTests</c> runs over the shipped palette, it still runs on every edit, and it
+/// still refuses to let through a scheme whose text falls under the readable floor — that refusal
+/// is the only thing the user now sees of it, and only when it fires.
 /// </para>
 /// <para>
 /// Nothing here touches Windows, so nothing here goes through <c>ChangeCoordinator</c>. There is no
@@ -121,12 +81,6 @@ public sealed partial class AppearanceViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string OnAccentHint { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string DerivedHeading { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string MeasurementHeading { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string ApplyLabel { get; set; } = string.Empty;
@@ -231,10 +185,6 @@ public sealed partial class AppearanceViewModel : ObservableObject
 
     public ObservableCollection<AppearancePresetViewModel> Presets { get; } = [];
 
-    public ObservableCollection<DerivedColorViewModel> Derived { get; } = [];
-
-    public ObservableCollection<ContrastCheckViewModel> Checks { get; } = [];
-
     public AppearanceViewModel(
         IThemeBrushService theme,
         IColorSchemeStore store,
@@ -258,8 +208,6 @@ public sealed partial class AppearanceViewModel : ObservableObject
         CanvasHint = _text.Get("Appearance_CanvasHint");
         AccentLabel = _text.Get("Appearance_Accent");
         OnAccentLabel = _text.Get("Appearance_OnAccent");
-        DerivedHeading = _text.Get("Appearance_DerivedHeading");
-        MeasurementHeading = _text.Get("Appearance_MeasurementHeading");
         ApplyLabel = _text.Get("Appearance_Apply");
         ResetLabel = _text.Get("Appearance_Reset");
         WindowsHeading = _text.Get("Appearance_WindowsHeading");
@@ -473,97 +421,31 @@ public sealed partial class AppearanceViewModel : ObservableObject
             _text.Get("Appearance_WindowsDescription"),
             _text.Get(palette.IsDark ? "Appearance_Variant_Dark" : "Appearance_Variant_Light"));
 
-        BuildDerived(palette);
-        BuildChecks(report);
-
         CanApply = report.CanApply;
         IsWarning = report.CanApply && !report.NonTextPasses;
-        ShowGate = !report.TextPasses || !report.NonTextPasses;
+
+        // Shown only when it refuses, never when it merely advises.
+        //
+        // The advisory said the accent was quiet and the scheme could be applied anyway. That is a
+        // true sentence nobody asked for: the owner picked the colour on purpose and had to read
+        // past the same paragraph every time. Removed at their request on 2026-09-03.
+        //
+        // The refusal stays, and it has to. When text contrast fails, CanApply is false and the
+        // apply button greys out — with nothing on screen, that is a button that appears to do
+        // nothing, which is the one thing this shell is not allowed to have.
+        ShowGate = !report.TextPasses;
 
         if (!report.TextPasses)
         {
             GateTitle = _text.Get("Appearance_Gate_Blocked");
             GateMessage = _text.Get("Appearance_Gate_BlockedDetail");
         }
-        else if (!report.NonTextPasses)
-        {
-            GateTitle = _text.Get("Appearance_Gate_Warn");
-            GateMessage = _text.Get("Appearance_Gate_WarnDetail");
-        }
         else
         {
-            GateTitle = _text.Get("Appearance_Gate_Ok");
-            GateMessage = _text.Get("Appearance_Gate_OkDetail");
+            GateTitle = string.Empty;
+            GateMessage = string.Empty;
         }
     }
-
-    private void BuildDerived(DerivedPalette palette)
-    {
-        Derived.Clear();
-
-        Add("Appearance_Derived_Sheet", palette.Sheet);
-        Add("Appearance_Derived_Card", palette.Card);
-        Add("Appearance_Derived_CardHover", palette.CardHover);
-        Add("Appearance_Derived_Divider", palette.Divider);
-        Add("Appearance_Derived_Stroke", palette.Stroke);
-        Add("Appearance_Derived_TextPrimary", palette.TextPrimary);
-        Add("Appearance_Derived_TextSecondary", palette.TextSecondary);
-        Add("Appearance_Derived_TextMuted", palette.TextMuted);
-        Add("Appearance_Derived_TextFaint", palette.TextFaint);
-
-        void Add(string key, ColorValue colour) => Derived.Add(new DerivedColorViewModel
-        {
-            Label = _text.Get(key),
-            Hex = colour.ToHex(),
-            Value = ToColor(colour),
-        });
-    }
-
-    private void BuildChecks(SchemeContrastReport report)
-    {
-        Checks.Clear();
-
-        foreach (var check in report.Checks)
-        {
-            Checks.Add(new ContrastCheckViewModel
-            {
-                Sample = _text.Get("Appearance_ContrastSample"),
-                Label = _text.Get(LabelKeyFor(check.Id)),
-                Detail = string.Format(
-                    CultureInfo.CurrentCulture,
-                    _text.Get(check.Role is ContrastRole.Text
-                        ? "Appearance_Floor_Text"
-                        : "Appearance_Floor_NonText"),
-                    check.Floor),
-                Measured = string.Format(CultureInfo.CurrentCulture, "{0:F2}:1", check.Ratio),
-                Status = _text.Get(check.Passes ? "Appearance_Passes" : "Appearance_Fails"),
-                Passes = check.Passes,
-                ForegroundValue = ToColor(check.Foreground),
-                SurfaceValue = ToColor(check.Surface),
-            });
-        }
-    }
-
-    /// <summary>
-    /// Maps a stable check identifier to its resource key.
-    /// </summary>
-    /// <remarks>
-    /// Written out rather than composed from the identifier, so that adding a check without adding
-    /// its string is a compile-time gap someone notices, not a screen showing a raw slug.
-    /// </remarks>
-    private static string LabelKeyFor(string checkId) => checkId switch
-    {
-        "text-primary" => "Appearance_Check_TextPrimary",
-        "text-muted" => "Appearance_Check_TextMuted",
-        "text-faint" => "Appearance_Check_TextFaint",
-        "on-accent" => "Appearance_Check_OnAccent",
-        "accent-rule" => "Appearance_Check_AccentRule",
-        "accent-switch" => "Appearance_Check_AccentSwitch",
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(checkId),
-            checkId,
-            "The contrast report gained a check with no label."),
-    };
 
     private static Color ToColor(ColorValue colour) =>
         Color.FromArgb(0xFF, colour.R, colour.G, colour.B);

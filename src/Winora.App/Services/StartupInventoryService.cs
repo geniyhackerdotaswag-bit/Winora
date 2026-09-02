@@ -60,8 +60,12 @@ public sealed class StartupInventoryService : IStartupInventoryService
                 IsEnabled: reading.State == RunEntryState.Enabled));
         }
 
-        // Machine-wide entries are read-only here: changing them needs administrator rights, which
-        // the medium-integrity app does not have and will not take.
+        // Machine-wide entries are shown but not changed. The reason used to be that the app ran
+        // without administrator rights and would not ask for them; since the manifest started
+        // requiring elevation that is no longer true, and the rights are held. What is missing is
+        // the work: WindowsRunEntryStore moves values inside HKEY_CURRENT_USER only, and a
+        // machine-wide entry needs its own holding key and its own thinking about what happens to
+        // the other people who use this computer.
         foreach (var entry in _probe.Read().Where(static e => e.Scope == RunEntryScope.LocalMachine))
         {
             results.Add(new StartupEntryView(
