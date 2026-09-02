@@ -50,8 +50,25 @@ public interface IAppReleaseFeed
 /// </remarks>
 public sealed class AppReleaseFeed : IAppReleaseFeed
 {
+    /// <summary>
+    /// The releases, newest first — not the single one GitHub calls "latest".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A repository holds more than one kind of release. On 2026-09-02 the cursor packs were
+    /// published under the tag <c>cursors-v1</c>, and <c>/releases/latest</c> immediately began
+    /// answering with that: it means "the most recently published release", not "the most recent
+    /// version of the program". Winora could not read a version out of the tag, concluded there was
+    /// nothing newer, and told everybody they were up to date while an update sat one entry below.
+    /// </para>
+    /// <para>
+    /// Marking that release as a pre-release hides it from <c>/latest</c> again, and it was, but
+    /// that is a promise somebody has to keep by hand every time. Reading the list and taking the
+    /// newest entry that actually looks like a version of this program is a promise the code keeps.
+    /// </para>
+    /// </remarks>
     private const string DefaultUrl =
-        "https://api.github.com/repos/geniyhackerdotaswag-bit/Winora/releases/latest";
+        "https://api.github.com/repos/geniyhackerdotaswag-bit/Winora/releases?per_page=20";
 
     /// <summary>The program itself, as named in the release.</summary>
     private const string ProgramAsset = "Winora.exe";
@@ -87,22 +104,29 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
     {
         try
         {
-            var release = await _http
-                .GetFromJsonAsync<GithubRelease>(_url, cancellationToken)
+            var releases = await _http
+                .GetFromJsonAsync<IReadOnlyList<GithubRelease>>(_url, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (release is null || AppVersion.Parse(release.TagName) is not { } version)
+            if (releases is null)
             {
                 return AppReleaseLookup.Answered(null);
             }
 
-            var program = Asset(release, ProgramAsset);
-            var checksum = Asset(release, ChecksumAsset);
+            // Highest version wins, not newest publication. A fix released for an older line would
+            // otherwise offer itself as an upgrade to somebody already ahead of it.
+            var newest = releases
+                .Select(release => (Release: release, Version: AppVersion.Parse(release.TagName)))
+                .Where(candidate => candidate.Version is not null)
+                .OrderByDescending(candidate => candidate.Version!)
+                .FirstOrDefault(candidate =>
+                    Asset(candidate.Release, ProgramAsset)?.DownloadUrl is { Length: > 0 } &&
+                    Asset(candidate.Release, ChecksumAsset)?.DownloadUrl is { Length: > 0 });
 
-            // Both or neither. Without the checksum the download cannot be verified, and offering
-            // an update that would then be refused wastes the person's time.
-            if (program?.DownloadUrl is not { Length: > 0 } programUrl ||
-                checksum?.DownloadUrl is not { Length: > 0 } checksumUrl)
+            // Both assets or neither. Without the checksum the download cannot be verified, and
+            // offering an update that would then be refused wastes the person's time — so a release
+            // missing either is passed over above rather than answered with here.
+            if (newest.Release is not { } release || newest.Version is not { } version)
             {
                 return AppReleaseLookup.Answered(null);
             }
@@ -111,9 +135,9 @@ public sealed class AppReleaseFeed : IAppReleaseFeed
                 version,
                 release.TagName ?? string.Empty,
                 release.Body ?? string.Empty,
-                programUrl,
-                checksumUrl,
-                program.Size,
+                Asset(release, ProgramAsset)!.DownloadUrl!,
+                Asset(release, ChecksumAsset)!.DownloadUrl!,
+                Asset(release, ProgramAsset)!.Size,
                 release.PublishedAt));
         }
         catch (OperationCanceledException)

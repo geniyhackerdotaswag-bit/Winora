@@ -18,8 +18,10 @@ public sealed class AppReleaseFeedTests
 {
     private const string Url = "https://example.invalid/releases/latest";
 
-    /// <summary>An answer of the shape GitHub gives, with both files attached.</summary>
-    private static string Body(string tag) => $$"""
+    /// <summary>An answer of the shape GitHub gives: a list, with both files attached.</summary>
+    private static string Body(string tag) => "[" + One(tag) + "]";
+
+    private static string One(string tag) => $$"""
         {
           "tag_name": "{{tag}}",
           "body": "Что нового: полоска обновления.",
@@ -66,6 +68,7 @@ public sealed class AppReleaseFeedTests
     public async Task A_release_missing_its_checksum_is_not_a_release()
     {
         const string body = """
+            [
             {
               "tag_name": "v0.4.0",
               "body": "",
@@ -74,6 +77,7 @@ public sealed class AppReleaseFeedTests
                 { "name": "Winora.exe", "size": 10, "browser_download_url": "https://example.invalid/Winora.exe" }
               ]
             }
+            ]
             """;
 
         var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
@@ -86,6 +90,7 @@ public sealed class AppReleaseFeedTests
     public async Task A_release_missing_the_program_is_not_a_release()
     {
         const string body = """
+            [
             {
               "tag_name": "v0.4.0",
               "body": "",
@@ -94,6 +99,7 @@ public sealed class AppReleaseFeedTests
                 { "name": "Winora.exe.sha256", "size": 64, "browser_download_url": "https://example.invalid/s" }
               ]
             }
+            ]
             """;
 
         var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
@@ -123,13 +129,62 @@ public sealed class AppReleaseFeedTests
     }
 
     /// <summary>An answer we can read, holding nothing we can use.</summary>
-    [Fact]
-    public async Task An_empty_answer_is_an_answer()
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("[{}]")]
+    public async Task An_empty_answer_is_an_answer(string body)
     {
-        var lookup = await Feed(HttpStatusCode.OK, "{}").LatestAsync();
+        var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
 
         Assert.True(lookup.Reached);
         Assert.Null(lookup.Release);
+    }
+
+    /// <summary>
+    /// A release that is not the program does not stop the program being updated.
+    /// </summary>
+    /// <remarks>
+    /// Broken on 2026-09-02 and fixed the same hour. The cursor packs were published under the tag
+    /// <c>cursors-v1</c>, and the feed was reading GitHub's <c>/releases/latest</c> — which means
+    /// "the most recently published release", not "the newest version of the program". Winora could
+    /// not read a version out of that tag, concluded there was nothing newer, and told the owner he
+    /// had the latest version while v0.9.0 sat one entry below it.
+    /// </remarks>
+    [Fact]
+    public async Task A_release_that_is_not_the_program_is_passed_over()
+    {
+        var body = "[" + $$"""
+            {
+              "tag_name": "cursors-v1",
+              "body": "Наборы курсоров",
+              "published_at": "2026-09-02T12:00:00Z",
+              "assets": [
+                { "name": "chroma-black-s.zip", "size": 137828, "browser_download_url": "https://example.invalid/c.zip" }
+              ]
+            }
+            """ + "," + One("v0.9.0") + "]";
+
+        var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
+
+        Assert.True(lookup.Reached);
+        Assert.Equal("v0.9.0", lookup.Release?.Tag);
+    }
+
+    /// <summary>
+    /// The highest version wins, not the one published most recently.
+    /// </summary>
+    /// <remarks>
+    /// A fix released for an older line would otherwise offer itself as an upgrade to somebody
+    /// already ahead of it, and they would install it and be moved backwards.
+    /// </remarks>
+    [Fact]
+    public async Task The_highest_version_wins_not_the_newest_publication()
+    {
+        var body = "[" + One("v0.7.1") + "," + One("v0.9.0") + "]";
+
+        var lookup = await Feed(HttpStatusCode.OK, body).LatestAsync();
+
+        Assert.Equal("v0.9.0", lookup.Release?.Tag);
     }
 
     /// <summary>A tag nobody can parse is not a version, and so not an update.</summary>
