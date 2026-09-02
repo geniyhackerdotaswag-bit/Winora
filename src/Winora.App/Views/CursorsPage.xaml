@@ -11,6 +11,7 @@
 
     <Page.Resources>
         <ctl:CursorPreviewConverter x:Key="CursorPreview" />
+        <ctl:RemoteImageConverter x:Key="RemoteImage" />
     </Page.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -72,26 +73,65 @@
                                               marketing art, and at card size they crowded out the
                                               name and pushed the button out of the card.
                                             -->
-                                            <Image Source="{x:Bind PreviewPath, Converter={StaticResource CursorPreview}}"
-                                                   Width="48"
-                                                   Height="48"
-                                                   HorizontalAlignment="Left"
-                                                   Stretch="Uniform"
-                                                   AutomationProperties.AccessibilityView="Raw" />
+                                            <Grid Width="48" Height="48" HorizontalAlignment="Left">
+                                                <Image Source="{x:Bind PreviewPath, Converter={StaticResource CursorPreview}}"
+                                                       Stretch="Uniform"
+                                                       Visibility="{x:Bind ctl:XamlConvert.Show(IsDownloaded), Mode=OneWay}"
+                                                       AutomationProperties.AccessibilityView="Raw" />
 
-                                            <TextBlock Style="{StaticResource WinoraRowTitle}"
-                                                       Text="{x:Bind Name}" />
+                                                <!--
+                                                  A pack that is only on offer has nothing on disk to
+                                                  draw, so the card shows the picture the catalogue
+                                                  published. An ordinary PNG, which WinUI can decode
+                                                  where it cannot decode .cur or .ani.
+                                                -->
+                                                <Image Source="{x:Bind PreviewUrl, Converter={StaticResource RemoteImage}}"
+                                                       Stretch="Uniform"
+                                                       Visibility="{x:Bind ctl:XamlConvert.Hide(IsDownloaded), Mode=OneWay}"
+                                                       AutomationProperties.AccessibilityView="Raw" />
+                                            </Grid>
+
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Style="{StaticResource WinoraRowTitle}"
+                                                           Text="{x:Bind Name}" />
+
+                                                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                           Margin="0"
+                                                           Visibility="{x:Bind ctl:XamlConvert.ShowText(Author), Mode=OneWay}"
+                                                           Text="{x:Bind Author, Mode=OneWay}" />
+
+                                                <TextBlock Style="{StaticResource WinoraRowDetail}"
+                                                           Margin="0"
+                                                           Visibility="{x:Bind ctl:XamlConvert.ShowText(SizeText), Mode=OneWay}"
+                                                           Text="{x:Bind SizeText, Mode=OneWay}" />
+                                            </StackPanel>
 
                                             <Grid HorizontalAlignment="Left">
+                                                <!--
+                                                  One place, two buttons, never both: a pack that is
+                                                  not here cannot be applied, and one that is here has
+                                                  nothing left to fetch.
+                                                -->
                                                 <Button Style="{StaticResource WinoraActionButton}"
                                                         Content="{x:Bind ApplyLabel}"
                                                         Tag="{x:Bind}"
-                                                        Visibility="{x:Bind ctl:XamlConvert.Hide(IsBusy), Mode=OneWay}"
+                                                        Visibility="{x:Bind ctl:XamlConvert.Show(IsDownloaded), Mode=OneWay}"
+                                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(IsBusy), Mode=OneWay}"
                                                         Click="OnApplyClick"
                                                         AutomationProperties.Name="{x:Bind Name}" />
+
+                                                <Button Style="{StaticResource WinoraActionButton}"
+                                                        Content="{x:Bind DownloadLabel}"
+                                                        Tag="{x:Bind}"
+                                                        Visibility="{x:Bind ctl:XamlConvert.Hide(IsDownloaded), Mode=OneWay}"
+                                                        IsEnabled="{x:Bind ctl:XamlConvert.Not(IsBusy), Mode=OneWay}"
+                                                        Click="OnDownloadClick"
+                                                        AutomationProperties.Name="{x:Bind Name}" />
+
                                                 <ProgressRing IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                                               Visibility="{x:Bind ctl:XamlConvert.Show(IsBusy), Mode=OneWay}"
-                                                              Width="18" Height="18" />
+                                                              Width="18" Height="18"
+                                                              HorizontalAlignment="Right" />
                                             </Grid>
                                         </StackPanel>
                                     </ctl:HoverRow>

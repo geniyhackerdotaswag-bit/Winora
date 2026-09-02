@@ -62,6 +62,8 @@ public static class ServiceRegistration
         services.AddSingleton<IMachineSummaryService, MachineSummaryService>();
         services.AddSingleton<MachineViewModel>();
         services.AddSingleton<ISettingsTransferService, SettingsTransferService>();
+        services.AddSingleton<ICursorCatalogue, CursorCatalogue>();
+        services.AddSingleton<ICursorDownloadService, CursorDownloadService>();
         services.AddTransient<CleanupViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<StartupViewModel>();

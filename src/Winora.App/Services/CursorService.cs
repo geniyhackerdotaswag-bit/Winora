@@ -10,10 +10,16 @@ namespace Winora.App.Services;
 /// imagery: at card size it squeezed the name and pushed the button out of the card. The card shows
 /// the pack's own pointer instead, which is the thing being chosen.
 /// </remarks>
+/// <param name="FolderName">
+///     The folder the pack sits in, which is how a downloaded pack is told from the catalogue entry
+///     that produced it. The display <paramref name="Name"/> is cleaned up for the card and cannot
+///     be matched back against anything.
+/// </param>
 public sealed record CursorPackView(
     string Name,
     int RoleCount,
-    string PreviewPath);
+    string PreviewPath,
+    string FolderName = "");
 
 /// <param name="Applied">Cursors Windows accepted.</param>
 /// <param name="Skipped">Cursors that could not be set.</param>
@@ -60,7 +66,8 @@ public sealed class CursorService : ICursorService
                 pack.Name,
                 pack.Files.Count,
                 // The normal-select cursor stands for the pack: it is what the user is choosing.
-                pack.Files.TryGetValue(CursorRole.Arrow, out var arrow) ? arrow : string.Empty))
+                pack.Files.TryGetValue(CursorRole.Arrow, out var arrow) ? arrow : string.Empty,
+                Path.GetFileName(pack.Directory)))
             .ToArray();
 
     public CursorApplyOutcome Apply(string packName)

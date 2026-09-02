@@ -31,6 +31,15 @@ public sealed partial class CursorsPage : Page
         _load.Leave();
     }
 
+    /// <summary>Fetches the pack this card is offering, then the list rebuilds itself.</summary>
+    private async void OnDownloadClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: CursorPackViewModel pack })
+        {
+            await ViewModel.DownloadAsync(pack).ConfigureAwait(true);
+        }
+    }
+
     private async void OnApplyClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: CursorPackViewModel pack })

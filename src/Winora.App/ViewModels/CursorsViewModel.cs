@@ -23,16 +23,54 @@ public sealed partial class CursorPackViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
+
+    /// <summary>Who made the pack. Shown because somebody did.</summary>
+    [ObservableProperty]
+    public partial string Author { get; set; } = string.Empty;
+
+    /// <summary>The catalogue entry this card came from, or null when the pack is only on disk.</summary>
+    public CursorOfferView? Listing { get; init; }
+
+    /// <summary>True once the pack's files are on this machine.</summary>
+    [ObservableProperty]
+    public partial bool IsDownloaded { get; set; }
+
+    /// <summary>The card's own button: "Скачать" until it is here, "Применить" afterwards.</summary>
+    [ObservableProperty]
+    public partial string DownloadLabel { get; set; } = string.Empty;
+
+    /// <summary>How large the download is, or empty for a pack already here.</summary>
+    [ObservableProperty]
+    public partial string SizeText { get; set; } = string.Empty;
+
+    /// <summary>Where the card's picture comes from before anything has been downloaded.</summary>
+    [ObservableProperty]
+    public partial string PreviewUrl { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial double Progress { get; set; }
 }
 
 /// <summary>
 /// The cursor packs already installed on this machine, applied through documented Win32 calls.
 /// </summary>
 /// <remarks>
-/// Winora does not download packs. A cursor pack is an archive of arbitrary files from a third-party
-/// site, this app runs elevated, and fetching one and installing it would be the shortest path from
-/// a stranger's upload to administrative code on the user's machine. Packs the user installs
-/// themselves appear here automatically, because Windows registers them as schemes.
+/// <para>
+/// Packs are offered from a catalogue Winora publishes beside itself, and the owner asked for that
+/// on 2026-08-30. This used to say that Winora does not download packs at all, and the reason was
+/// sound: an archive of arbitrary files from a stranger's site, unpacked by a program running as
+/// administrator, is the shortest path from somebody's upload to code running on this machine.
+/// </para>
+/// <para>
+/// That path is closed rather than accepted. The catalogue is Winora's own, not a third-party site,
+/// and <see cref="ICursorCatalogue"/> takes only <c>.cur</c> and <c>.ani</c> out of an archive, each
+/// by its bare file name — no scripts, no executables, no folder structure, and nothing that can
+/// name a place outside the pack's own folder. What arrives is pointers or nothing.
+/// </para>
+/// <para>
+/// Packs the owner drops into the folder themselves still appear, exactly as before, and are not
+/// told apart from downloaded ones once they are there.
+/// </para>
 /// </remarks>
 public sealed partial class CursorsViewModel : ObservableObject
 {
@@ -68,13 +106,28 @@ public sealed partial class CursorsViewModel : ObservableObject
 
     public ObservableCollection<CursorPackViewModel> Packs { get; } = [];
 
-    public CursorsViewModel(ICursorService cursors, ILocalizationService text)
+    private readonly ICursorDownloadService _catalogue;
+
+    public CursorsViewModel(
+        ICursorService cursors,
+        ICursorDownloadService catalogue,
+        ILocalizationService text)
     {
         _cursors = cursors ?? throw new ArgumentNullException(nameof(cursors));
+        _catalogue = catalogue ?? throw new ArgumentNullException(nameof(catalogue));
         _text = text ?? throw new ArgumentNullException(nameof(text));
     }
 
-    public Task LoadAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Builds the cards: what is here, plus what is on offer and not here yet.
+    /// </summary>
+    /// <remarks>
+    /// The catalogue is asked for over the network and the folder is read from disk, so the whole
+    /// list is built before anything is put into <see cref="Packs"/> — a page can be left at any
+    /// await, and filling a collection WinUI has already torn down is what crashed the animations
+    /// screen.
+    /// </remarks>
+    public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -84,25 +137,123 @@ public sealed partial class CursorsViewModel : ObservableObject
         RestoreLabel = _text.Get("Cursors_Restore");
         OpenFolderLabel = _text.Get("Cursors_OpenFolder");
         PackFolder = _cursors.PackFolder;
-        Packs.Clear();
 
-        foreach (var pack in _cursors.Packs())
+        var here = _cursors.Packs();
+        var offered = await _catalogue.OffersAsync(cancellationToken).ConfigureAwait(true);
+
+        var built = new List<CursorPackViewModel>();
+
+        foreach (var pack in here)
         {
-            Packs.Add(new CursorPackViewModel
+            // A downloaded pack sits in a folder named after its catalogue entry, which is how the
+            // author and the entry are recovered for a card that is otherwise just files on disk.
+            var listing = offered.FirstOrDefault(l =>
+                string.Equals(l.Id, pack.FolderName, StringComparison.OrdinalIgnoreCase));
+
+            built.Add(new CursorPackViewModel
             {
                 Name = pack.Name,
                 PreviewPath = pack.PreviewPath,
                 ApplyLabel = _text.Get("Cursors_Apply"),
+                Author = listing?.Author ?? string.Empty,
+                Listing = listing,
+                IsDownloaded = true,
             });
+        }
+
+        foreach (var listing in offered)
+        {
+            if (built.Any(card => card.Listing is { } known &&
+                string.Equals(known.Id, listing.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            built.Add(new CursorPackViewModel
+            {
+                Name = listing.Name,
+                Author = listing.Author,
+                PreviewUrl = listing.PreviewUrl,
+                Listing = listing,
+                IsDownloaded = false,
+                DownloadLabel = _text.Get("Cursors_Download"),
+                SizeText = Megabytes(listing.SizeBytes),
+            });
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Packs.Clear();
+
+        foreach (var card in built)
+        {
+            Packs.Add(card);
         }
 
         if (Packs.Count == 0)
         {
             StatusMessage = _text.Get("Cursors_NoneInstalled");
         }
-
-        return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Fetches one pack, then rebuilds the list so the card becomes an ordinary installed one.
+    /// </summary>
+    /// <remarks>
+    /// Reloading rather than flipping the card's own flag: what makes a pack usable is files on
+    /// disk, and only a re-read of the folder knows whether they are there. A card that said
+    /// "downloaded" because a download reported success would be repeating a claim instead of
+    /// checking it.
+    /// </remarks>
+    public async Task DownloadAsync(CursorPackViewModel pack)
+    {
+        ArgumentNullException.ThrowIfNull(pack);
+
+        if (pack.IsBusy || pack.Listing is not { } listing)
+        {
+            return;
+        }
+
+        pack.IsBusy = true;
+        pack.Progress = 0;
+        StatusMessage = string.Empty;
+
+        try
+        {
+            var outcome = await _catalogue
+                .DownloadAsync(listing.Id, new Progress<double>(value => pack.Progress = value))
+                .ConfigureAwait(true);
+
+            if (outcome != CursorDownloadResult.Installed)
+            {
+                StatusMessage = _text.Get(outcome switch
+                {
+                    CursorDownloadResult.DownloadFailed => "Cursors_DownloadFailed",
+                    CursorDownloadResult.Unreadable => "Cursors_DownloadUnreadable",
+                    CursorDownloadResult.Empty => "Cursors_DownloadEmpty",
+                    _ => "Cursors_DownloadNotStored",
+                });
+
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusMessage = _text.Get("Cursors_DownloadFailed");
+            return;
+        }
+        finally
+        {
+            pack.IsBusy = false;
+        }
+
+        await LoadAsync().ConfigureAwait(true);
+    }
+
+    private static string Megabytes(long bytes) =>
+        bytes <= 0
+            ? string.Empty
+            : (bytes / (1024d * 1024d)).ToString("0.#", CultureInfo.CurrentCulture) + " МБ";
 
     /// <summary>
     /// Applies a pack. The report says how many cursors actually changed rather than claiming the

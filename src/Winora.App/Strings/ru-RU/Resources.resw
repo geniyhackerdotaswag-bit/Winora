@@ -129,6 +129,12 @@
   <data name="Settings_TransferUnchanged"><value>уже совпадало: {0}</value></data>
   <data name="Settings_TransferRefused"><value>пропущено незнакомых: {0}</value></data>
   <data name="Settings_TransferFailed"><value>не удалось: {0}</value></data>
+  <data name="Cursors_Download"><value>Скачать</value></data>
+  <data name="Cursors_DownloadFailed"><value>Скачать не удалось. Проверьте соединение и попробуйте снова — ничего не изменилось.</value></data>
+  <data name="Cursors_DownloadUnreadable"><value>Скачанный файл не удалось открыть как набор курсоров. Ничего не установлено.</value></data>
+  <data name="Cursors_DownloadEmpty"><value>В наборе не оказалось ни одного курсора. Ничего не установлено.</value></data>
+  <data name="Cursors_DownloadNotStored"><value>Набор не удалось сохранить в папку курсоров.</value></data>
+  <data name="Cursors_By"><value>автор: {0}</value></data>
   <data name="Nav_Taskbar"><value>Панель задач</value></data>
   <data name="Nav_Sounds"><value>Звуки</value></data>
   <data name="Nav_Cursors"><value>Курсоры</value></data>
