@@ -1,4 +1,5 @@
-﻿using Winora.App.Services;
+﻿using System.Globalization;
+using Winora.App.Services;
 using Winora.App.ViewModels;
 using Winora.Core.Licence;
 using Winora.Core.Profile;
@@ -157,18 +158,39 @@ public sealed class ProfileViewModelTests
         public override DateTimeOffset GetUtcNow() => now;
     }
 
-    /// <summary>Профиль есть, подписка — какая передана.</summary>
+    /// <summary>
+    /// Профиль есть, подписка — какая передана, язык дат — русский.
+    /// </summary>
+    /// <remarks>
+    /// Язык закрепляется здесь, а не берётся у машины. Дата на карточке пишется
+    /// как «23 сентября 2026» через <see cref="CultureInfo.CurrentCulture"/>, и
+    /// проверки, написанные по-русски, проходили у владельца и падали на сборщике:
+    /// там язык системы английский, и выходило «23 September 2026». Ошибка была не
+    /// в программе, а в проверке, которая молча полагалась на настройки машины.
+    /// </remarks>
     private static ProfileViewModel WithLicence(LicenceState licence)
     {
-        var vm = Build(
-            new FakeProfileService
-            {
-                Current = new ProfileView("Аня", string.Empty, 2, Noon.AddDays(-4), "#2FBF9E", "А"),
-            },
-            licence);
+        var was = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ru-RU");
 
-        vm.Load();
-        return vm;
+        try
+        {
+            var vm = Build(
+                new FakeProfileService
+                {
+                    Current = new ProfileView("Аня", string.Empty, 2, Noon.AddDays(-4), "#2FBF9E", "А"),
+                },
+                licence);
+
+            // Внутри Load строка и складывается, поэтому язык нужен именно здесь,
+            // а не в момент проверки.
+            vm.Load();
+            return vm;
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = was;
+        }
     }
 
     [Fact]
