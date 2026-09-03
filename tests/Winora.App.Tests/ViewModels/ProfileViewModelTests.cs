@@ -1,5 +1,6 @@
-using Winora.App.Services;
+﻿using Winora.App.Services;
 using Winora.App.ViewModels;
+using Winora.Core.Licence;
 using Winora.Core.Profile;
 using Xunit;
 
@@ -99,6 +100,16 @@ public sealed class ProfileViewModelTests
             "Profile_DaysToday" => "Сегодня",
             "Profile_DaysCaption" => "Дней с Winora",
             "Profile_DaysCaptionFirst" => "Первый день с Winora",
+
+            // Подписка — тоже словами: проверки ниже сверяют то, что человек прочтёт
+            // на карточке, а не набор ключей, по которому этого не видно.
+            "Profile_Subscription" => "Подписка: {0}",
+            "Profile_SubNone" => "нет",
+            "Profile_SubForever" => "вечная",
+            "Profile_SubTrial" => "пробные дни, до {0}",
+            "Profile_SubTrialOver" => "пробные дни закончились",
+            "Profile_SubUntil" => "до {0}",
+            "Profile_SubEnded" => "закончилась {0}",
             _ => resourceKey,
         };
     }
@@ -106,8 +117,127 @@ public sealed class ProfileViewModelTests
     /// <summary>Stands in for whatever the file dialog handed back.</summary>
     private const string ChosenFile = @"C:\pictures\chosen.png";
 
+    /// <summary>Подписка, которую подсовывают в готовом виде.</summary>
+    /// <remarks>
+    /// Ничего не спрашивает у сети: карточке нужен только тот срок, что уже лежит
+    /// на диске, и проверки здесь про то, как он превращается в строку.
+    /// </remarks>
+    private sealed class StoredLicence(LicenceState state) : ILicenceService
+    {
+        public LicenceState Current { get; } = state;
+
+        public string HardwareId => "проверочная-машина";
+
+        public bool IsConfigured => true;
+
+        public Task<LicenceResult> ActivateAsync(string key, string? promoCode, CancellationToken cancellationToken) =>
+            Task.FromResult(new LicenceResult(LicenceOutcome.Activated, Current));
+
+        public Task<LicenceResult> RefreshAsync(bool force, CancellationToken cancellationToken) =>
+            Task.FromResult(new LicenceResult(LicenceOutcome.Confirmed, Current));
+
+        public Task<LicenceResult> EnsureAccessAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new LicenceResult(LicenceOutcome.Confirmed, Current));
+
+        public bool Forget() => true;
+    }
+
+    /// <summary>Полдень 3 сентября 2026 — точка, от которой считаются сроки в проверках.</summary>
+    private static readonly DateTimeOffset Noon = new(2026, 9, 3, 12, 0, 0, TimeSpan.Zero);
+
     private static ProfileViewModel Build(IProfileService service) =>
-        new(service, new EchoLocalization());
+        Build(service, LicenceState.None);
+
+    private static ProfileViewModel Build(IProfileService service, LicenceState licence) =>
+        new(service, new EchoLocalization(), new StoredLicence(licence), new FixedTime(Noon));
+
+    /// <summary>Часы, которые стоят.</summary>
+    private sealed class FixedTime(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    /// <summary>Профиль есть, подписка — какая передана.</summary>
+    private static ProfileViewModel WithLicence(LicenceState licence)
+    {
+        var vm = Build(
+            new FakeProfileService
+            {
+                Current = new ProfileView("Аня", string.Empty, 2, Noon.AddDays(-4), "#2FBF9E", "А"),
+            },
+            licence);
+
+        vm.Load();
+        return vm;
+    }
+
+    [Fact]
+    public void Without_a_profile_the_card_says_nothing_about_a_subscription()
+    {
+        var vm = Build(new FakeProfileService());
+        vm.Load();
+
+        Assert.Equal(string.Empty, vm.Subscription);
+    }
+
+    /// <summary>
+    /// Каждый исход подписки — своя строка.
+    /// </summary>
+    /// <remarks>
+    /// Вечная проверяется отдельно от прочих действующих: срок у неё записан 9999
+    /// годом, и стоит ей попасть в общую ветку, как на карточке появится «до 31
+    /// декабря 9999». Это ровно та строка, ради которой ветка стоит первой.
+    /// </remarks>
+    [Fact]
+    public void A_perpetual_subscription_says_so_instead_of_naming_the_year_9999()
+    {
+        var vm = WithLicence(new LicenceState(
+            LicenceState.PerpetualPlan, LicenceState.Forever, null, Noon));
+
+        Assert.Equal("Подписка: вечная", vm.Subscription);
+    }
+
+    [Fact]
+    public void A_paid_subscription_shows_the_day_it_runs_out()
+    {
+        var vm = WithLicence(new LicenceState("month", Noon.AddDays(20), null, Noon));
+
+        Assert.Equal("Подписка: до 23 сентября 2026", vm.Subscription);
+    }
+
+    [Fact]
+    public void A_subscription_that_has_run_out_says_when()
+    {
+        var vm = WithLicence(new LicenceState("month", Noon.AddDays(-2), null, Noon));
+
+        Assert.Equal("Подписка: закончилась 1 сентября 2026", vm.Subscription);
+    }
+
+    [Fact]
+    public void Trial_days_are_named_as_such_rather_than_passed_off_as_a_subscription()
+    {
+        var vm = WithLicence(new LicenceState(
+            LicenceState.TrialPlan, Noon.AddDays(2), null, Noon));
+
+        Assert.Equal("Подписка: пробные дни, до 5 сентября 2026", vm.Subscription);
+    }
+
+    [Fact]
+    public void Trial_days_that_have_run_out_say_so_without_a_date()
+    {
+        var vm = WithLicence(new LicenceState(
+            LicenceState.TrialPlan, Noon.AddDays(-1), null, Noon));
+
+        Assert.Equal("Подписка: пробные дни закончились", vm.Subscription);
+    }
+
+    [Fact]
+    public void No_subscription_at_all_is_said_plainly()
+    {
+        var vm = WithLicence(LicenceState.None);
+
+        Assert.Equal("Подписка: нет", vm.Subscription);
+    }
 
     [Fact]
     public void Without_a_profile_there_is_nothing_to_show()

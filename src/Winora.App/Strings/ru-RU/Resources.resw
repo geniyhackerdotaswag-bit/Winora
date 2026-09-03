@@ -637,6 +637,14 @@
   <data name="Profile_Save"><value>Сохранить</value></data>
   <data name="Profile_Saved"><value>Сохранено.</value></data>
   <data name="Profile_SaveFailed"><value>Не удалось сохранить профиль. Остальное работает.</value></data>
+  <data name="Profile_SubManage"><value>Подписка и ключ</value></data>
+  <data name="Profile_Subscription"><value>Подписка: {0}</value></data>
+  <data name="Profile_SubNone"><value>нет</value></data>
+  <data name="Profile_SubForever"><value>вечная</value></data>
+  <data name="Profile_SubTrial"><value>пробные дни, до {0}</value></data>
+  <data name="Profile_SubTrialOver"><value>пробные дни закончились</value></data>
+  <data name="Profile_SubUntil"><value>до {0}</value></data>
+  <data name="Profile_SubEnded"><value>закончилась {0}</value></data>
   <data name="Profile_MemberSince"><value>С нами с {0}</value></data>
   <data name="Profile_RecordedChanges"><value>Изменений записано: {0}</value></data>
   <data name="Profile_DetailsHeading"><value>Данные профиля</value></data>

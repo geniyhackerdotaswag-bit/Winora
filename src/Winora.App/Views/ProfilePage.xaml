@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="Winora.App.Views.ProfilePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -29,6 +29,18 @@
                 <StackPanel Grid.Column="0" Padding="{StaticResource WinoraPagePadding}">
 
                     <ctl:ProfileCard x:Name="Card" Margin="{StaticResource WinoraStackGapL}" />
+
+                    <!--
+                      Единственная дверь к экрану подписки: пункт из панели убран, а
+                      ключ вводить где-то надо. Ссылка стоит прямо под карточкой,
+                      где на строке «Подписка: …» человек и обнаруживает, что срок
+                      кончается. Кнопка скромная, а не основная: платят на сайте, а
+                      здесь только вводят то, что уже куплено.
+                    -->
+                    <HyperlinkButton Margin="{StaticResource WinoraStackGapL}"
+                                     Padding="0"
+                                     Click="OnLicenceClick"
+                                     Content="{x:Bind Localized('Profile_SubManage')}" />
 
                     <!--
                       Both sections fold away, and start folded. The card above already shows the

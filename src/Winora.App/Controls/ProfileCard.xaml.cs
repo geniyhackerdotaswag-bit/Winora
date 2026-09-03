@@ -1,4 +1,4 @@
-using Microsoft.UI;
+﻿using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -66,6 +66,9 @@ public sealed partial class ProfileCard : UserControl
         EmailRow.Visibility = viewModel.Email.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         CardSince.Text = viewModel.MemberSince;
         SinceRow.Visibility = viewModel.MemberSince.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CardSubscription.Text = viewModel.Subscription;
+        SubscriptionRow.Visibility =
+            viewModel.Subscription.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         AvatarInitial.Text = viewModel.Initial;
 
         // The disc under everything else. A picture, when there is one, covers it; remove the

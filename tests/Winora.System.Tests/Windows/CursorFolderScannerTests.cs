@@ -1,4 +1,4 @@
-using Winora.System.Windows;
+﻿using Winora.System.Windows;
 using Xunit;
 
 namespace Winora.System.Tests.Platform;
@@ -86,6 +86,51 @@ public sealed class CursorFolderScannerTests : IDisposable
     [InlineData("vert.ani", CursorRole.SizeNS)]
     [InlineData("work.ani", CursorRole.AppStarting)]
     public void Abbreviated_pack_names_are_recognised(string fileName, CursorRole expected)
+    {
+        Assert.Equal(expected, CursorFolderScanner.RoleForFileName(fileName));
+    }
+
+    /// <summary>
+    /// Имена, которыми роли зовёт сама Windows.
+    /// </summary>
+    /// <remarks>
+    /// Второй лагерь наборов подписывает файлы не словами человека, а именами ролей
+    /// из Win32: <c>SizeAll.ani</c>, <c>SizeNS.ani</c>, <c>IBeam.ani</c>. Таблица их
+    /// не знала, и такой набор ставился наполовину — молча, потому что нераспознанный
+    /// файл просто пропускается. Нашлось на живом наборе «Терракота».
+    /// </remarks>
+    [Theory]
+    [InlineData("SizeAll.ani", CursorRole.SizeAll)]
+    [InlineData("SizeNS.ani", CursorRole.SizeNS)]
+    [InlineData("SizeWE.ani", CursorRole.SizeWE)]
+    [InlineData("SizeNWSE.ani", CursorRole.SizeNWSE)]
+    [InlineData("SizeNESW.ani", CursorRole.SizeNESW)]
+    [InlineData("IBeam.ani", CursorRole.IBeam)]
+    [InlineData("AppStarting.ani", CursorRole.AppStarting)]
+    [InlineData("NO.ani", CursorRole.No)]
+    [InlineData("Cross.ani", CursorRole.Crosshair)]
+    [InlineData("Hand.ani", CursorRole.Hand)]
+    [InlineData("Wait.ani", CursorRole.Wait)]
+    [InlineData("Help.ani", CursorRole.Help)]
+    [InlineData("Handwriting.ani", CursorRole.NWPen)]
+    public void The_names_Windows_itself_uses_are_recognised(string fileName, CursorRole expected)
+    {
+        Assert.Equal(expected, CursorFolderScanner.RoleForFileName(fileName));
+    }
+
+    /// <summary>
+    /// Стрелка вверх и обычный указатель — не одно и то же.
+    /// </summary>
+    /// <remarks>
+    /// «uparrow» содержит «arrow» целиком. Пока «arrow» стояла в таблице выше,
+    /// <c>UpArrow.ani</c> объявлялся обычным указателем — а тот в наборе уже есть,
+    /// и одна запись затирала другую: набор терял и стрелку вверх, и половину
+    /// шансов на то, что указателем окажется именно <c>Arrow.ani</c>.
+    /// </remarks>
+    [Theory]
+    [InlineData("UpArrow.ani", CursorRole.UpArrow)]
+    [InlineData("Arrow.ani", CursorRole.Arrow)]
+    public void An_up_arrow_is_not_swallowed_by_the_plain_arrow(string fileName, CursorRole expected)
     {
         Assert.Equal(expected, CursorFolderScanner.RoleForFileName(fileName));
     }

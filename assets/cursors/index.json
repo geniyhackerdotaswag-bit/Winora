@@ -31,6 +31,22 @@
       "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/chroma-white-m.zip",
       "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/chroma-white-m.png",
       "sizeBytes": 171830
+    },
+    {
+      "id": "graphite",
+      "name": "Графит",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/graphite.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/graphite.png",
+      "sizeBytes": 242572
+    },
+    {
+      "id": "terracota",
+      "name": "Терракота",
+      "author": "",
+      "archiveUrl": "https://github.com/geniyhackerdotaswag-bit/Winora/releases/download/cursors-v1/terracota.zip",
+      "previewUrl": "https://raw.githubusercontent.com/geniyhackerdotaswag-bit/Winora/main/assets/cursors/terracota.png",
+      "sizeBytes": 498278
     }
   ]
 }

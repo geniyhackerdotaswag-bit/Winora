@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <UserControl
     x:Class="Winora.App.Controls.ProfileCard"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -113,6 +113,28 @@
                                       VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1"
                                        x:Name="CardEmail"
+                                       Style="{StaticResource WinoraProfileDetail}" />
+                        </Grid>
+
+                        <!--
+                          Подписка стоит третьей строкой, под датой прихода: это
+                          такой же факт о человеке, как адрес, и раздела он больше
+                          не занимает.
+                        -->
+                        <Grid x:Name="SubscriptionRow" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Grid.Column="0"
+                                      AutomationProperties.AccessibilityView="Raw"
+                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                      FontSize="13"
+                                      Foreground="{ThemeResource WinoraTextFaint}"
+                                      Glyph="&#xE192;"
+                                      VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="CardSubscription"
                                        Style="{StaticResource WinoraProfileDetail}" />
                         </Grid>
 

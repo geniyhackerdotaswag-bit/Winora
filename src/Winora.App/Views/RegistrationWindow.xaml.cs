@@ -67,9 +67,11 @@ public sealed partial class RegistrationWindow : Window
 
         // The owner's markup on the reference screenshot crossed out everything but the card
         // itself: no dark margin, no system border, no caption buttons. RemoveSystemChrome takes
-        // the border and title bar away; MakeBackdropTransparent stops the now-square window from
-        // painting a solid colour behind the card's rounded corners.
+        // the frame and title bar away; RemoveSystemOutline takes the line DWM draws around the
+        // window regardless; MakeBackdropTransparent stops the now-square window from painting a
+        // solid colour behind the card's rounded corners.
         RemoveSystemChrome();
+        RemoveSystemOutline();
         MakeBackdropTransparent();
 
         // 520 is the card's own Width. The height was 720, sized for the password step; without
@@ -322,6 +324,42 @@ public sealed partial class RegistrationWindow : Window
     }
 
     /// <summary>
+    /// Убирает светлую линию, которую Windows обводит вокруг окна.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="RemoveSystemChrome"/> снимает рамку окна, но не эту линию: с Windows 11 её
+    /// рисует уже не окно, а сам композитор, поверх всего и по своему скруглению. На тёмной
+    /// карточке она читается как белая обводка — её и было видно на снимке владельца.
+    /// </para>
+    /// <para>
+    /// Просить прозрачный цвет бесполезно: атрибут принимает COLORREF, у которого нет альфы.
+    /// Отказаться от линии целиком можно только особым значением — <c>DWMWA_COLOR_NONE</c>, — и
+    /// оно же единственное, что здесь подходит: любой конкретный цвет, даже совпадающий с
+    /// карточкой сегодня, разойдётся с ней, как только карточку перекрасят.
+    /// </para>
+    /// <para>
+    /// Отказ молча пропускается, как и в <see cref="MakeBackdropTransparent"/>: до Windows 11
+    /// атрибута просто нет, и окно с лишней линией всё равно работает. Это конструктор
+    /// единственного окна, которое существует раньше профиля, и исключение отсюда уронило бы
+    /// программу до того, как она покажется.
+    /// </para>
+    /// </remarks>
+    private void RemoveSystemOutline()
+    {
+        try
+        {
+            var handle = global::WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var none = ColourNone;
+            _ = DwmSetWindowAttribute(handle, BorderColourAttribute, ref none, sizeof(uint));
+        }
+        catch (Exception)
+        {
+            // Nothing to report and nothing a person could do about it.
+        }
+    }
+
+    /// <summary>
     /// Lets the compositor treat this window's own background as see-through rather than opaque.
     /// </summary>
     /// <remarks>
@@ -368,8 +406,17 @@ public sealed partial class RegistrationWindow : Window
         public int Bottom = bottom;
     }
 
+    /// <summary>DWMWA_BORDER_COLOR, the colour of the line DWM draws around a window.</summary>
+    private const int BorderColourAttribute = 34;
+
+    /// <summary>DWMWA_COLOR_NONE, the one value that means "draw no line at all".</summary>
+    private const uint ColourNone = 0xFFFFFFFE;
+
     // DllImport rather than LibraryImport: see StartupFailureNotice for why this project reaches
     // for it over the source generator for one narrow interop call.
     [DllImport("dwmapi.dll")]
     private static extern int DwmExtendFrameIntoClientArea(nint hwnd, ref Margins margins);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref uint value, int size);
 }

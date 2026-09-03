@@ -134,6 +134,9 @@ public sealed class RouteRegistryTests
     /// what happened, the changes screen is where one of those is undone, and they used to sit in
     /// different parts of the pane — the journal's own text had to send people to the other one by
     /// name.
+    ///
+    /// Подписка ушла отсюда в тот же день. Экран существовал ради одного факта — до
+    /// какого числа оплачено, — и факт переехал строкой в карточку профиля.
     /// </remarks>
     [Fact]
     public void The_footer_holds_exactly_the_person_and_the_record()
@@ -142,7 +145,7 @@ public sealed class RouteRegistryTests
             .Where(static route => route.Placement == RoutePlacement.Footer)
             .Select(static route => route.Key)
             .OrderBy(static key => key, StringComparer.Ordinal);
-        Assert.Equal(new[] { "changes", "journal", "licence", "profile", "settings" }, footer);
+        Assert.Equal(new[] { "changes", "journal", "profile", "settings" }, footer);
     }
 
     [Fact]
@@ -156,6 +159,10 @@ public sealed class RouteRegistryTests
 
             "applying",
             "change-review",
+
+            // Без пункта в панели с 2026-09-03: срок подписки виден строкой на карточке
+            // профиля, а сюда приходят вводить ключ — по ссылке с той же страницы.
+            "licence",
 
             // Closed for maintenance on 2026-08-26 and parked here rather than deleted. A pane
             // item that opens with "this section is closed" promises and does not deliver.

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -17,6 +17,14 @@ public sealed partial class ProfilePage : Page
     }
 
     public ProfileViewModel ViewModel { get; }
+
+    /// <summary>Одна надпись, по ключу — как на окне регистрации.</summary>
+    public string Localized(string resourceKey) =>
+        App.Services.GetRequiredService<ILocalizationService>().Get(resourceKey);
+
+    private void OnLicenceClick(object sender, RoutedEventArgs e) =>
+        App.Services.GetRequiredService<Navigation.INavigationService>()
+            .NavigateTo(Navigation.RouteKeys.Licence);
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {

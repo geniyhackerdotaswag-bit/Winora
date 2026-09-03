@@ -1,4 +1,4 @@
-namespace Winora.System.Windows;
+﻿namespace Winora.System.Windows;
 
 /// <param name="Name">The folder name, used as the pack name.</param>
 /// <param name="Directory">Absolute path to the pack folder.</param>
@@ -58,6 +58,11 @@ public sealed class CursorFolderScanner : ICursorFolderScanner
         ("normal", CursorRole.Arrow),
         ("default", CursorRole.Arrow),
         ("pointer", CursorRole.Arrow),
+
+        // Прежде "arrow": "uparrow" содержит "arrow" целиком, и стрелка вверх
+        // молча становилась обычным указателем — а он в наборе уже есть, так что
+        // одна из двух записей затирала другую.
+        ("uparrow", CursorRole.UpArrow),
         ("arrow", CursorRole.Arrow),
         ("help", CursorRole.Help),
         ("busy", CursorRole.Wait),
@@ -82,6 +87,16 @@ public sealed class CursorFolderScanner : ICursorFolderScanner
         ("dg2", CursorRole.SizeNESW),
         ("nwse", CursorRole.SizeNWSE),
         ("nesw", CursorRole.SizeNESW),
+
+        // Имена самой Windows. Наборы делятся на два лагеря: одни зовут файлы
+        // словами человека — "Vertical Resize", "Move", — другие берут имена
+        // ролей из Win32. Второй лагерь целиком проваливался мимо таблицы:
+        // "sizeall" не содержит ни "move", ни "all", а "sizens" — ни "vert",
+        // ни "no". Набор при этом читался, просто без половины курсоров.
+        ("sizeall", CursorRole.SizeAll),
+        ("sizens", CursorRole.SizeNS),
+        ("sizewe", CursorRole.SizeWE),
+
         ("move", CursorRole.SizeAll),
         ("alternate", CursorRole.UpArrow),
         ("link", CursorRole.Hand),

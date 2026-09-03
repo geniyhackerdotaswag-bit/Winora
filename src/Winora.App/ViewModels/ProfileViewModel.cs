@@ -1,7 +1,8 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Winora.App.Services;
+using Winora.Core.Licence;
 using Winora.Core.Profile;
 
 namespace Winora.App.ViewModels;
@@ -20,11 +21,19 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     private readonly IProfileService _profile;
     private readonly ILocalizationService _text;
+    private readonly ILicenceService _licence;
+    private readonly TimeProvider _time;
 
-    public ProfileViewModel(IProfileService profile, ILocalizationService text)
+    public ProfileViewModel(
+        IProfileService profile,
+        ILocalizationService text,
+        ILicenceService licence,
+        TimeProvider? time = null)
     {
         _profile = profile ?? throw new ArgumentNullException(nameof(profile));
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _licence = licence ?? throw new ArgumentNullException(nameof(licence));
+        _time = time ?? TimeProvider.System;
     }
 
     /// <remarks>
@@ -51,6 +60,16 @@ public sealed partial class ProfileViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string MemberSince { get; set; } = string.Empty;
+
+    /// <summary>Строка про подписку: «Подписка: до 3 октября 2026».</summary>
+    /// <remarks>
+    /// Одна строка на карточке вместо раздела в панели. Раздел был целым экраном
+    /// ради одного факта, который человек проверяет мимоходом; факт переехал туда,
+    /// где на него и смотрят, а экран остался маршрутом без пункта — по нему
+    /// вводят ключ, и ссылка на него живёт на странице профиля.
+    /// </remarks>
+    [ObservableProperty]
+    public partial string Subscription { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string RecordedChanges { get; set; } = string.Empty;
@@ -193,6 +212,8 @@ public sealed partial class ProfileViewModel : ObservableObject
                 _text.Get("Profile_MemberSince"),
                 current.CreatedUtc.ToLocalTime().ToString("d MMMM yyyy", CultureInfo.CurrentCulture));
 
+        Subscription = current is null ? string.Empty : DescribeSubscription();
+
         // Floored at zero. A profile file carried over from a machine whose clock ran ahead would
         // otherwise put a negative number on the card, which is worse than an unremarkable nought.
         var elapsed = current is null ? 0 : (DateTimeOffset.Now - current.CreatedUtc).Days;
@@ -211,6 +232,44 @@ public sealed partial class ProfileViewModel : ObservableObject
             ? _text.Get("Profile_DaysCaptionFirst")
             : _text.Get("Profile_DaysCaption");
     }
+
+    /// <summary>
+    /// Подписка одной строкой, для карточки.
+    /// </summary>
+    /// <remarks>
+    /// Читается то, что уже лежит на диске, без обращения к сайту: карточка
+    /// открывается на двух экранах и рисуется при каждой правке профиля, а запрос
+    /// в сеть на каждую отрисовку — это или задержка, или молчание, пока он идёт.
+    /// Свежесть — забота экрана подписки, который для того и остался маршрутом.
+    ///
+    /// Вечная стоит первой: у неё срок записан 9999 годом, и «до 31 декабря
+    /// 9999» никому ничего не сообщает.
+    /// </remarks>
+    private string DescribeSubscription()
+    {
+        var state = _licence.Current;
+        var now = _time.GetUtcNow();
+
+        var term = !state.Exists
+            ? _text.Get("Profile_SubNone")
+            : state.IsPerpetual
+                ? _text.Get("Profile_SubForever")
+                : state.IsTrial
+                    ? state.IsActive(now)
+                        ? string.Format(CultureInfo.CurrentCulture, _text.Get("Profile_SubTrial"), OnScreen(state))
+                        : _text.Get("Profile_SubTrialOver")
+                    : state.IsActive(now)
+                        ? string.Format(CultureInfo.CurrentCulture, _text.Get("Profile_SubUntil"), OnScreen(state))
+                        : string.Format(CultureInfo.CurrentCulture, _text.Get("Profile_SubEnded"), OnScreen(state));
+
+        return string.Format(CultureInfo.CurrentCulture, _text.Get("Profile_Subscription"), term);
+    }
+
+    /// <summary>Дата окончания в местном времени, словами.</summary>
+    private static string OnScreen(LicenceState state) =>
+        state.ExpiresUtc is null
+            ? string.Empty
+            : state.ExpiresUtc.Value.ToLocalTime().ToString("d MMMM yyyy", CultureInfo.CurrentCulture);
 
     public async Task LoadStatisticsAsync()
     {

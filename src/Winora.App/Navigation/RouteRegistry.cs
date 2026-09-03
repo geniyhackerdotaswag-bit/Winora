@@ -44,9 +44,11 @@ public sealed class RouteRegistry
 
         new(RouteKeys.Profile, "Nav_Profile", RoutePlacement.Footer, IconGlyphKey: "profile"),
 
-        // Рядом с профилем, а не в системной группе: подписка — про человека и его
-        // деньги, а группы панели про то, что программа делает с Windows.
-        new(RouteKeys.Licence, "Nav_Licence", RoutePlacement.Footer, IconGlyphKey: "licence"),
+        // Без пункта в панели. Раздел был целым экраном ради одного факта — до какого
+        // числа оплачено, — и факт переехал строкой в карточку профиля, где на него и
+        // смотрят. Маршрут остался: по нему вводят ключ, и ссылка на него живёт на
+        // странице профиля, рядом с той самой строкой.
+        new(RouteKeys.Licence, "Nav_Licence", RoutePlacement.RouteOnly, IconGlyphKey: "licence"),
         // Next to the journal, not in the system group. The journal says what happened and the
         // changes screen is where one of those is undone; they were two rooms apart, and the
         // journal's own text had to send people to the other one by name.
