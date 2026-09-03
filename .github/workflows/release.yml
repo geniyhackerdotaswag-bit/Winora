@@ -1,4 +1,4 @@
-# Builds the portable Winora and publishes it, on a tag and only on a tag.
+﻿# Builds the portable Winora and publishes it, on a tag and only on a tag.
 #
 # The tag is the only source of the version: it reaches the build as -p:Version and ends up inside
 # the executable, where the update check reads it back. Nothing here uses a token belonging to a
@@ -25,9 +25,21 @@ jobs:
       # perfectly. The version each SHA resolves to today is in the trailing comment.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Версия берётся из global.json, а не задаётся здесь строкой.
+      #
+      # Было "10.0.x", и это стоило выпуска. На машине сборки предустановлена 10.0.400,
+      # её и брали, тогда как проект пишется и проверяется на 10.0.203. Программа
+      # собиралась без единой жалобы, была на 17 килобайт больше моей и падала при
+      # первом же запуске: окно регистрации не разбиралось совсем. Разметка при этом
+      # была побайтово та же — расходился компилятор разметки.
+      #
+      # Поймать это проверками нельзя: они идут без интерфейса, а разбор разметки
+      # случается только на живой машине. Значит, версия должна быть одна, и записана
+      # в одном месте — в global.json, где ей и место. Вместе с ним rollForward там
+      # стал latestPatch: заплатки внутри поколения безопасны, смена поколения — нет.
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
 
       # The tag is written v0.4.0; the version inside the build is not.
       - name: Read the version out of the tag

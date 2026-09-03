@@ -74,6 +74,9 @@ public sealed partial class RegistrationWindow : Window
         RemoveSystemOutline();
         MakeBackdropTransparent();
 
+        // Второй заход, когда окно уже на экране — см. remarks у RemoveSystemOutline.
+        Activated += OnWindowActivated;
+
         // 520 is the card's own Width. The height was 720, sized for the password step; without
         // it the tallest screen is the email one, and the window no longer needs the room. Still
         // fixed rather than resized per step — see the remark on Card in RegistrationWindow.xaml.
@@ -86,6 +89,7 @@ public sealed partial class RegistrationWindow : Window
         {
             Model.PropertyChanged -= OnModelChanged;
             Model.Completed -= OnModelCompleted;
+            Activated -= OnWindowActivated;
         };
 
         // No slide for the first screen: there is nothing it could have slid in from.
@@ -103,6 +107,9 @@ public sealed partial class RegistrationWindow : Window
     /// after layout and wins.
     /// </remarks>
     private void OnRootLoaded(object sender, RoutedEventArgs args) => FocusCurrentStep();
+
+    private void OnWindowActivated(object sender, WindowActivatedEventArgs args) =>
+        RemoveSystemOutline();
 
     /// <summary>Raised when the profile exists and the app may open.</summary>
     public event EventHandler? Completed;
@@ -324,25 +331,41 @@ public sealed partial class RegistrationWindow : Window
     }
 
     /// <summary>
-    /// Убирает светлую линию, которую Windows обводит вокруг окна.
+    /// Убирает светлую линию, которой Windows обводит окно.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <see cref="RemoveSystemChrome"/> снимает рамку окна, но не эту линию: с Windows 11 её
-    /// рисует уже не окно, а сам композитор, поверх всего и по своему скруглению. На тёмной
-    /// карточке она читается как белая обводка — её и было видно на снимке владельца.
+    /// Линию рисует <c>WS_DLGFRAME</c> — рамка диалогового окна. Это установлено, а не угадано:
+    /// три правки подряд ничего не дали, после чего программа записала в журнал ответы своих
+    /// вызовов и стили окна. Оба обращения к композитору вернули успех, отступы кадра оказались
+    /// нулевыми со всех сторон, а в стилях стоял <c>0x00400000</c>. Рисовало окно, а не
+    /// композитор, — поэтому и просьбы к композитору не помогали.
     /// </para>
     /// <para>
-    /// Просить прозрачный цвет бесполезно: атрибут принимает COLORREF, у которого нет альфы.
-    /// Отказаться от линии целиком можно только особым значением — <c>DWMWA_COLOR_NONE</c>, — и
-    /// оно же единственное, что здесь подходит: любой конкретный цвет, даже совпадающий с
-    /// карточкой сегодня, разойдётся с ней, как только карточку перекрасят.
+    /// <see cref="RemoveSystemChrome"/> снимает заголовок и рамку для растягивания, но этот бит
+    /// оставляет, и снять его можно только напрямую. Вместе с ним уходит
+    /// <c>WS_EX_WINDOWEDGE</c>: он живёт при рамке и без неё означает край, которого нет.
     /// </para>
     /// <para>
-    /// Отказ молча пропускается, как и в <see cref="MakeBackdropTransparent"/>: до Windows 11
-    /// атрибута просто нет, и окно с лишней линией всё равно работает. Это конструктор
-    /// единственного окна, которое существует раньше профиля, и исключение отсюда уронило бы
-    /// программу до того, как она покажется.
+    /// <c>SWP_FRAMECHANGED</c> обязателен. Без него окно останется с прежней рамкой до первого
+    /// события, которое заставит её пересчитать, — то есть, скорее всего, навсегда.
+    /// </para>
+    /// <para>
+    /// Два атрибута композитора остаются. Не как след неудачной догадки: отказ от обводки
+    /// пригодится, если рамку окна когда-нибудь вернут, а отказ от скругления снимает у окна
+    /// форму, по краю которой её и вело бы. Просить прозрачный цвет при этом бесполезно —
+    /// атрибут принимает COLORREF, у которого нет альфы, и «не рисовать» выражается только
+    /// особым значением.
+    /// </para>
+    /// <para>
+    /// Вызывается дважды: из конструктора и из <see cref="Window.Activated"/>. Второй заход
+    /// нужен потому, что первый приходится на окно, которого ещё нет на экране, — а также
+    /// отрабатывает смену оформления Windows на ходу.
+    /// </para>
+    /// <para>
+    /// Отказ молча пропускается, как и в <see cref="MakeBackdropTransparent"/>: окно с лишней
+    /// линией всё равно работает. Это конструктор единственного окна, которое существует раньше
+    /// профиля, и исключение отсюда уронило бы программу до того, как она покажется.
     /// </para>
     /// </remarks>
     private void RemoveSystemOutline()
@@ -350,8 +373,34 @@ public sealed partial class RegistrationWindow : Window
         try
         {
             var handle = global::WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+            var style = GetWindowLong(handle, GwlStyle);
+            var stripped = style & ~(nint)DialogFrame;
+
+            if (stripped != style)
+            {
+                _ = SetWindowLong(handle, GwlStyle, stripped);
+
+                var extended = GetWindowLong(handle, GwlExStyle);
+                _ = SetWindowLong(handle, GwlExStyle, extended & ~(nint)WindowEdge);
+
+                _ = SetWindowPos(handle, nint.Zero, 0, 0, 0, 0, FrameChanged);
+            }
+
             var none = ColourNone;
             _ = DwmSetWindowAttribute(handle, BorderColourAttribute, ref none, sizeof(uint));
+
+            var square = DoNotRound;
+            _ = DwmSetWindowAttribute(handle, CornerPreferenceAttribute, ref square, sizeof(uint));
+
+            // Только когда бит пережил снятие. Запись на каждую активацию засорила бы журнал
+            // ровно тем, ради чего он и заведён, — местом, куда смотрят, когда что-то не так.
+            if ((GetWindowLong(handle, GwlStyle) & DialogFrame) != 0)
+            {
+                Diagnostics.DiagnosticSink.Note(
+                    "RegistrationWindow.RemoveSystemOutline",
+                    $"WS_DLGFRAME survived: style 0x{GetWindowLong(handle, GwlStyle):X8}");
+            }
         }
         catch (Exception)
         {
@@ -412,6 +461,12 @@ public sealed partial class RegistrationWindow : Window
     /// <summary>DWMWA_COLOR_NONE, the one value that means "draw no line at all".</summary>
     private const uint ColourNone = 0xFFFFFFFE;
 
+    /// <summary>DWMWA_WINDOW_CORNER_PREFERENCE, how DWM rounds the window's own corners.</summary>
+    private const int CornerPreferenceAttribute = 33;
+
+    /// <summary>DWMWCP_DONOTROUND.</summary>
+    private const uint DoNotRound = 1;
+
     // DllImport rather than LibraryImport: see StartupFailureNotice for why this project reaches
     // for it over the source generator for one narrow interop call.
     [DllImport("dwmapi.dll")]
@@ -419,4 +474,27 @@ public sealed partial class RegistrationWindow : Window
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref uint value, int size);
+
+    private const int GwlStyle = -16;
+    private const int GwlExStyle = -20;
+
+    /// <summary>WS_DLGFRAME — рамка диалогового окна, та самая линия.</summary>
+    private const int DialogFrame = 0x00400000;
+
+    /// <summary>WS_EX_WINDOWEDGE — приподнятый край, который без рамки не к чему приподнимать.</summary>
+    private const int WindowEdge = 0x00000100;
+
+    /// <summary>SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED.</summary>
+    private const uint FrameChanged = 0x0002 | 0x0001 | 0x0004 | 0x0010 | 0x0020;
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern nint GetWindowLong(nint hwnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern nint SetWindowLong(nint hwnd, int index, nint value);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        nint hwnd, nint insertAfter, int x, int y, int cx, int cy, uint flags);
 }
