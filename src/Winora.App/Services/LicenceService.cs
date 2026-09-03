@@ -4,64 +4,72 @@ using Winora.System.Licence;
 
 namespace Winora.App.Services;
 
-/// <summary>Activating a key, and knowing where the subscription stands.</summary>
+/// <summary>Активация ключа, пробные дни и ответ на вопрос «пускать ли внутрь».</summary>
 public interface ILicenceService
 {
-    /// <summary>What is known right now, without asking the site.</summary>
+    /// <summary>Что известно прямо сейчас, без обращения к сайту.</summary>
     LicenceState Current { get; }
 
-    /// <summary>The stored key's tail, masked for showing. Empty when none is stored.</summary>
-    string MaskedKey { get; }
+    /// <summary>Отпечаток этой машины. Пустой, если его не удалось прочитать.</summary>
+    string HardwareId { get; }
 
-    /// <summary>Whether this build knows where the site is.</summary>
+    /// <summary>Знает ли эта сборка адрес сайта.</summary>
     bool IsConfigured { get; }
 
-    /// <summary>Trades a key for a token and keeps both the token and what came with it.</summary>
+    /// <summary>Меняет ключ на токен и сохраняет и то и другое.</summary>
     Task<LicenceResult> ActivateAsync(string key, string? promoCode, CancellationToken cancellationToken);
 
-    /// <summary>Asks the site about the stored token, if there is one and it is due.</summary>
+    /// <summary>Спрашивает сайт про сохранённый токен, если он есть и пора.</summary>
     Task<LicenceResult> RefreshAsync(bool force, CancellationToken cancellationToken);
 
-    /// <summary>Forgets the key on this machine.</summary>
+    /// <summary>
+    /// Есть ли право пользоваться программой прямо сейчас.
+    /// </summary>
+    /// <remarks>
+    /// Ключ, потом проба. Пробу просит только тот, у кого ключа нет: спросить её
+    /// при живой подписке значило бы потратить единственную пробу машины впустую.
+    /// </remarks>
+    Task<LicenceResult> EnsureAccessAsync(CancellationToken cancellationToken);
+
+    /// <summary>Забывает ключ на этой машине. Сама подписка не трогается.</summary>
     bool Forget();
 }
 
 /// <inheritdoc />
 /// <remarks>
 /// <para>
-/// Nothing in Winora is gated on the answer yet, and that is deliberate rather than unfinished: the
-/// owner has not said which parts are paid, and a gate put in before that decision would be a guess
-/// standing between people and a program that works today.
+/// Программа без действующего ключа или пробы не работает — это решение владельца
+/// от 3 сентября 2026, и оно поменяло то, чем Winora была до сих пор.
 /// </para>
 /// <para>
-/// What this does is the part that has to exist first — a key can be entered, the site is asked,
-/// and the answer is kept and shown.
+/// Скажу здесь то же, что сказано в переписке: программа открывается, и проверку
+/// снимут. Привязка к железу поднимает планку, не более. Смысл в том, чтобы
+/// платное лежало на сервере — наборы курсоров, списки для обхода, перенос
+/// настроек: взломанная копия их не получит, потому что их нет в файле.
 /// </para>
 /// </remarks>
 public sealed class LicenceService : ILicenceService
 {
     private readonly ILicenceClient _client;
     private readonly ILicenceStore _store;
+    private readonly IHardwareId _hardware;
     private readonly TimeProvider _time;
 
-    private string _key = string.Empty;
-
-    public LicenceService(ILicenceClient client, ILicenceStore store, TimeProvider? time = null)
+    public LicenceService(
+        ILicenceClient client,
+        ILicenceStore store,
+        IHardwareId hardware,
+        TimeProvider? time = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _hardware = hardware ?? throw new ArgumentNullException(nameof(hardware));
         _time = time ?? TimeProvider.System;
     }
 
     public LicenceState Current => _store.Read();
 
-    /// <remarks>
-    /// Only the tail, and only for a key entered in this session. The key itself is never written
-    /// down — the token is what gets stored — so after a restart there is nothing to mask, and the
-    /// screen shows the plan instead. That is the intended trade: a stolen store file yields a
-    /// token the owner can revoke, not a key somebody can use on their own machine.
-    /// </remarks>
-    public string MaskedKey => LicenceKey.Mask(_key);
+    public string HardwareId => _hardware.Value;
 
     public bool IsConfigured => LicenceEndpoint.IsConfigured;
 
@@ -71,7 +79,7 @@ public sealed class LicenceService : ILicenceService
         CancellationToken cancellationToken)
     {
         var (result, token) = await _client
-            .ActivateAsync(key, Environment.MachineName, Blank(promoCode), cancellationToken)
+            .ActivateAsync(key, Environment.MachineName, Blank(promoCode), _hardware.Value, cancellationToken)
             .ConfigureAwait(false);
 
         if (!result.Succeeded)
@@ -79,10 +87,8 @@ public sealed class LicenceService : ILicenceService
             return result;
         }
 
-        _key = key;
-
-        // Kept only after the site agreed. Storing on the way in would leave a machine claiming a
-        // subscription the site refused.
+        // Сохраняется только после согласия сайта. Запись по дороге оставила бы
+        // машину с подпиской, которую сайт не подтверждал.
         return _store.Write(token, result.State)
             ? result
             : LicenceResult.Failed(LicenceOutcome.Unreachable);
@@ -103,39 +109,73 @@ public sealed class LicenceService : ILicenceService
             return new LicenceResult(LicenceOutcome.Confirmed, stored);
         }
 
-        var result = await _client.CheckAsync(token, cancellationToken).ConfigureAwait(false);
+        var result = await _client.CheckAsync(token, _hardware.Value, cancellationToken).ConfigureAwait(false);
 
         if (result.Succeeded)
         {
-            // The machine name is not sent back by the check, so the one already stored is kept.
+            // Имя машины проверка не возвращает, поэтому берётся сохранённое.
             _store.Write(token, result.State with { Machine = stored.Machine });
             return result;
         }
 
         /*
-         * A site that cannot be reached does not end a subscription.
+         * Недоступный сайт подписку не заканчивает.
          *
-         * People use Winora when their machine is misbehaving, which is exactly when the network
-         * is least likely to work. Treating silence as expiry would take the program away at the
-         * worst moment, and would do it on the strength of no evidence at all. The stored state
-         * stands until the site actually says otherwise.
+         * К Winora тянутся, когда машина ведёт себя плохо, — то есть тогда, когда
+         * сеть работает хуже всего. Считать молчание за истёкший срок значило бы
+         * отнимать программу в худший момент и без единого доказательства.
          */
         if (result.Outcome is LicenceOutcome.Unreachable or LicenceOutcome.NotConfigured)
         {
             return new LicenceResult(result.Outcome, stored);
         }
 
-        // The site did answer, and the answer was no. Now the stored copy is wrong and goes.
+        /*
+         * «Другая машина» — тоже не повод стирать ключ.
+         *
+         * Человек мог перенести папку и вернуть её обратно, или сменить диск.
+         * Стереть здесь значило бы заставить его искать ключ, который на этой
+         * машине ещё вчера работал. Он отвяжет машины в кабинете и вернётся.
+         */
+        if (result.Outcome is LicenceOutcome.OtherMachine)
+        {
+            return result;
+        }
+
+        // Сайт ответил, и ответ был «нет». Сохранённая копия теперь неверна.
         _store.Clear();
-        _key = string.Empty;
         return result;
     }
 
-    public bool Forget()
+    public async Task<LicenceResult> EnsureAccessAsync(CancellationToken cancellationToken)
     {
-        _key = string.Empty;
-        return _store.Clear();
+        var stored = _store.Read();
+
+        if (stored.Exists && !stored.IsTrial)
+        {
+            return await RefreshAsync(force: false, cancellationToken).ConfigureAwait(false);
+        }
+
+        /*
+         * Проба спрашивается у сервера каждый раз, а не читается из своей же записи.
+         *
+         * Записанный рядом с программой срок сбрасывается удалением папки, и проба
+         * становится бесконечной. Сервер помнит машину по отпечатку и второй пробы
+         * ей не даст — в этом и весь смысл. Цена названа честно: первый запуск
+         * требует интернета.
+         */
+        var trial = await _client.TrialAsync(_hardware.Value, cancellationToken).ConfigureAwait(false);
+
+        if (trial.Outcome is LicenceOutcome.Trial)
+        {
+            // Токена у пробы нет: она привязана к железу, а не к ключу.
+            _store.Write(string.Empty, trial.State);
+        }
+
+        return trial;
     }
+
+    public bool Forget() => _store.Clear();
 
     private static string? Blank(string? text) =>
         string.IsNullOrWhiteSpace(text) ? null : text.Trim();

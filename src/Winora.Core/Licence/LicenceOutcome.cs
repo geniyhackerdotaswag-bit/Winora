@@ -1,4 +1,4 @@
-namespace Winora.Core.Licence;
+﻿namespace Winora.Core.Licence;
 
 /// <summary>
 /// How an attempt to activate or re-check a key ended.
@@ -27,6 +27,20 @@ public enum LicenceOutcome
 
     /// <summary>Every machine slot on this key is taken.</summary>
     DeviceLimit,
+
+    /// <summary>The key is fine, but it belongs to a different computer.</summary>
+    /// <remarks>
+    /// Its own value rather than a kind of refusal, because it sends somebody somewhere specific:
+    /// to the cabinet, to unlink machines. Told "ключ не подходит" they would check their typing
+    /// and find nothing wrong with it.
+    /// </remarks>
+    OtherMachine,
+
+    /// <summary>Trial days are running on this machine.</summary>
+    Trial,
+
+    /// <summary>This machine has had its trial and it is over.</summary>
+    TrialUsed,
 
     /// <summary>The site could not be reached, or answered with something unusable.</summary>
     Unreachable,

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -16,10 +16,17 @@ public interface ILicenceClient
         string key,
         string machine,
         string? promoCode,
+        string hardwareId,
         CancellationToken cancellationToken);
 
     /// <summary>Asks the site whether a stored token still buys anything.</summary>
-    ValueTask<LicenceResult> CheckAsync(string token, CancellationToken cancellationToken);
+    ValueTask<LicenceResult> CheckAsync(
+        string token,
+        string hardwareId,
+        CancellationToken cancellationToken);
+
+    /// <summary>Asks the site for this machine's trial days.</summary>
+    ValueTask<LicenceResult> TrialAsync(string hardwareId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -64,6 +71,7 @@ public sealed class LicenceClient : ILicenceClient
         string key,
         string machine,
         string? promoCode,
+        string hardwareId,
         CancellationToken cancellationToken)
     {
         // Refused here, before the request. A mistyped key is the common case, and the site cannot
@@ -84,7 +92,7 @@ public sealed class LicenceClient : ILicenceClient
         {
             response = await _http.PostAsJsonAsync(
                 _baseUrl + "/api/activate.php",
-                new ActivateRequest(LicenceKey.Format(key), machine, promoCode),
+                new ActivateRequest(LicenceKey.Format(key), machine, promoCode, hardwareId),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
@@ -104,24 +112,29 @@ public sealed class LicenceClient : ILicenceClient
             return (FailureFor(response.StatusCode, body.Error, body.DeviceLimit), string.Empty);
         }
 
-        var expires = ParseUtc(body.ExpiresAt);
+        var plan = body.Plan ?? string.Empty;
+        var expires = EndOf(plan, body.ExpiresAt);
 
         if (expires is null)
         {
-            // A success without an end date is not a success we can store: everything downstream
-            // reads that date, and a null there would read as "no key entered".
+            // Срочная подписка без даты — это не успех, который можно сохранить: всё
+            // ниже читает эту дату, и пустая там означала бы «ключ не вводили».
+            // Вечная сюда не попадает: у неё дата подставляется, см. EndOf.
             return (LicenceResult.Failed(LicenceOutcome.Unreachable), string.Empty);
         }
 
         return (
             new LicenceResult(
                 LicenceOutcome.Activated,
-                new LicenceState(body.Plan ?? string.Empty, expires, machine, DateTimeOffset.UtcNow),
+                new LicenceState(plan, expires, machine, DateTimeOffset.UtcNow),
                 body.BonusDays),
             body.Token);
     }
 
-    public async ValueTask<LicenceResult> CheckAsync(string token, CancellationToken cancellationToken)
+    public async ValueTask<LicenceResult> CheckAsync(
+        string token,
+        string hardwareId,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(token))
         {
@@ -139,6 +152,14 @@ public sealed class LicenceClient : ILicenceClient
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, _baseUrl + "/api/licence.php");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // Заголовком, а не телом: у GET тела нет. Пустой отпечаток не
+            // отправляется вовсе — сервер считает его отсутствие за «не проверять».
+            if (hardwareId.Length > 0)
+            {
+                request.Headers.Add("X-Winora-Hwid", hardwareId);
+            }
+
             response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
@@ -153,7 +174,8 @@ public sealed class LicenceClient : ILicenceClient
             return FailureFor(response.StatusCode, body?.Error);
         }
 
-        var expires = ParseUtc(body.ExpiresAt);
+        var plan = body.Plan ?? string.Empty;
+        var expires = EndOf(plan, body.ExpiresAt);
 
         if (expires is null)
         {
@@ -164,9 +186,84 @@ public sealed class LicenceClient : ILicenceClient
         // makes moving the local clock back pointless: the stored check does not get younger.
         var checkedAt = ParseUtc(body.ServerTime) ?? DateTimeOffset.UtcNow;
 
+        return new LicenceResult(LicenceOutcome.Confirmed, new LicenceState(plan, expires, null, checkedAt));
+    }
+
+    public async ValueTask<LicenceResult> TrialAsync(string hardwareId, CancellationToken cancellationToken)
+    {
+        /*
+         * Без отпечатка пробу просить нельзя.
+         *
+         * Сервер считает пробы по железу, и запрос без него получил бы новые дни
+         * при каждом запуске — то есть пробу без конца. Отказ здесь честнее:
+         * человек увидит, что дело в его машине, а не в сети.
+         */
+        if (hardwareId.Length == 0)
+        {
+            return LicenceResult.Failed(LicenceOutcome.TrialUsed);
+        }
+
+        if (_baseUrl.Length == 0)
+        {
+            return LicenceResult.Failed(LicenceOutcome.NotConfigured);
+        }
+
+        HttpResponseMessage response;
+
+        try
+        {
+            response = await _http.PostAsJsonAsync(
+                _baseUrl + "/api/trial.php",
+                new TrialRequest(hardwareId),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return LicenceResult.Failed(LicenceOutcome.Unreachable);
+        }
+
+        var body = await ReadAsync<TrialResponse>(response, cancellationToken).ConfigureAwait(false);
+
+        if (body is null || !response.IsSuccessStatusCode)
+        {
+            return FailureFor(response.StatusCode, body?.Error);
+        }
+
+        var expires = ParseUtc(body.ExpiresAt);
+
+        if (expires is null)
+        {
+            return LicenceResult.Failed(LicenceOutcome.Unreachable);
+        }
+
+        // Проба, которая уже кончилась, — это отказ, а не подписка. Различается по
+        // дате, а не по признаку «свежая»: человек мог получить её вчера и вернуться.
+        if (expires <= DateTimeOffset.UtcNow)
+        {
+            return LicenceResult.Failed(LicenceOutcome.TrialUsed);
+        }
+
         return new LicenceResult(
-            LicenceOutcome.Confirmed,
-            new LicenceState(body.Plan ?? string.Empty, expires, null, checkedAt));
+            LicenceOutcome.Trial,
+            new LicenceState(LicenceState.TrialPlan, expires, null, DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>
+    /// Когда кончается подписка этого вида. Null — если срочная пришла без даты.
+    /// </summary>
+    /// <remarks>
+    /// У вечной сервер не присылает даты вовсе, и это не ошибка ответа: срока у
+    /// неё нет. Подставляется дальняя дата, чтобы вся арифметика ниже — активна ли,
+    /// пора ли перепроверить, что сохранить — работала без единого особого случая.
+    /// </remarks>
+    private static DateTimeOffset? EndOf(string plan, string? expiresAt)
+    {
+        if (string.Equals(plan, LicenceState.PerpetualPlan, StringComparison.Ordinal))
+        {
+            return LicenceState.Forever;
+        }
+
+        return ParseUtc(expiresAt);
     }
 
     /// <summary>
@@ -181,6 +278,7 @@ public sealed class LicenceClient : ILicenceClient
         error switch
         {
             "bad_key" or "bad_token" => LicenceResult.Failed(LicenceOutcome.Rejected),
+            "other_machine" => LicenceResult.Failed(LicenceOutcome.OtherMachine),
             "bad_key_format" => LicenceResult.Failed(LicenceOutcome.Malformed),
             "expired" => LicenceResult.Failed(LicenceOutcome.Expired),
             "device_limit" => LicenceResult.Failed(LicenceOutcome.DeviceLimit, deviceLimit),
@@ -240,7 +338,16 @@ public sealed class LicenceClient : ILicenceClient
     private sealed record ActivateRequest(
         [property: JsonPropertyName("key")] string Key,
         [property: JsonPropertyName("machine")] string Machine,
-        [property: JsonPropertyName("promo")] string? Promo);
+        [property: JsonPropertyName("promo")] string? Promo,
+        [property: JsonPropertyName("hwid")] string HardwareId);
+
+    private sealed record TrialRequest(
+        [property: JsonPropertyName("hwid")] string HardwareId);
+
+    private sealed record TrialResponse(
+        [property: JsonPropertyName("expires_at")] string? ExpiresAt,
+        [property: JsonPropertyName("fresh")] bool Fresh,
+        [property: JsonPropertyName("error")] string? Error);
 
     private sealed record ActivateResponse(
         [property: JsonPropertyName("token")] string? Token,

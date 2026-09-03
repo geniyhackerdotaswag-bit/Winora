@@ -19,6 +19,7 @@ public sealed class LicenceClientTests
 {
     private const string Site = "https://example.invalid";
     private const string GoodKey = "WNR-2345-6789-ABCD-EFGH";
+    private const string Hwid = "0123456789abcdef0123456789abcdef";
 
     private static LicenceClient Answering(HttpStatusCode status, string json) =>
         new(new HttpClient(new CannedHandler(status, json)), Site);
@@ -29,7 +30,7 @@ public sealed class LicenceClientTests
         // The handler throws if reached: nothing may go to the network for a key that cannot be one.
         var client = new LicenceClient(new HttpClient(new ExplodingHandler()), Site);
 
-        var (result, token) = await client.ActivateAsync("не ключ", "PC", null, default);
+        var (result, token) = await client.ActivateAsync("не ключ", "PC", null, Hwid, default);
 
         Assert.Equal(LicenceOutcome.Malformed, result.Outcome);
         Assert.Empty(token);
@@ -40,10 +41,10 @@ public sealed class LicenceClientTests
     {
         var client = new LicenceClient(new HttpClient(new ExplodingHandler()), string.Empty);
 
-        var (result, _) = await client.ActivateAsync(GoodKey, "PC", null, default);
+        var (result, _) = await client.ActivateAsync(GoodKey, "PC", null, Hwid, default);
 
         Assert.Equal(LicenceOutcome.NotConfigured, result.Outcome);
-        Assert.Equal(LicenceOutcome.NotConfigured, (await client.CheckAsync("token", default)).Outcome);
+        Assert.Equal(LicenceOutcome.NotConfigured, (await client.CheckAsync("token", Hwid, default)).Outcome);
     }
 
     [Fact]
@@ -53,7 +54,7 @@ public sealed class LicenceClientTests
             {"token":"abc123","plan":"month","expires_at":"2026-10-03 12:00:00","bonus_days":14}
             """);
 
-        var (result, token) = await client.ActivateAsync(GoodKey, "DESKTOP-1", "НОВЫЙГОД", default);
+        var (result, token) = await client.ActivateAsync(GoodKey, "DESKTOP-1", "НОВЫЙГОД", Hwid, default);
 
         Assert.Equal(LicenceOutcome.Activated, result.Outcome);
         Assert.True(result.Succeeded);
@@ -78,7 +79,7 @@ public sealed class LicenceClientTests
         string json,
         LicenceOutcome expected)
     {
-        var (result, token) = await Answering(status, json).ActivateAsync(GoodKey, "PC", null, default);
+        var (result, token) = await Answering(status, json).ActivateAsync(GoodKey, "PC", null, Hwid, default);
 
         Assert.Equal(expected, result.Outcome);
         Assert.False(result.Succeeded);
@@ -90,7 +91,7 @@ public sealed class LicenceClientTests
     {
         var (result, _) = await Answering(
             HttpStatusCode.Conflict,
-            """{"error":"device_limit","device_limit":3}""").ActivateAsync(GoodKey, "PC", null, default);
+            """{"error":"device_limit","device_limit":3}""").ActivateAsync(GoodKey, "PC", null, Hwid, default);
 
         Assert.Equal(LicenceOutcome.DeviceLimit, result.Outcome);
         Assert.Equal(3, result.DeviceLimit);
@@ -107,7 +108,7 @@ public sealed class LicenceClientTests
     public async Task An_answer_that_is_not_json_is_reported_as_unreachable()
     {
         var (result, _) = await Answering(HttpStatusCode.OK, "<html>вход в сеть</html>")
-            .ActivateAsync(GoodKey, "PC", null, default);
+            .ActivateAsync(GoodKey, "PC", null, Hwid, default);
 
         Assert.Equal(LicenceOutcome.Unreachable, result.Outcome);
     }
@@ -117,7 +118,7 @@ public sealed class LicenceClientTests
     public async Task A_success_without_a_date_is_not_a_success()
     {
         var (result, _) = await Answering(HttpStatusCode.OK, """{"token":"abc","plan":"month"}""")
-            .ActivateAsync(GoodKey, "PC", null, default);
+            .ActivateAsync(GoodKey, "PC", null, Hwid, default);
 
         Assert.Equal(LicenceOutcome.Unreachable, result.Outcome);
     }
@@ -127,7 +128,7 @@ public sealed class LicenceClientTests
     {
         var result = await Answering(HttpStatusCode.OK, """
             {"plan":"year","expires_at":"2027-01-01 00:00:00","server_time":"2026-09-03 10:00:00"}
-            """).CheckAsync("token", default);
+            """).CheckAsync("token", Hwid, default);
 
         Assert.Equal(LicenceOutcome.Confirmed, result.Outcome);
         Assert.Equal(
@@ -158,7 +159,7 @@ public sealed class LicenceClientTests
     {
         var client = new LicenceClient(new HttpClient(new ExplodingHandler()), Site);
 
-        Assert.Equal(LicenceOutcome.Rejected, (await client.CheckAsync(string.Empty, default)).Outcome);
+        Assert.Equal(LicenceOutcome.Rejected, (await client.CheckAsync(string.Empty, Hwid, default)).Outcome);
     }
 
     /// <summary>

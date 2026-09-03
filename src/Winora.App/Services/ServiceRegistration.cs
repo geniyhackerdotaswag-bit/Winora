@@ -127,6 +127,7 @@ public static class ServiceRegistration
 
         // Синглтоны: хранилище лицензии — один файл, и два читателя разошлись бы
         // во мнении о том, что в нём написано.
+        services.AddSingleton<IHardwareId, HardwareId>();
         services.AddSingleton<ILicenceClient, LicenceClient>();
         services.AddSingleton<ILicenceStore, LicenceStore>();
         services.AddSingleton<ILicenceService, LicenceService>();

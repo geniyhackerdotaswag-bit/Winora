@@ -618,6 +618,11 @@
   <data name="Licence_Unreachable"><value>Сайт сейчас не отвечает. Подписка при этом не тронута: программа спросит его позже.</value></data>
   <data name="Licence_NotConfigured"><value>В этой сборке не задан адрес сайта, поэтому ключ проверить негде.</value></data>
   <data name="Licence_Forgotten"><value>Ключ убран с этой машины. Сама подписка цела — введите ключ снова здесь или на другой машине.</value></data>
+  <data name="Licence_Forever"><value>Вечная подписка. Срока у неё нет.</value></data>
+  <data name="Licence_TrialLeft"><value>Пробные дни. Осталось: {0}.</value></data>
+  <data name="Licence_TrialOver"><value>Пробные дни кончились. Дальше нужен ключ.</value></data>
+  <data name="Licence_OtherMachine"><value>Этот ключ занят другим компьютером. Отвяжите машины в кабинете на сайте и повторите.</value></data>
+  <data name="Licence_Plan_Forever"><value>вечная</value></data>
   <data name="Licence_Plan_Week"><value>неделя</value></data>
   <data name="Licence_Plan_Month"><value>месяц</value></data>
   <data name="Licence_Plan_Quarter"><value>три месяца</value></data>

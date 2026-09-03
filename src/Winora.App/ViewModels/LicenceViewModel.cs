@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Winora.App.Services;
 using Winora.Core.Licence;
@@ -66,7 +66,17 @@ public sealed partial class LicenceViewModel : ObservableObject
 
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
-    public bool ShowEntry => !HasLicence;
+    /// <summary>
+    /// Поле ключа показывается, пока настоящей подписки нет.
+    /// </summary>
+    /// <remarks>
+    /// Во время пробы — тоже: человек на пробе как раз тот, кто вот-вот купит,
+    /// и прятать от него поле значило бы прятать кассу.
+    /// </remarks>
+    public bool ShowEntry => !HasLicence || Current.IsTrial;
+
+    /// <summary>Что известно о подписке прямо сейчас.</summary>
+    public LicenceState Current { get; private set; } = LicenceState.None;
 
     public bool CanActivate => !IsBusy && LicenceKey.IsWellFormed(Key);
 
@@ -189,7 +199,9 @@ public sealed partial class LicenceViewModel : ObservableObject
 
     private void Describe(LicenceState state)
     {
+        Current = state;
         HasLicence = state.Exists;
+        OnPropertyChanged(nameof(ShowEntry));
 
         if (!state.Exists)
         {
@@ -198,6 +210,23 @@ public sealed partial class LicenceViewModel : ObservableObject
         }
 
         var now = _time.GetUtcNow();
+
+        // Вечная — до всего остального: у неё дата стоит в 9999 году, и «действует
+        // до 31 декабря 9999, осталось дней: 2913864» никому ничего не сообщает.
+        if (state.IsPerpetual)
+        {
+            Summary = _text.Get("Licence_Forever");
+            return;
+        }
+
+        if (state.IsTrial)
+        {
+            Summary = state.IsActive(now)
+                ? string.Format(CultureInfo.CurrentCulture, _text.Get("Licence_TrialLeft"), state.DaysLeft(now))
+                : _text.Get("Licence_TrialOver");
+            return;
+        }
+
         var plan = _text.Get(PlanKeyFor(state.Plan));
 
         Summary = state.IsActive(now)
@@ -228,6 +257,7 @@ public sealed partial class LicenceViewModel : ObservableObject
         "quarter" => "Licence_Plan_Quarter",
         "half-year" => "Licence_Plan_HalfYear",
         "year" => "Licence_Plan_Year",
+        "lifetime" => "Licence_Plan_Forever",
         _ => "Licence_Plan_Unknown",
     };
 
@@ -242,6 +272,9 @@ public sealed partial class LicenceViewModel : ObservableObject
             CultureInfo.CurrentCulture,
             _text.Get("Licence_DeviceLimit"),
             result.DeviceLimit),
+        LicenceOutcome.OtherMachine => _text.Get("Licence_OtherMachine"),
+        LicenceOutcome.Trial => _text.Get("Licence_Confirmed"),
+        LicenceOutcome.TrialUsed => _text.Get("Licence_TrialOver"),
         LicenceOutcome.Unreachable => _text.Get("Licence_Unreachable"),
         LicenceOutcome.NotConfigured => _text.Get("Licence_NotConfigured"),
         _ => throw new ArgumentOutOfRangeException(

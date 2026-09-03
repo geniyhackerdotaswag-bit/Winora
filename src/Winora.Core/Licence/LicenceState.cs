@@ -1,4 +1,4 @@
-namespace Winora.Core.Licence;
+﻿namespace Winora.Core.Licence;
 
 /// <summary>
 /// What this copy of Winora knows about its subscription.
@@ -26,6 +26,29 @@ public sealed record LicenceState(
     string? Machine,
     DateTimeOffset CheckedUtc)
 {
+    /// <summary>The plan identifier the site uses for a subscription without an end.</summary>
+    public const string PerpetualPlan = "lifetime";
+
+    /// <summary>The plan identifier used for trial days.</summary>
+    public const string TrialPlan = "trial";
+
+    /// <summary>
+    /// A subscription that does not end.
+    /// </summary>
+    /// <remarks>
+    /// Kept as a real date far in the future rather than as a null, so every piece of arithmetic
+    /// downstream keeps working unchanged — <c>IsActive</c>, <c>NeedsRecheck</c> and the store all
+    /// read a date and would have needed a special case each. Only the screen asks
+    /// <see cref="IsPerpetual"/>, because "осталось дней: 3652058" is not something to show anyone.
+    /// </remarks>
+    public static DateTimeOffset Forever { get; } = DateTimeOffset.MaxValue;
+
+    /// <summary>True for a subscription with no end.</summary>
+    public bool IsPerpetual => string.Equals(Plan, PerpetualPlan, StringComparison.Ordinal);
+
+    /// <summary>True while the free days are running.</summary>
+    public bool IsTrial => string.Equals(Plan, TrialPlan, StringComparison.Ordinal);
+
     /// <summary>No key has been entered on this machine.</summary>
     public static LicenceState None { get; } =
         new(string.Empty, null, null, DateTimeOffset.MinValue);
