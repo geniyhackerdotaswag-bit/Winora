@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using Winora.Core.Licence;
 using Winora.System.Licence;
@@ -159,6 +159,35 @@ public sealed class LicenceClientTests
         var client = new LicenceClient(new HttpClient(new ExplodingHandler()), Site);
 
         Assert.Equal(LicenceOutcome.Rejected, (await client.CheckAsync(string.Empty, default)).Outcome);
+    }
+
+    /// <summary>
+    /// The shipped build knows where the site is, and reaches it over https.
+    /// </summary>
+    /// <remarks>
+    /// The address was empty for a day while the domain had no name, and a build that ships that
+    /// way tells every buyer "негде проверить" with no way to tell it apart from a real outage.
+    /// A key travels in the activation request body; over http it would travel in the clear past
+    /// every machine on the way, so the scheme is asserted rather than assumed.
+    /// </remarks>
+    [Fact]
+    public void The_shipped_build_names_the_site_and_reaches_it_over_https()
+    {
+        Assert.True(LicenceEndpoint.IsConfigured, "The build has no site address.");
+        Assert.StartsWith("https://", LicenceEndpoint.BaseUrl, StringComparison.Ordinal);
+        Assert.False(
+            LicenceEndpoint.BaseUrl.EndsWith('/'),
+            "A trailing slash would double up when paths are appended.");
+    }
+
+    [Theory]
+    [InlineData("http://winora.up.railway.app")]
+    [InlineData("winora.up.railway.app")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void An_address_that_is_not_https_is_refused(string? address)
+    {
+        Assert.False(LicenceEndpoint.IsUsable(address));
     }
 
     private sealed class CannedHandler(HttpStatusCode status, string json) : HttpMessageHandler

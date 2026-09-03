@@ -17,9 +17,14 @@ namespace Winora.System.Licence;
 public static class LicenceEndpoint
 {
     /// <summary>
-    /// The site's address, without a trailing slash. Empty until the owner names their domain.
+    /// The site's address, without a trailing slash.
     /// </summary>
-    public const string BaseUrl = "";
+    /// <remarks>
+    /// Checked against the live site on 2026-09-03 before being written down: both endpoints this
+    /// program calls answered with the words it knows how to read — <c>bad_key_format</c>,
+    /// <c>bad_key</c>, <c>no_token</c>, <c>bad_token</c>.
+    /// </remarks>
+    public const string BaseUrl = "https://winora.up.railway.app";
 
     /// <summary>Whether this build can reach a site at all.</summary>
     public static bool IsConfigured => IsUsable(BaseUrl);
