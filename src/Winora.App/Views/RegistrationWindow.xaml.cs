@@ -1,4 +1,4 @@
-using global::System.ComponentModel;
+﻿using global::System.ComponentModel;
 using global::System.Runtime.InteropServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
@@ -141,13 +141,14 @@ public sealed partial class RegistrationWindow : Window
     /// Swaps the visible step, sliding the new one in.
     /// </summary>
     /// <remarks>
-    /// Done by hand rather than by a transition on a Frame: there are three fixed panels, and a
-    /// navigation stack for three panels that never navigate anywhere is more machinery than the
-    /// thing it drives.
+    /// Done by hand rather than by a transition on a Frame: there are four fixed panels, and a
+    /// navigation stack for four panels that never navigate anywhere is more machinery than the
+    /// thing it drives. The array is indexed by the step's own value, so its order has to match
+    /// <see cref="RegistrationStep"/> — that is what makes the cast below legal.
     /// </remarks>
     private void ShowStep(RegistrationStep step, bool animate)
     {
-        var panels = new UIElement[] { StepName, StepEmail, StepDone };
+        var panels = new UIElement[] { StepName, StepEmail, StepKey, StepDone };
 
         for (var index = 0; index < panels.Length; index++)
         {
@@ -191,6 +192,7 @@ public sealed partial class RegistrationWindow : Window
         {
             RegistrationStep.Name => NameField,
             RegistrationStep.Email => EmailField,
+            RegistrationStep.Key => KeyField,
             _ => null,
         };
 

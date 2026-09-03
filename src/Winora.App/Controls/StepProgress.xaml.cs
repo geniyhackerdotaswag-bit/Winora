@@ -1,4 +1,4 @@
-using global::System.Globalization;
+﻿using global::System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -19,8 +19,13 @@ namespace Winora.App.Controls;
 /// </remarks>
 public sealed partial class StepProgress : UserControl
 {
-    /// <summary>How many circles there are; the fourth step (Done) lights all of them.</summary>
-    private const int Count = 2;
+    /// <summary>How many circles there are; the step past the last one lights all of them.</summary>
+    /// <remarks>
+    /// Стало три, когда третьим шагом появился ключ. Третий кружок был в разметке
+    /// и до сих пор — он остался от шага с паролем, который убрали, и код просто
+    /// перестал его трогать.
+    /// </remarks>
+    private const int Count = 3;
 
     private static readonly SolidColorBrush Lit = Solid(0xFF, 0xFF, 0xFF);
     private static readonly SolidColorBrush OnLit = Solid(0x0A, 0x0A, 0x0C);
@@ -55,14 +60,15 @@ public sealed partial class StepProgress : UserControl
     {
         InitializeComponent();
 
-        _rings = [Ring1, Ring2];
-        _numbers = [Number1, Number2];
-        _ticks = [Tick1, Tick2];
-        _labels = [Label1, Label2];
+        _rings = [Ring1, Ring2, Ring3];
+        _numbers = [Number1, Number2, Number3];
+        _ticks = [Tick1, Tick2, Tick3];
+        _labels = [Label1, Label2, Label3];
 
         var text = App.Services.GetRequiredService<ILocalizationService>();
         Label1.Text = text.Get("Reg_StepName");
         Label2.Text = text.Get("Reg_StepEmail");
+        Label3.Text = text.Get("Reg_StepKey");
 
         for (var index = 0; index < Count; index++)
         {

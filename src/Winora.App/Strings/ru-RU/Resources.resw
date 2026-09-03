@@ -660,14 +660,15 @@
   <data name="Profile_PictureNotStored"><value>Картинку не удалось сохранить в профиль. Остальное работает.</value></data>
   <data name="Reg_WindowTitle"><value>Регистрация нового пользователя</value></data>
   <data name="Reg_Close"><value>Закрыть</value></data>
-  <data name="Reg_Step1Badge"><value>Шаг 1 из 2: Знакомство</value></data>
-  <data name="Reg_Step2Badge"><value>Шаг 2 из 2: Контакты</value></data>
+  <data name="Reg_Step1Badge"><value>Шаг 1 из 3: Знакомство</value></data>
+  <data name="Reg_Step2Badge"><value>Шаг 2 из 3: Контакты</value></data>
   <data name="Reg_Step1Title"><value>Как вас зовут?</value></data>
   <data name="Reg_Step1Sub"><value>Укажите имя — так Winora будет к вам обращаться.</value></data>
   <data name="Reg_Step2Title"><value>Укажите вашу почту</value></data>
   <data name="Reg_Step2Sub"><value>Почта остаётся на этом компьютере. Winora ничего никуда не отправляет.</value></data>
-  <data name="Reg_Step3Title"><value>Создайте пароль</value></data>
-  <data name="Reg_Step3Sub"><value>Пароль хранится на этом компьютере и не отправляется никуда. Восстановить его нельзя: если забудете, профиль придётся создать заново.</value></data>
+  <data name="Reg_Step3Badge"><value>Шаг 3 из 3: Ключ</value></data>
+  <data name="Reg_Step3Title"><value>Введите ключ</value></data>
+  <data name="Reg_Step3Sub"><value>Ключ приходит после оплаты. Без него Winora работает три дня — этого хватает, чтобы всё посмотреть.</value></data>
   <data name="Reg_NameLabel"><value>Ваше имя</value></data>
   <data name="Reg_NamePlaceholder"><value>Например: Александр</value></data>
   <data name="Reg_NameTooShort"><value>Имя должно содержать не менее 2 символов</value></data>
@@ -675,15 +676,9 @@
   <data name="Reg_EmailPlaceholder"><value>name@example.com</value></data>
   <data name="Reg_EmailInvalid"><value>Проверьте адрес: нужен вид name@example.com</value></data>
   <data name="Reg_QuickDomains"><value>Быстрый выбор домена:</value></data>
-  <data name="Reg_ReqMinLength"><value>Не короче 8 знаков</value></data>
-  <data name="Reg_ReqNumber"><value>Есть цифра</value></data>
-  <data name="Reg_ReqUppercase"><value>Есть заглавная буква</value></data>
-  <data name="Reg_ReqSpecial"><value>Есть знак или пробел</value></data>
   <data name="Reg_Next"><value>Продолжить</value></data>
   <data name="Reg_Back"><value>Назад</value></data>
-  <data name="Reg_Finish"><value>Готово</value></data>
-  <data name="Reg_DoneTitle"><value>Регистрация завершена</value></data>
-  <data name="Reg_DoneSub"><value>Профиль создан на этом компьютере.</value></data>
+  <data name="Reg_DoneTitle"><value>Всё готово</value></data>
   <data name="Reg_Open"><value>Открыть Winora</value></data>
   <data name="Reg_SaveFailed"><value>Не удалось сохранить профиль. Попробуйте ещё раз.</value></data>
   <!--
@@ -698,4 +693,10 @@
   <data name="Reg_Domain_4"><value>@icloud.com</value></data>
   <data name="Reg_StepName"><value>Имя</value></data>
   <data name="Reg_StepEmail"><value>Почта</value></data>
+  <data name="Reg_StepKey"><value>Ключ</value></data>
+  <data name="Reg_KeyLabel"><value>Ключ</value></data>
+  <data name="Reg_PromoLabel"><value>Промокод, если есть</value></data>
+  <data name="Reg_PromoPlaceholder"><value>необязательно</value></data>
+  <data name="Reg_Activate"><value>Активировать</value></data>
+  <data name="Reg_StartTrial"><value>Начать пробные дни</value></data>
 </root>

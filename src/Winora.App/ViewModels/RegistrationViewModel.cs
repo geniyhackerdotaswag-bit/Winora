@@ -1,6 +1,7 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Winora.App.Services;
+using Winora.Core.Licence;
 using Winora.Core.Profile;
 
 namespace Winora.App.ViewModels;
@@ -10,7 +11,8 @@ public enum RegistrationStep
 {
     Name = 0,
     Email = 1,
-    Done = 2,
+    Key = 2,
+    Done = 3,
 }
 
 /// <summary>
@@ -24,11 +26,16 @@ public sealed partial class RegistrationViewModel : ObservableObject
 {
     private readonly IProfileService _profile;
     private readonly ILocalizationService _text;
+    private readonly ILicenceService _licence;
 
-    public RegistrationViewModel(IProfileService profile, ILocalizationService text)
+    public RegistrationViewModel(
+        IProfileService profile,
+        ILocalizationService text,
+        ILicenceService licence)
     {
         _profile = profile ?? throw new ArgumentNullException(nameof(profile));
         _text = text ?? throw new ArgumentNullException(nameof(text));
+        _licence = licence ?? throw new ArgumentNullException(nameof(licence));
 
         // Offered, not imposed: the field is editable and almost always right.
         Name = _profile.SuggestedName;
@@ -46,6 +53,16 @@ public sealed partial class RegistrationViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string Email { get; set; } = string.Empty;
+
+    /// <summary>Ключ, если он у человека есть.</summary>
+    [ObservableProperty]
+    public partial string Key { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string PromoCode { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
 
 
 
@@ -88,17 +105,39 @@ public sealed partial class RegistrationViewModel : ObservableObject
     public bool CanGoNext => Step switch
     {
         RegistrationStep.Name => IsNameAcceptable,
-        RegistrationStep.Email => false,
+        RegistrationStep.Email => IsEmailAcceptable,
         _ => false,
     };
 
-    public bool CanFinish => Step == RegistrationStep.Email && IsEmailAcceptable;
+    /*
+     * Последний шаг проходится всегда, с ключом или без.
+     *
+     * Заставить ввести ключ здесь значило бы потерять каждого, кто ещё не купил,
+     * — а купить он может, только увидев программу. Без ключа человек уходит на
+     * пробные дни, и надпись на кнопке говорит, что именно сейчас произойдёт.
+     */
+    public bool CanFinish => Step == RegistrationStep.Key && !IsBusy;
 
-    public bool CanGoBack => Step == RegistrationStep.Email;
+    /// <summary>Похоже ли набранное на ключ. Пустое поле — это не ошибка.</summary>
+    public bool HasKey => LicenceKey.IsWellFormed(Key);
+
+    /// <summary>Что написано на кнопке последнего шага.</summary>
+    public string FinishLabel =>
+        HasKey ? _text.Get("Reg_Activate") : _text.Get("Reg_StartTrial");
+
+    /// <summary>Что не так с ключом, или пусто.</summary>
+    public string KeyError =>
+        Key.Length > 0 && !HasKey ? _text.Get("Licence_Malformed") : string.Empty;
+
+    public bool CanGoBack => Step is RegistrationStep.Email or RegistrationStep.Key;
 
     partial void OnNameChanged(string value) => Recheck();
 
     partial void OnEmailChanged(string value) => Recheck();
+
+    partial void OnKeyChanged(string value) => Recheck();
+
+    partial void OnIsBusyChanged(bool value) => Recheck();
 
     partial void OnStepChanged(RegistrationStep value) => Recheck();
 
@@ -113,6 +152,9 @@ public sealed partial class RegistrationViewModel : ObservableObject
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(NameError));
         OnPropertyChanged(nameof(EmailError));
+        OnPropertyChanged(nameof(KeyError));
+        OnPropertyChanged(nameof(HasKey));
+        OnPropertyChanged(nameof(FinishLabel));
     }
 
     /// <summary>Raised once the profile exists and the app may open.</summary>
@@ -140,7 +182,7 @@ public sealed partial class RegistrationViewModel : ObservableObject
         }
 
         StatusMessage = string.Empty;
-        Step = RegistrationStep.Email;
+        Step = Step == RegistrationStep.Name ? RegistrationStep.Email : RegistrationStep.Key;
     }
 
     [RelayCommand]
@@ -152,34 +194,78 @@ public sealed partial class RegistrationViewModel : ObservableObject
         }
 
         StatusMessage = string.Empty;
-        Step = RegistrationStep.Name;
+        Step = Step == RegistrationStep.Key ? RegistrationStep.Email : RegistrationStep.Name;
     }
 
     [RelayCommand]
-    private void Finish()
+    private async Task FinishAsync()
     {
         if (!CanFinish)
         {
             return;
         }
 
-        // Trimmed here rather than left to the service: the fake in the tests records exactly what
-        // it is handed, and the wizard's own contract is that what gets registered is what the
-        // person meant to type, not the whitespace they left around it.
-        var trimmedName = ProfileRules.NormaliseName(Name);
-        var trimmedEmail = Email.Trim();
+        IsBusy = true;
 
-        if (!_profile.Register(trimmedName, trimmedEmail))
+        try
         {
-            // Stays on this step with everything typed still there: a failed save must not cost
-            // somebody the three screens they just filled in.
-            StatusMessage = _text.Get("Reg_SaveFailed");
-            return;
-        }
+            // Trimmed here rather than left to the service: the fake in the tests records exactly
+            // what it is handed, and the wizard's own contract is that what gets registered is what
+            // the person meant to type, not the whitespace they left around it.
+            var trimmedName = ProfileRules.NormaliseName(Name);
+            var trimmedEmail = Email.Trim();
 
-        StatusMessage = string.Empty;
-        Step = RegistrationStep.Done;
+            if (!_profile.Register(trimmedName, trimmedEmail))
+            {
+                // Stays on this step with everything typed still there: a failed save must not cost
+                // somebody the three screens they just filled in.
+                StatusMessage = _text.Get("Reg_SaveFailed");
+                return;
+            }
+
+            /*
+             * Ключ — после профиля, и его отказ шага не отменяет.
+             *
+             * Профиль уже сохранён, и возвращать человека к имени из-за того, что
+             * сайт не ответил, было бы наказанием за чужую неполадку. Отказ
+             * показывается словами, а войти он сможет — на пробных днях или
+             * введя ключ позже, в разделе «Подписка».
+             */
+            var access = HasKey
+                ? await _licence.ActivateAsync(Key, PromoCode, CancellationToken.None).ConfigureAwait(true)
+                : await _licence.EnsureAccessAsync(CancellationToken.None).ConfigureAwait(true);
+
+            StatusMessage = access.Succeeded || access.Outcome is LicenceOutcome.Trial
+                ? string.Empty
+                : _text.Get(MessageKeyFor(access.Outcome));
+
+            Step = RegistrationStep.Done;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
+
+    /// <summary>
+    /// Строка для отказа, полученного на последнем шаге.
+    /// </summary>
+    /// <remarks>
+    /// Те же слова, что на экране «Подписка»: человек увидит их дважды — здесь и
+    /// потом там, — и две разные формулировки одного отказа читались бы как две
+    /// разные неполадки.
+    /// </remarks>
+    private static string MessageKeyFor(LicenceOutcome outcome) => outcome switch
+    {
+        LicenceOutcome.Malformed => "Licence_Malformed",
+        LicenceOutcome.Rejected => "Licence_Rejected",
+        LicenceOutcome.Expired => "Licence_Expired",
+        LicenceOutcome.DeviceLimit => "Licence_DeviceLimit",
+        LicenceOutcome.OtherMachine => "Licence_OtherMachine",
+        LicenceOutcome.TrialUsed => "Licence_TrialOver",
+        LicenceOutcome.NotConfigured => "Licence_NotConfigured",
+        _ => "Licence_Unreachable",
+    };
 
     [RelayCommand]
     private void Open()

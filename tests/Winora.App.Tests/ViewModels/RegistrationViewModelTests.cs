@@ -1,5 +1,6 @@
-using Winora.App.Services;
+﻿using Winora.App.Services;
 using Winora.App.ViewModels;
+using Winora.Core.Licence;
 using Winora.Core.Profile;
 using Xunit;
 
@@ -49,8 +50,47 @@ public sealed class RegistrationViewModelTests
         public string Get(string resourceKey) => resourceKey;
     }
 
+    /// <summary>
+    /// Служба лицензий, которая ничего не спрашивает у сети.
+    /// </summary>
+    /// <remarks>
+    /// Отвечает «проба началась» на всё: мастеру важно только то, что последний
+    /// шаг проходится и с ключом, и без него, а разбор отказов — дело проверок
+    /// самой службы, где для этого есть подставные ответы сервера.
+    /// </remarks>
+    private sealed class QuietLicence : ILicenceService
+    {
+        public LicenceState Current { get; private set; } = LicenceState.None;
+
+        public string HardwareId => "проверочная-машина";
+
+        public bool IsConfigured => true;
+
+        /// <summary>Что попросили сделать в последний раз.</summary>
+        public string LastAction { get; private set; } = string.Empty;
+
+        public Task<LicenceResult> ActivateAsync(string key, string? promoCode, CancellationToken cancellationToken)
+        {
+            LastAction = "активация";
+            Current = new LicenceState("month", DateTimeOffset.UtcNow.AddDays(30), null, DateTimeOffset.UtcNow);
+            return Task.FromResult(new LicenceResult(LicenceOutcome.Activated, Current));
+        }
+
+        public Task<LicenceResult> RefreshAsync(bool force, CancellationToken cancellationToken) =>
+            Task.FromResult(new LicenceResult(LicenceOutcome.Confirmed, Current));
+
+        public Task<LicenceResult> EnsureAccessAsync(CancellationToken cancellationToken)
+        {
+            LastAction = "проба";
+            Current = new LicenceState(LicenceState.TrialPlan, DateTimeOffset.UtcNow.AddDays(3), null, DateTimeOffset.UtcNow);
+            return Task.FromResult(new LicenceResult(LicenceOutcome.Trial, Current));
+        }
+
+        public bool Forget() => true;
+    }
+
     private static RegistrationViewModel Build(IProfileService service) =>
-        new(service, new EchoLocalization());
+        new(service, new EchoLocalization(), new QuietLicence());
 
     [Fact]
     public void It_opens_on_the_name_step_with_the_windows_name_offered()
@@ -89,10 +129,10 @@ public sealed class RegistrationViewModelTests
 
         Assert.Equal(RegistrationStep.Email, vm.Step);
 
-        // CanFinish, not CanGoNext: the email step is the last one, so the address is what the
-        // finish button waits for. There is nowhere further to go.
-        Assert.Equal(expected, vm.CanFinish);
-        Assert.False(vm.CanGoNext);
+        // CanGoNext, not CanFinish: за адресом идёт ключ, и адрес открывает
+        // именно переход к нему. Закончить мастера отсюда нельзя вовсе.
+        Assert.Equal(expected, vm.CanGoNext);
+        Assert.False(vm.CanFinish);
     }
 
     /// <summary>
@@ -129,36 +169,83 @@ public sealed class RegistrationViewModelTests
     }
 
     /// <summary>
-    /// The last step, which is now the email one.
+    /// Последний шаг — теперь ключ.
     /// </summary>
     /// <remarks>
-    /// It used to be the password step. The password was collected, hashed and stored, and nothing
-    /// ever checked it — see the store, where a missing digest used to make a whole profile read as
-    /// absent. Removed on 2026-08-27 rather than given a login to justify it.
+    /// До него было два шага, до того — три, и третьим был пароль. Пароль
+    /// собирали, хэшировали и хранили, а проверял его никто; убран 27 августа
+    /// 2026 вместо того, чтобы придумывать ему вход. Третий кружок в индикаторе
+    /// остался от него и теперь занят ключом.
     /// </remarks>
     private static RegistrationViewModel AtLastStep(IProfileService service)
     {
-        var vm = new RegistrationViewModel(service, new EchoLocalization())
+        var vm = new RegistrationViewModel(service, new EchoLocalization(), new QuietLicence())
         {
             Name = "Аня",
         };
 
         vm.NextCommand.Execute(null);
         vm.Email = "a@b.ru";
+        vm.NextCommand.Execute(null);
         return vm;
     }
 
+    /// <summary>
+    /// Последний шаг проходится и с ключом, и без него.
+    /// </summary>
+    /// <remarks>
+    /// Требовать ключ здесь значило бы закрыть дверь перед каждым, кто ещё не
+    /// купил, — а купить он может, только посмотрев программу. Без ключа человек
+    /// уходит на пробные дни, и надпись на кнопке говорит, что именно произойдёт.
+    /// </remarks>
     [Theory]
-    [InlineData("a@b.ru", true)]
-    [InlineData("не почта", false)]
-    [InlineData("", false)]
-    public void Finishing_needs_a_usable_address(string email, bool expected)
+    [InlineData("", "Начать пробные дни")]
+    [InlineData("WNR-ABCD-EFGH-JKLM-NPQR", "Активировать")]
+    public void The_key_step_finishes_with_or_without_a_key(string key, string expected)
     {
         var vm = AtLastStep(new FakeProfileService());
-        vm.Email = email;
+        vm.Key = key;
 
-        Assert.Equal(RegistrationStep.Email, vm.Step);
-        Assert.Equal(expected, vm.CanFinish);
+        Assert.Equal(RegistrationStep.Key, vm.Step);
+        Assert.True(vm.CanFinish);
+        Assert.Equal(expected == "Активировать", vm.HasKey);
+        Assert.Equal(expected == "Активировать" ? "Reg_Activate" : "Reg_StartTrial", vm.FinishLabel);
+    }
+
+    /// <summary>Ключ, набранный наполовину, — это ошибка, а пустое поле — нет.</summary>
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("WNR-ABC", "Licence_Malformed")]
+    [InlineData("WNR-ABCD-EFGH-JKLM-NPQR", "")]
+    public void A_half_typed_key_is_called_out_and_an_empty_one_is_not(string key, string expected)
+    {
+        var vm = AtLastStep(new FakeProfileService());
+        vm.Key = key;
+
+        Assert.Equal(expected, vm.KeyError);
+    }
+
+    /// <summary>Ключ активируется, а пустое поле уводит на пробные дни.</summary>
+    [Theory]
+    [InlineData("", "проба")]
+    [InlineData("WNR-ABCD-EFGH-JKLM-NPQR", "активация")]
+    public void The_key_decides_what_the_last_step_asks_of_the_site(string key, string expected)
+    {
+        var licence = new QuietLicence();
+        var vm = new RegistrationViewModel(new FakeProfileService(), new EchoLocalization(), licence)
+        {
+            Name = "Аня",
+        };
+
+        vm.NextCommand.Execute(null);
+        vm.Email = "a@b.ru";
+        vm.NextCommand.Execute(null);
+        vm.Key = key;
+
+        vm.FinishCommand.Execute(null);
+
+        Assert.Equal(expected, licence.LastAction);
+        Assert.Equal(RegistrationStep.Done, vm.Step);
     }
 
     [Fact]
@@ -185,7 +272,7 @@ public sealed class RegistrationViewModelTests
 
         vm.FinishCommand.Execute(null);
 
-        Assert.Equal(RegistrationStep.Email, vm.Step);
+        Assert.Equal(RegistrationStep.Key, vm.Step);
         Assert.Equal("Reg_SaveFailed", vm.StatusMessage);
     }
 

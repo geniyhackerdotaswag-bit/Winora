@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -79,6 +79,8 @@
     -->
     <Compile Include="..\..\src\Winora.App\ViewModels\JournalViewModel.cs" LinkBase="Linked\ViewModels" />
     <Compile Include="..\..\src\Winora.App\Services\ChangeExecutor.cs" LinkBase="Linked\Services" />
+    <!-- Регистрация теперь активирует ключ, поэтому её модель тянет и службу лицензий. -->
+    <Compile Include="..\..\src\Winora.App\Services\LicenceService.cs" LinkBase="Linked\Services" />
     <Compile Include="..\..\src\Winora.App\Services\SettingsTransferService.cs" LinkBase="Linked\Services" />
 
     <!-- ShellViewModel is the pane structure and two strings; RouteRegistry and IAppEnvironment

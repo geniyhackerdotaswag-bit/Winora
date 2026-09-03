@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Winora.App.Views.RegistrationWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -273,9 +273,8 @@
                                                      PlaceholderText="{x:Bind Localized('Reg_EmailPlaceholder')}"
                                                      Text="{x:Bind Model.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <!--
-                                              The address being usable is what the tick means, and it is
-                                              also what the finish button waits for — the email step is the
-                                              last one now.
+                                              Галочка означает, что адрес годится, — того же ждёт и
+                                              кнопка «Продолжить».
                                             -->
                                             <FontIcon AutomationProperties.AccessibilityView="Raw"
                                                       FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -286,7 +285,7 @@
                                                       Margin="0,0,13,0"
                                                       IsHitTestVisible="False"
                                                       VerticalAlignment="Center"
-                                                      Visibility="{x:Bind ctl:XamlConvert.Show(Model.CanFinish), Mode=OneWay}" />
+                                                      Visibility="{x:Bind ctl:XamlConvert.Show(Model.CanGoNext), Mode=OneWay}" />
                                         </Grid>
                                     </Border>
 
@@ -327,71 +326,159 @@
                                     <Button Grid.Column="1"
                                             Style="{StaticResource WinoraRegistrationPrimaryButton}"
                                             HorizontalAlignment="Stretch"
+                                            Command="{x:Bind Model.NextCommand}"
+                                            Content="{x:Bind Localized('Reg_Next')}"
+                                            IsEnabled="{x:Bind Model.CanGoNext, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Шаг 3: ключ. -->
+                            <StackPanel x:Name="StepKey" Spacing="14" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Border Style="{StaticResource WinoraRegistrationBadge}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                  FontSize="12"
+                                                  Foreground="#8E8E96"
+                                                  Glyph="&#xE192;"
+                                                  VerticalAlignment="Center" />
+                                        <TextBlock Style="{StaticResource WinoraRegistrationBadgeText}"
+                                                   Text="{x:Bind Localized('Reg_Step3Badge')}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
+                                               Text="{x:Bind Localized('Reg_Step3Title')}" />
+                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
+                                               Text="{x:Bind Localized('Reg_Step3Sub')}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                               Text="{x:Bind Localized('Reg_KeyLabel')}" />
+
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}"
+                                            BorderBrush="{x:Bind EmailEdge(Model.KeyError, Model.HasKey), Mode=OneWay}">
+                                        <Grid>
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                      FontSize="15"
+                                                      Foreground="#6E6E78"
+                                                      Glyph="&#xE192;"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="13,0,0,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center" />
+                                            <!--
+                                              Моноширинный, как в макете: ключ читают по группам из
+                                              четырёх знаков, а в пропорциональном шрифте эти группы
+                                              разной ширины, и глаз теряет место, на котором сбился.
+                                            -->
+                                            <TextBox x:Name="KeyField"
+                                                     FontFamily="Consolas"
+                                                     FontSize="14"
+                                                     MinHeight="42"
+                                                     Padding="38,10,38,10"
+                                                     PlaceholderText="{x:Bind Localized('Licence_KeyPlaceholder')}"
+                                                     Text="{x:Bind Model.Key, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <FontIcon AutomationProperties.AccessibilityView="Raw"
+                                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                      FontSize="14"
+                                                      Foreground="#34D399"
+                                                      Glyph="&#xE73E;"
+                                                      HorizontalAlignment="Right"
+                                                      Margin="0,0,13,0"
+                                                      IsHitTestVisible="False"
+                                                      VerticalAlignment="Center"
+                                                      Visibility="{x:Bind ctl:XamlConvert.Show(Model.HasKey), Mode=OneWay}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                               Text="{x:Bind Model.KeyError, Mode=OneWay}"
+                                               Visibility="{x:Bind ctl:XamlConvert.ShowText(Model.KeyError), Mode=OneWay}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
+                                               Text="{x:Bind Localized('Reg_PromoLabel')}" />
+
+                                    <Border Style="{StaticResource WinoraRegistrationFieldShell}">
+                                        <TextBox x:Name="PromoField"
+                                                 FontSize="14"
+                                                 MinHeight="42"
+                                                 Padding="13,10,13,10"
+                                                 PlaceholderText="{x:Bind Localized('Reg_PromoPlaceholder')}"
+                                                 Text="{x:Bind Model.PromoCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Border>
+                                </StackPanel>
+
+                                <!--
+                                  Отказ показывается здесь, а не всплывающим окном: человек стоит на
+                                  шаге, который его вызвал, и следующее, что он сделает, — исправит
+                                  ключ в поле прямо над этой строкой.
+                                -->
+                                <TextBlock Style="{StaticResource WinoraRegistrationError}"
+                                           Text="{x:Bind Model.StatusMessage, Mode=OneWay}"
+                                           Visibility="{x:Bind ctl:XamlConvert.ShowText(Model.StatusMessage), Mode=OneWay}" />
+
+                                <Grid Margin="0,6,0,0" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource WinoraRegistrationSecondaryButton}"
+                                            Command="{x:Bind Model.BackCommand}"
+                                            Content="{x:Bind Localized('Reg_Back')}"
+                                            IsEnabled="{x:Bind Model.CanGoBack, Mode=OneWay}" />
+                                    <!--
+                                      Надпись меняется вместе с полем: «Активировать», когда ключ
+                                      набран, и «Начать пробные дни», когда поле пустое. Кнопка
+                                      нажимается в обоих случаях — заставить ввести ключ здесь
+                                      значило бы потерять каждого, кто ещё не купил, а купить он
+                                      может, только увидев программу.
+                                    -->
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                            HorizontalAlignment="Stretch"
                                             Command="{x:Bind Model.FinishCommand}"
-                                            Content="{x:Bind Localized('Reg_Finish')}"
+                                            Content="{x:Bind Model.FinishLabel, Mode=OneWay}"
                                             IsEnabled="{x:Bind Model.CanFinish, Mode=OneWay}" />
                                 </Grid>
                             </StackPanel>
 
-                            <!-- Done: what was saved, and the way in. -->
-                            <StackPanel x:Name="StepDone" Spacing="16" VerticalAlignment="Center" Visibility="Collapsed">
-                                <Grid Width="76" Height="76" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                    <Border Background="#141418"
-                                            BorderBrush="#26262C"
-                                            BorderThickness="1"
-                                            CornerRadius="20" />
-                                    <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                              FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                              FontSize="30"
-                                              Foreground="#E6E6EA"
-                                              Glyph="&#xE77B;" />
-                                    <Grid Width="26"
-                                          Height="26"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Bottom"
-                                          Margin="0,0,-4,-4">
-                                        <Ellipse Fill="#34D399" Stroke="#0A0A0C" StrokeThickness="2" />
-                                        <FontIcon AutomationProperties.AccessibilityView="Raw"
-                                                  FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                  FontSize="11"
-                                                  Foreground="#08080A"
-                                                  Glyph="&#xE73E;" />
-                                    </Grid>
-                                </Grid>
+                            <!-- Готово: два слова и кнопка под ними. -->
+                            <Grid x:Name="StepDone" Visibility="Collapsed">
+                                <!--
+                                  Строк две: заголовок занимает всё свободное место и стоит в его
+                                  середине, кнопка прижата к низу и держится ровно под ним. Ни
+                                  значка, ни подписи, ни выписки из профиля — человек дошёл до
+                                  конца, и всё лишнее здесь только отодвигает единственную кнопку,
+                                  ради которой экран и открылся.
+                                -->
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                                <StackPanel Spacing="6">
-                                    <TextBlock Style="{StaticResource WinoraRegistrationTitle}"
-                                               HorizontalAlignment="Center"
-                                               TextAlignment="Center"
-                                               Text="{x:Bind Localized('Reg_DoneTitle')}" />
-                                    <TextBlock Style="{StaticResource WinoraRegistrationSub}"
-                                               HorizontalAlignment="Center"
-                                               TextAlignment="Center"
-                                               Text="{x:Bind Localized('Reg_DoneSub')}" />
-                                </StackPanel>
+                                <TextBlock Grid.Row="0"
+                                           Style="{StaticResource WinoraRegistrationTitle}"
+                                           FontSize="26"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           Text="{x:Bind Localized('Reg_DoneTitle')}" />
 
-                                <Border Style="{StaticResource WinoraRegistrationSurface}">
-                                    <StackPanel Spacing="12">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
-                                                       Text="{x:Bind Localized('Reg_NameLabel')}" />
-                                            <TextBlock Style="{StaticResource WinoraRegistrationValue}"
-                                                       Text="{x:Bind Model.Name, Mode=OneWay}" />
-                                        </StackPanel>
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Style="{StaticResource WinoraRegistrationLabel}"
-                                                       Text="{x:Bind Localized('Reg_EmailLabel')}" />
-                                            <TextBlock Style="{StaticResource WinoraRegistrationValue}"
-                                                       Text="{x:Bind Model.Email, Mode=OneWay}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <Button Style="{StaticResource WinoraRegistrationPrimaryButton}"
-                                        HorizontalAlignment="Stretch"
+                                <!-- Шесть пикселей снизу, чтобы кнопка не касалась края карточки. -->
+                                <Button Grid.Row="1"
+                                        Style="{StaticResource WinoraRegistrationPrimaryButton}"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,0,0,6"
                                         Command="{x:Bind Model.OpenCommand}"
                                         Content="{x:Bind Localized('Reg_Open')}" />
-                            </StackPanel>
+                            </Grid>
                         </Grid>
                     </StackPanel>
                 </StackPanel>
